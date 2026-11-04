@@ -1,0 +1,114 @@
+#include "psram_init.h"
+#include "hardware/structs/qmi.h"
+#include "hardware/structs/xip_ctrl.h"
+#include "hardware/clocks.h"
+#include "hardware/gpio.h"
+#include "pico/stdlib.h"
+
+// PSRAM max frequency from build config (default 133 MHz)
+#ifndef PSRAM_MAX_FREQ_MHZ
+#define PSRAM_MAX_FREQ_MHZ 133
+#endif
+
+/* frank-blood (from frank-quake2): put the PSRAM back into its power-on SPI
+ * mode. The chip keeps QPI mode across a chip reset that does not cycle its
+ * power: the previous firmware's QPI mode then makes the SPI-mode QPI-enable
+ * below a garbled command (PSRAM reads back junk), and a QPI-mode PSRAM on
+ * the shared QSPI bus garbles the boot ROM's flash probe (the RP2350 hangs
+ * in the ROM until a power cycle). Exit QPI (0xF5 on all four lines), then
+ * reset (0x66, 0x99) in SPI mode. Runs from RAM: XIP is unusable while the
+ * QMI is in direct mode. Needs CS1 on its pin (XIP_CS1). */
+void __no_inline_not_in_flash_func(psram_reset_to_spi)(void) {
+    qmi_hw->direct_csr = 30 << QMI_DIRECT_CSR_CLKDIV_LSB | QMI_DIRECT_CSR_EN_BITS;
+    while (qmi_hw->direct_csr & QMI_DIRECT_CSR_BUSY_BITS);
+    hw_set_bits(&qmi_hw->direct_csr, QMI_DIRECT_CSR_ASSERT_CS1N_BITS);
+    qmi_hw->direct_tx = QMI_DIRECT_TX_NOPUSH_BITS | QMI_DIRECT_TX_IWIDTH_VALUE_Q << QMI_DIRECT_TX_IWIDTH_LSB | 0xF5;
+    while (qmi_hw->direct_csr & QMI_DIRECT_CSR_BUSY_BITS);
+    hw_clear_bits(&qmi_hw->direct_csr, QMI_DIRECT_CSR_ASSERT_CS1N_BITS);
+    static const uint8_t cmds[2] = {0x66, 0x99};
+    for (int i = 0; i < 2; i++) {
+        hw_set_bits(&qmi_hw->direct_csr, QMI_DIRECT_CSR_ASSERT_CS1N_BITS);
+        qmi_hw->direct_tx = QMI_DIRECT_TX_NOPUSH_BITS | cmds[i];
+        while (qmi_hw->direct_csr & QMI_DIRECT_CSR_BUSY_BITS);
+        hw_clear_bits(&qmi_hw->direct_csr, QMI_DIRECT_CSR_ASSERT_CS1N_BITS);
+    }
+    for (volatile int i = 0; i < 1000; i++);
+    qmi_hw->direct_csr = 0;
+}
+
+// Internal function that does the actual PSRAM initialization with a specified max frequency
+static void __no_inline_not_in_flash_func(psram_init_internal)(uint cs_pin, int max_psram_freq) {
+    const int clock_hz = clock_get_hz(clk_sys); 
+
+    gpio_set_function(cs_pin, GPIO_FUNC_XIP_CS1);
+    psram_reset_to_spi();
+
+    qmi_hw->direct_csr = 10 << QMI_DIRECT_CSR_CLKDIV_LSB | 
+                        QMI_DIRECT_CSR_EN_BITS | 
+                        QMI_DIRECT_CSR_AUTO_CS1N_BITS;
+    while (qmi_hw->direct_csr & QMI_DIRECT_CSR_BUSY_BITS);
+
+    const uint CMD_QPI_EN = 0x35; 
+    qmi_hw->direct_tx = QMI_DIRECT_TX_NOPUSH_BITS | CMD_QPI_EN;
+    while (qmi_hw->direct_csr & QMI_DIRECT_CSR_BUSY_BITS);
+
+    int divisor = (clock_hz + max_psram_freq - 1) / max_psram_freq;
+    if (divisor == 1 && clock_hz > 100000000) {
+        divisor = 2;
+    }
+    
+    int rxdelay = divisor;
+    if (clock_hz / divisor > 100000000) {
+        rxdelay += 1; 
+    }
+#ifdef FRANK_PSRAM_RXDELAY
+    rxdelay = FRANK_PSRAM_RXDELAY;   /* frank-blood: per-board tuned value */
+#endif
+
+    const int clock_period_fs = 1000000000000000ll / clock_hz;
+    
+    const int max_select_val = (125 * 1000000) / clock_period_fs;
+
+    const int min_deselect = (18 * 1000000 + (clock_period_fs - 1)) / clock_period_fs - (divisor + 1) / 2;
+
+    qmi_hw->m[1].timing = 
+        1 << QMI_M1_TIMING_COOLDOWN_LSB | 
+        QMI_M1_TIMING_PAGEBREAK_VALUE_1024 << QMI_M1_TIMING_PAGEBREAK_LSB | 
+        max_select_val << QMI_M1_TIMING_MAX_SELECT_LSB | 
+        min_deselect << QMI_M1_TIMING_MIN_DESELECT_LSB | 
+        rxdelay << QMI_M1_TIMING_RXDELAY_LSB | 
+        divisor << QMI_M1_TIMING_CLKDIV_LSB;
+
+    qmi_hw->m[1].rfmt =
+        QMI_M0_RFMT_PREFIX_WIDTH_VALUE_Q << QMI_M0_RFMT_PREFIX_WIDTH_LSB | 
+        QMI_M0_RFMT_ADDR_WIDTH_VALUE_Q << QMI_M0_RFMT_ADDR_WIDTH_LSB | 
+        QMI_M0_RFMT_SUFFIX_WIDTH_VALUE_Q << QMI_M0_RFMT_SUFFIX_WIDTH_LSB | 
+        QMI_M0_RFMT_DUMMY_WIDTH_VALUE_Q << QMI_M0_RFMT_DUMMY_WIDTH_LSB | 
+        QMI_M0_RFMT_DATA_WIDTH_VALUE_Q << QMI_M0_RFMT_DATA_WIDTH_LSB | 
+        QMI_M0_RFMT_PREFIX_LEN_VALUE_8 << QMI_M0_RFMT_PREFIX_LEN_LSB | 
+        6 << QMI_M0_RFMT_DUMMY_LEN_LSB;
+    
+    qmi_hw->m[1].rcmd = 0xEB; 
+
+    qmi_hw->m[1].wfmt =
+        QMI_M0_WFMT_PREFIX_WIDTH_VALUE_Q << QMI_M0_WFMT_PREFIX_WIDTH_LSB |
+        QMI_M0_WFMT_ADDR_WIDTH_VALUE_Q << QMI_M0_WFMT_ADDR_WIDTH_LSB |
+        QMI_M0_WFMT_SUFFIX_WIDTH_VALUE_Q << QMI_M0_WFMT_SUFFIX_WIDTH_LSB |
+        QMI_M0_WFMT_DUMMY_WIDTH_VALUE_Q << QMI_M0_WFMT_DUMMY_WIDTH_LSB |
+        QMI_M0_WFMT_DATA_WIDTH_VALUE_Q << QMI_M0_WFMT_DATA_WIDTH_LSB |
+        QMI_M0_WFMT_PREFIX_LEN_VALUE_8 << QMI_M0_WFMT_PREFIX_LEN_LSB;
+    
+    qmi_hw->m[1].wcmd = 0x38; 
+
+    qmi_hw->direct_csr = 0;
+    
+    hw_set_bits(&xip_ctrl_hw->ctrl, XIP_CTRL_WRITABLE_M1_BITS);
+}
+
+void __no_inline_not_in_flash_func(psram_init)(uint cs_pin) {
+    psram_init_internal(cs_pin, PSRAM_MAX_FREQ_MHZ * 1000000);
+}
+
+void __no_inline_not_in_flash_func(psram_init_with_freq)(uint cs_pin, uint16_t max_freq_mhz) {
+    psram_init_internal(cs_pin, max_freq_mhz * 1000000);
+}

@@ -1,0 +1,48 @@
+#pragma once
+
+#include "shl/list.h"
+
+#include "war_fwd.h"
+#include "war_math.h"
+
+struct _WarUnitActionStep
+{
+    WarUnitActionStepType type;
+    s32 param;
+};
+
+#define WarUnitActionStepEmpty (WarUnitActionStep){WAR_ACTION_STEP_NONE}
+
+bool wact_equalsActionStep(const WarUnitActionStep step1, const WarUnitActionStep step2);
+
+shlDeclareList(WarUnitActionStepList, WarUnitActionStep)
+
+struct _WarUnitActionDef
+{
+    WarUnitActionType type;
+    bool directional;
+    bool loop;
+    WarUnitActionStepList steps;
+#ifdef WAR_FRANK
+    bool frankTicks;   // waits in the original's game ticks (port/war_scripts_frank.c)
+#endif
+};
+
+struct _WarUnitAction
+{
+    WarUnitActionStatus status;
+    f32 scale;
+    f64 waitEndGameTime;
+    s32 stepIndex;
+    WarUnitActionStepType lastActionStep;
+    WarUnitActionStepType lastSoundStep;
+};
+
+void wact_initUnitActionDefs(void);
+
+void wact_addUnitActions(WarContext* context, WarEntity* entity);
+s32 wact_getActionDuration(WarContext* context, WarEntity* entity, WarUnitActionType type);
+
+void wact_setAction(WarContext* context, WarEntity* entity, WarUnitActionType type, bool reset, f32 scale);
+void wact_updateAction(WarContext* context, WarEntity* entity);
+void wact_resetAction(WarContext* context, WarEntity* entity, WarUnitActionType type);

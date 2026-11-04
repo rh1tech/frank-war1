@@ -1,0 +1,3009 @@
+#include "war_units.h"
+
+// Brace-only StringView initializer for use in file-scope const arrays.
+// Unlike WSV_LITERAL, this does not use a compound literal cast so it
+// satisfies -Wpedantic's "initializer element is not constant" requirement.
+#define WSV_INIT(s) { s, sizeof(s) - 1 }
+
+// Build time in seconds: (t program cycles) * 80 seconds / 1000 cycles
+#define __bts(t) ((t)*80/1000)
+
+const StringView features[MAX_FEATURES_COUNT * 2] = {
+	// Units. 0 - 6
+	WSV_INIT("unit-footman"),             WSV_INIT("unit-grunt"),
+	WSV_INIT("unit-peasant"),             WSV_INIT("unit-peon"),
+	WSV_INIT("unit-human-catapult"),      WSV_INIT("unit-orc-catapult"),
+	WSV_INIT("unit-knight"),              WSV_INIT("unit-raider"),
+	WSV_INIT("unit-archer"),              WSV_INIT("unit-spearman"),
+	WSV_INIT("unit-conjurer"),            WSV_INIT("unit-warlock"),
+	WSV_INIT("unit-cleric"),              WSV_INIT("unit-necrolyte"),
+	// Constructing buildings. 7 - 14
+	WSV_INIT("unit-human-farm"),          WSV_INIT("unit-orc-farm"),
+	WSV_INIT("unit-human-barracks"),      WSV_INIT("unit-orc-barracks"),
+	WSV_INIT("unit-human-church"),        WSV_INIT("unit-orc-temple"),
+	WSV_INIT("unit-human-tower"),         WSV_INIT("unit-orc-tower"),
+	WSV_INIT("unit-human-town-hall"),     WSV_INIT("unit-orc-town-hall"),
+	WSV_INIT("unit-human-lumber-mill"),   WSV_INIT("unit-orc-lumber-mill"),
+	WSV_INIT("unit-human-stable"),        WSV_INIT("unit-orc-kennel"),
+	WSV_INIT("unit-human-blacksmith"),    WSV_INIT("unit-orc-blacksmith"),
+	// Cleric/Necrolyte spells. 15 - 17
+	WSV_INIT("upgrade-healing"),          WSV_INIT("upgrade-raise-dead"),
+	WSV_INIT("upgrade-holy-vision"),      WSV_INIT("upgrade-dark-vision"),
+	WSV_INIT("upgrade-invisibility"),     WSV_INIT("upgrade-unholy-armor"),
+	// Conjurer/Warlock spells. 18 - 20
+	WSV_INIT("upgrade-scorpion"),         WSV_INIT("upgrade-spider"),
+	WSV_INIT("upgrade-rain-of-fire"),     WSV_INIT("upgrade-poison-cloud"),
+	WSV_INIT("upgrade-water-elemental"),  WSV_INIT("upgrade-daemon"),
+	// Roads and walls. 21 - 22
+	WSV_INIT("unit-road"),                WSV_INIT("unit-wall")
+};
+static_assert(arrayLength(features) == MAX_FEATURES_COUNT * 2, "features array size does not match MAX_FEATURES_COUNT");
+
+const StringView upgradeNames[MAX_UPGRADES_COUNT * 2] =
+{
+    // Basic upgrades
+    WSV_INIT("upgrade-spear"),        WSV_INIT("upgrade-arrow"),
+    WSV_INIT("upgrade-axe"),          WSV_INIT("upgrade-sword"),
+    WSV_INIT("upgrade-wolves"),       WSV_INIT("upgrade-horse"),
+    // Spells and summons
+    WSV_INIT("upgrade-spider"),       WSV_INIT("upgrade-scorpion"),
+    WSV_INIT("upgrade-poison-cloud"), WSV_INIT("upgrade-rain-of-fire"),
+    WSV_INIT("upgrade-daemon"),       WSV_INIT("upgrade-water-elemental"),
+    WSV_INIT("upgrade-raise-dead"),   WSV_INIT("upgrade-healing"),
+    WSV_INIT("upgrade-dark-vision"),  WSV_INIT("upgrade-far-seeing"),
+    WSV_INIT("upgrade-unholy-armor"), WSV_INIT("upgrade-invisibility"),
+    // Shield upgrades
+    WSV_INIT("upgrade-orc-shield"),   WSV_INIT("upgrade-human-shield")
+};
+static_assert(arrayLength(upgradeNames) == MAX_UPGRADES_COUNT * 2, "upgradeNames array size does not match MAX_UPGRADES_COUNT");
+
+const WarUnitData unitsData[] =
+{
+    // units
+    { WAR_UNIT_FOOTMAN,             279, WAR_PORTRAIT_FOOTMAN,            1, 1, WSV_INIT("FOOTMAN")         },
+    { WAR_UNIT_GRUNT,               280, WAR_PORTRAIT_GRUNT,              1, 1, WSV_INIT("GRUNT")           },
+    { WAR_UNIT_PEASANT,             281, WAR_PORTRAIT_PEASANT,            1, 1, WSV_INIT("PEASANT")         },
+    { WAR_UNIT_PEON,                282, WAR_PORTRAIT_PEON,               1, 1, WSV_INIT("PEON")            },
+    { WAR_UNIT_CATAPULT_HUMANS,     283, WAR_PORTRAIT_CATAPULT_HUMANS,    1, 1, WSV_INIT("CATAPULT")        },
+    { WAR_UNIT_CATAPULT_ORCS,       284, WAR_PORTRAIT_CATAPULT_ORCS,      1, 1, WSV_INIT("CATAPULT")        },
+    { WAR_UNIT_KNIGHT,              285, WAR_PORTRAIT_KNIGHT,             1, 1, WSV_INIT("KNIGHT")          },
+    { WAR_UNIT_RAIDER,              286, WAR_PORTRAIT_RAIDER,             1, 1, WSV_INIT("RAIDER")          },
+    { WAR_UNIT_ARCHER,              287, WAR_PORTRAIT_ARCHER,             1, 1, WSV_INIT("ARCHER")          },
+    { WAR_UNIT_SPEARMAN,            288, WAR_PORTRAIT_SPEARMAN,           1, 1, WSV_INIT("SPEARMAN")        },
+    { WAR_UNIT_CONJURER,            289, WAR_PORTRAIT_CONJURER,           1, 1, WSV_INIT("CONJURER")        },
+    { WAR_UNIT_WARLOCK,             290, WAR_PORTRAIT_WARLOCK,            1, 1, WSV_INIT("WARLOCK")         },
+    { WAR_UNIT_CLERIC,              291, WAR_PORTRAIT_CLERIC,             1, 1, WSV_INIT("CLERIC")          },
+    { WAR_UNIT_NECROLYTE,           292, WAR_PORTRAIT_NECROLYTE,          1, 1, WSV_INIT("NECROLYTE")       },
+    { WAR_UNIT_MEDIVH,              293, WAR_PORTRAIT_MEDIVH,             1, 1, WSV_INIT("MEDIVH")          },
+    { WAR_UNIT_LOTHAR,              294, WAR_PORTRAIT_LOTHAR,             1, 1, WSV_INIT("LOTHAR")          },
+    { WAR_UNIT_WOUNDED,             295, WAR_PORTRAIT_WOUNDED,            1, 1, WSV_INIT("WOUNDED")         },
+    { WAR_UNIT_GRIZELDA,            296, WAR_PORTRAIT_GRIZELDA,           1, 1, WSV_INIT("GRIZELDA")        },
+    { WAR_UNIT_GARONA,              296, WAR_PORTRAIT_GARONA,             1, 1, WSV_INIT("GARONA")          },
+    { WAR_UNIT_OGRE,                297, WAR_PORTRAIT_OGRE,               1, 1, WSV_INIT("OGRE")            },
+    { WAR_UNIT_SPIDER,              298, WAR_PORTRAIT_SPIDER,             1, 1, WSV_INIT("SPIDER")          },
+    { WAR_UNIT_SLIME,               299, WAR_PORTRAIT_SLIME,              1, 1, WSV_INIT("SLIME")           },
+    { WAR_UNIT_FIRE_ELEMENTAL,      300, WAR_PORTRAIT_FIRE_ELEMENTAL,     1, 1, WSV_INIT("FIRE ELEM")       },
+    { WAR_UNIT_SCORPION,            301, WAR_PORTRAIT_SCORPION,           1, 1, WSV_INIT("SCORPION")        },
+    { WAR_UNIT_BRIGAND,             302, WAR_PORTRAIT_BRIGAND,            1, 1, WSV_INIT("BRIGAND")         },
+    { WAR_UNIT_THE_DEAD,            303, WAR_PORTRAIT_DEAD,               1, 1, WSV_INIT("THE DEAD")        },
+    { WAR_UNIT_SKELETON,            304, WAR_PORTRAIT_SKELETON,           1, 1, WSV_INIT("SKELETON")        },
+    { WAR_UNIT_DAEMON,              305, WAR_PORTRAIT_DAEMON,             1, 1, WSV_INIT("DAEMON")          },
+    { WAR_UNIT_WATER_ELEMENTAL,     306, WAR_PORTRAIT_WATER_ELEMENTAL,    1, 1, WSV_INIT("WATER ELEM")      },
+
+    // buildings
+    { WAR_UNIT_FARM_HUMANS,         307, WAR_PORTRAIT_FARM_HUMANS,        2, 2, WSV_INIT("FARM")            },
+    { WAR_UNIT_FARM_ORCS,           308, WAR_PORTRAIT_FARM_ORCS,          2, 2, WSV_INIT("FARM")            },
+    { WAR_UNIT_BARRACKS_HUMANS,     309, WAR_PORTRAIT_BARRACKS_HUMANS,    3, 3, WSV_INIT("BARRACKS")        },
+    { WAR_UNIT_BARRACKS_ORCS,       310, WAR_PORTRAIT_BARRACKS_ORCS,      3, 3, WSV_INIT("BARRACKS")        },
+    { WAR_UNIT_CHURCH,              311, WAR_PORTRAIT_CHURCH,             3, 3, WSV_INIT("CHURCH")          },
+    { WAR_UNIT_TEMPLE,              312, WAR_PORTRAIT_TEMPLE,             3, 3, WSV_INIT("TEMPLE")          },
+    { WAR_UNIT_TOWER_HUMANS,        313, WAR_PORTRAIT_TOWER_HUMANS,       2, 2, WSV_INIT("TOWER")           },
+    { WAR_UNIT_TOWER_ORCS,          314, WAR_PORTRAIT_TOWER_ORCS,         2, 2, WSV_INIT("TOWER")           },
+    { WAR_UNIT_TOWNHALL_HUMANS,     315, WAR_PORTRAIT_TOWNHALL_HUMANS,    3, 3, WSV_INIT("TOWN HALL")       },
+    { WAR_UNIT_TOWNHALL_ORCS,       316, WAR_PORTRAIT_TOWNHALL_ORCS,      3, 3, WSV_INIT("TOWN HALL")       },
+    { WAR_UNIT_LUMBERMILL_HUMANS,   317, WAR_PORTRAIT_LUMBERMILL_HUMANS,  3, 3, WSV_INIT("MILL")            },
+    { WAR_UNIT_LUMBERMILL_ORCS,     318, WAR_PORTRAIT_LUMBERMILL_ORCS,    3, 3, WSV_INIT("MILL")            },
+    { WAR_UNIT_STABLE,              319, WAR_PORTRAIT_STABLE,             3, 3, WSV_INIT("STABLES")         },
+    { WAR_UNIT_KENNEL,              320, WAR_PORTRAIT_KENNEL,             3, 3, WSV_INIT("KENNEL")          },
+    { WAR_UNIT_BLACKSMITH_HUMANS,   321, WAR_PORTRAIT_BLACKSMITH_HUMANS,  2, 2, WSV_INIT("BLACKSMITH")      },
+    { WAR_UNIT_BLACKSMITH_ORCS,     322, WAR_PORTRAIT_BLACKSMITH_ORCS,    2, 2, WSV_INIT("BLACKSMITH")      },
+    { WAR_UNIT_STORMWIND,           323, WAR_PORTRAIT_STORMWIND,          4, 4, WSV_INIT("STORMWIND")       },
+    { WAR_UNIT_BLACKROCK,           324, WAR_PORTRAIT_BLACKROCK,          4, 4, WSV_INIT("BLACKROCK")       },
+
+    // neutral
+    { WAR_UNIT_GOLDMINE,            325, WAR_PORTRAIT_GOLDMINE,           3, 3, WSV_INIT("GOLD MINE")       },
+
+    // corpses
+    { WAR_UNIT_HUMAN_CORPSE,        326, 0,                               1, 1, WSV_INIT("CORPSE")          },
+    { WAR_UNIT_ORC_CORPSE,          326, 0,                               1, 1, WSV_INIT("CORPSE")          }
+};
+static_assert(arrayLength(unitsData) == 50, "unitsData array size does not match WAR_UNIT_COUNT");
+
+const WarWorkerData workersData[] =
+{
+    // units                              wood gold
+    { WAR_UNIT_PEASANT,                   327, 329 },
+    { WAR_UNIT_PEON,                      328, 330 },
+};
+static_assert(arrayLength(workersData) == 2, "workersData array size does not match number of worker unit types");
+
+const WarBuildingData buildingsData[] =
+{
+    { WAR_UNIT_FARM_HUMANS,               331 },
+    { WAR_UNIT_FARM_ORCS,                 332 },
+    { WAR_UNIT_BARRACKS_HUMANS,           333 },
+    { WAR_UNIT_BARRACKS_ORCS,             334 },
+    { WAR_UNIT_CHURCH,                    335 },
+    { WAR_UNIT_TEMPLE,                    336 },
+    { WAR_UNIT_TOWER_HUMANS,              337 },
+    { WAR_UNIT_TOWER_ORCS,                338 },
+    { WAR_UNIT_TOWNHALL_HUMANS,           339 },
+    { WAR_UNIT_TOWNHALL_ORCS,             340 },
+    { WAR_UNIT_LUMBERMILL_HUMANS,         341 },
+    { WAR_UNIT_LUMBERMILL_ORCS,           342 },
+    { WAR_UNIT_STABLE,                    343 },
+    { WAR_UNIT_KENNEL,                    344 },
+    { WAR_UNIT_BLACKSMITH_HUMANS,         345 },
+    { WAR_UNIT_BLACKSMITH_ORCS,           346 },
+};
+static_assert(arrayLength(buildingsData) == 16, "buildingsData array size does not match number of building unit types");
+
+const WarRoadData roadsData[] =
+{
+    { WAR_ROAD_PIECE_LEFT,                56, 57 },
+    { WAR_ROAD_PIECE_TOP,                 57, 58 },
+    { WAR_ROAD_PIECE_RIGHT,               58, 59 },
+    { WAR_ROAD_PIECE_BOTTOM,              59, 60 },
+    { WAR_ROAD_PIECE_BOTTOM_LEFT,         60, 61 },
+    { WAR_ROAD_PIECE_VERTICAL,            61, 62 },
+    { WAR_ROAD_PIECE_BOTTOM_RIGHT,        62, 63 },
+    { WAR_ROAD_PIECE_T_LEFT,              63, 64 },
+    { WAR_ROAD_PIECE_T_BOTTOM,            64, 65 },
+    { WAR_ROAD_PIECE_T_RIGHT,             65, 66 },
+    { WAR_ROAD_PIECE_CROSS,               66, 67 },
+    { WAR_ROAD_PIECE_TOP_LEFT,            67, 68 },
+    { WAR_ROAD_PIECE_HORIZONTAL,          68, 69 },
+    { WAR_ROAD_PIECE_T_TOP,               69, 70 },
+    { WAR_ROAD_PIECE_TOP_RIGHT,           70, 71 },
+};
+static_assert(arrayLength(roadsData) == 15, "roadsData array size does not match WAR_ROAD_PIECE_COUNT");
+
+const WarWallData wallsData[] =
+{
+    { WAR_WALL_PIECE_LEFT,                18, 30, 37, 18, 26, 37 },
+    { WAR_WALL_PIECE_TOP,                 21, 23, 34, 21, 23, 34 },
+    { WAR_WALL_PIECE_RIGHT,               18, 30, 37, 18, 26, 37 },
+    { WAR_WALL_PIECE_BOTTOM,              11, 40, 34, 11, 40, 34 },
+    { WAR_WALL_PIECE_BOTTOM_LEFT,         10, 22, 36, 10, 22, 36 },
+    { WAR_WALL_PIECE_VERTICAL,            21, 23, 34, 21, 23, 34 },
+    { WAR_WALL_PIECE_BOTTOM_RIGHT,        12, 24, 38, 12, 24, 38 },
+    { WAR_WALL_PIECE_T_LEFT,              13, 25, 36, 13, 25, 36 },
+    { WAR_WALL_PIECE_T_BOTTOM,            14, 26, 39, 14, 26, 39 },
+    { WAR_WALL_PIECE_T_RIGHT,             15, 27, 38, 15, 27, 38 },
+    { WAR_WALL_PIECE_CROSS,               16, 28, 39, 16, 28, 39 },
+    { WAR_WALL_PIECE_TOP_LEFT,            17, 29, 33, 17, 29, 33 },
+    { WAR_WALL_PIECE_HORIZONTAL,          18, 30, 37, 18, 30, 37 },
+    { WAR_WALL_PIECE_T_TOP,               19, 31, 37, 19, 31, 37 },
+    { WAR_WALL_PIECE_TOP_RIGHT,           20, 32, 35, 20, 32, 35 },
+};
+static_assert(arrayLength(wallsData) == 15, "wallsData array size does not match WAR_WALL_PIECE_COUNT");
+
+const WarRuinData ruinsData[] =
+{
+    { WAR_RUIN_PIECE_TOP_LEFT,            41, 42 },
+    { WAR_RUIN_PIECE_TOP,                 42, 43 },
+    { WAR_RUIN_PIECE_TOP_RIGHT,           43, 44 },
+    { WAR_RUIN_PIECE_LEFT,                44, 45 },
+    { WAR_RUIN_PIECE_CENTER,              45, 46 },
+    { WAR_RUIN_PIECE_RIGHT,               46, 47 },
+    { WAR_RUIN_PIECE_BOTTOM_LEFT,         47, 48 },
+    { WAR_RUIN_PIECE_BOTTOM,              48, 49 },
+    { WAR_RUIN_PIECE_BOTTOM_RIGHT,        49, 50 },
+    { WAR_RUIN_PIECE_TOP_LEFT_INSIDE,     50, 51 },
+    { WAR_RUIN_PIECE_TOP_RIGHT_INSIDE,    51, 52 },
+    { WAR_RUIN_PIECE_BOTTOM_LEFT_INSIDE,  53, 54 },
+    { WAR_RUIN_PIECE_BOTTOM_RIGHT_INSIDE, 52, 53 },
+    { WAR_RUIN_PIECE_DIAG_1,              55, 56 },
+    { WAR_RUIN_PIECE_DIAG_2,              54, 55 },
+};
+static_assert(arrayLength(ruinsData) == 15, "ruinsData array size does not match WAR_RUIN_PIECE_COUNT");
+
+const WarTreeData treesData[] =
+{
+    { WAR_TREE_NONE,                 0,  0 },
+    { WAR_TREE_TOP_LEFT,            73, 74 },
+    { WAR_TREE_TOP,                 75, 76 },
+    { WAR_TREE_TOP_RIGHT,           76, 77 },
+    { WAR_TREE_LEFT,                72, 73 },
+    { WAR_TREE_CENTER,              94, 95 },
+    { WAR_TREE_RIGHT,               78, 79 },
+    { WAR_TREE_BOTTOM_LEFT,         71, 72 },
+    { WAR_TREE_BOTTOM,              93, 94 },
+    { WAR_TREE_BOTTOM_RIGHT,        79, 80 },
+    { WAR_TREE_TOP_LEFT_INSIDE,     80, 81 },
+    { WAR_TREE_TOP_RIGHT_INSIDE,    81, 82 },
+    { WAR_TREE_BOTTOM_LEFT_INSIDE,  77, 78 },
+    { WAR_TREE_BOTTOM_RIGHT_INSIDE, 74, 75 },
+    { WAR_TREE_TOP_END,             90, 91 },
+    { WAR_TREE_BOTTOM_END,          92, 93 },
+    { WAR_TREE_VERTICAL,            91, 92 },
+    { WAR_TREE_DIAG_1,              83, 84 },
+    { WAR_TREE_DIAG_2,              82, 83 },
+    { WAR_TREE_CHOPPED,             95, 96 },
+};
+static_assert(arrayLength(treesData) == 20, "treesData array size does not match WAR_TREE_TILE_TYPE_COUNT");
+
+const WarUnitStats unitStats[] =
+{
+    // unit type                range  sight  armor   hp   mana   min D.  rnd D.       build    gold    lumber   decay    speed in pixels x seconds
+    { WAR_UNIT_FOOTMAN,           1,     2,     2,     60,   -1,     1,      9,    __bts(600),    400,      0,     -1,   { 16.736f, 16.736f, 16.736f } },
+    { WAR_UNIT_GRUNT,             1,     2,     2,     60,   -1,     1,      9,    __bts(600),    400,      0,     -1,   { 16.736f, 16.736f, 16.736f } },
+    { WAR_UNIT_PEASANT,           1,     2,     0,     40,   -1,     0,      0,    __bts(750),    400,      0,     -1,   { 19.584f, 19.584f, 19.584f } },
+    { WAR_UNIT_PEON,              1,     2,     0,     40,   -1,     0,      0,    __bts(750),    400,      0,     -1,   { 19.584f, 19.584f, 19.584f } },
+    { WAR_UNIT_CATAPULT_HUMANS,   8,     5,     0,    120,   -1,     0,    255,    __bts(1000),   900,    200,     -1,   {  8.992f,  8.992f,  8.992f } },
+    { WAR_UNIT_CATAPULT_ORCS,     8,     5,     0,    120,   -1,     0,    255,    __bts(1000),   900,    200,     -1,   {  8.992f,  8.992f,  8.992f } },
+    { WAR_UNIT_KNIGHT,            1,     4,     5,     90,   -1,     1,     13,    __bts(800),    850,      0,     -1,   { 19.584f, 22.064f, 26.064f } },
+    { WAR_UNIT_RAIDER,            1,     4,     5,     90,   -1,     1,     13,    __bts(800),    850,      0,     -1,   { 19.584f, 22.064f, 26.064f } },
+    { WAR_UNIT_ARCHER,            5,     5,     1,     60,   -1,     4,      0,    __bts(700),    450,     50,     -1,   { 19.584f, 19.584f, 19.584f } },
+    { WAR_UNIT_SPEARMAN,          4,     4,     1,     60,   -1,     5,      0,    __bts(700),    450,     50,     -1,   { 19.584f, 19.584f, 19.584f } },
+    { WAR_UNIT_CONJURER,          3,     4,     0,     40,  255,     6,      0,    __bts(900),    900,      0,     -1,   { 13.984f, 13.984f, 13.984f } },
+    { WAR_UNIT_WARLOCK,           2,     3,     0,     40,  255,     6,      0,    __bts(900),    900,      0,     -1,   { 13.984f, 13.984f, 13.984f } },
+    { WAR_UNIT_CLERIC,            1,     3,     0,     40,  255,     6,      0,    __bts(800),    700,      0,     -1,   { 13.984f, 13.984f, 13.984f } },
+    { WAR_UNIT_NECROLYTE,         2,     3,     0,     40,  255,     6,      0,    __bts(800),    700,      0,     -1,   { 13.984f, 13.984f, 13.984f } },
+#ifdef WAR_FRANK
+    // frank: 150 hit points in the original
+    { WAR_UNIT_MEDIVH,            5,     5,     0,    150,   -1,    10,      0,            -1,     -1,     -1,     -1,   { 19.584f, 19.584f, 19.584f } },
+#else
+    { WAR_UNIT_MEDIVH,            5,     5,     0,    110,   -1,    10,      0,            -1,     -1,     -1,     -1,   { 19.584f, 19.584f, 19.584f } },
+#endif
+    { WAR_UNIT_LOTHAR,            1,     2,     5,     50,   -1,     1,     15,            -1,     -1,     -1,     -1,   { 19.584f, 19.584f, 19.584f } },
+#ifdef WAR_FRANK
+    // frank: the wounded soldier placed on human mission 4 (a non-combatant)
+    { WAR_UNIT_WOUNDED,           1,     2,     0,     40,   -1,    -1,     -1,            -1,     -1,     -1,     -1,   { 13.984f, 13.984f, 13.984f } },
+#endif
+    { WAR_UNIT_GRIZELDA,          1,     2,     0,     30,   -1,    -1,     -1,            -1,     -1,     -1,     -1,   { 13.984f, 13.984f, 13.984f } },
+    { WAR_UNIT_GARONA,            1,     2,     0,     30,   -1,    -1,     -1,            -1,     -1,     -1,     -1,   { 13.984f, 13.984f, 13.984f } },
+    { WAR_UNIT_OGRE,              1,     2,     3,     60,   -1,     1,     12,            -1,     -1,     -1,     -1,   { 17.936f, 17.936f, 17.936f } },
+    { WAR_UNIT_SPIDER,            1,     2,     0,     30,  255,     1,      3,            -1,     -1,     -1,     45,   { 26.064f, 26.064f, 26.064f } },
+    { WAR_UNIT_SLIME,             1,     2,    10,    150,   -1,     1,      0,            -1,     -1,     -1,     -1,   { 26.064f, 26.064f, 26.064f } },
+    { WAR_UNIT_FIRE_ELEMENTAL,    1,     2,     0,    200,   -1,     0,     40,            -1,     -1,     -1,     -1,   { 17.936f, 17.936f, 17.936f } },
+    { WAR_UNIT_SCORPION,          1,     2,     0,     30,  255,     3,      0,            -1,     -1,     -1,     45,   { 26.064f, 26.064f, 26.064f } },
+#ifdef WAR_FRANK
+    // frank: armor 4 in the original
+    { WAR_UNIT_BRIGAND,           1,     2,     4,     40,   -1,     1,      9,            -1,     -1,     -1,     -1,   { 16.736f, 16.736f, 16.736f } },
+#else
+    { WAR_UNIT_BRIGAND,           1,     2,     1,     40,   -1,     1,      9,            -1,     -1,     -1,     -1,   { 16.736f, 16.736f, 16.736f } },
+#endif
+    { WAR_UNIT_THE_DEAD,          1,     2,     2,     30,  255,     1,      9,            -1,     -1,     -1,     -1,   { 13.984f, 13.984f, 13.984f } },
+    { WAR_UNIT_SKELETON,          1,     2,     1,     40,   -1,     1,      4,            -1,     -1,     -1,     45,   { 13.984f, 13.984f, 13.984f } },
+    { WAR_UNIT_DAEMON,            1,     2,     0,    300,  255,     0,     65,            -1,     -1,     -1,     45,   { 17.936f, 17.936f, 17.936f } },
+    { WAR_UNIT_WATER_ELEMENTAL,   3,     4,     0,    250,  255,    40,      0,            -1,     -1,     -1,     45,   { 17.936f, 17.936f, 17.936f } },
+};
+#ifdef WAR_FRANK
+static_assert(arrayLength(unitStats) == 29, "unitStats array size does not match WAR_UNIT_COUNT");
+#else
+static_assert(arrayLength(unitStats) == 28, "unitStats array size does not match WAR_UNIT_COUNT");
+#endif
+
+const WarBuildingStats buildingStats[] =
+{
+    // building type                    armor    sight     hp            build     gold    lumber
+    { WAR_UNIT_FARM_HUMANS,               0,      2,       400,     __bts(1000),    500,    300 },
+    { WAR_UNIT_FARM_ORCS,                 0,      2,       400,     __bts(1000),    500,    300 },
+    { WAR_UNIT_BARRACKS_HUMANS,           0,      3,       800,     __bts(1500),    600,    500 },
+    { WAR_UNIT_BARRACKS_ORCS,             0,      3,       800,     __bts(1500),    600,    500 },
+    { WAR_UNIT_CHURCH,                    0,      3,       700,     __bts(2000),    800,    500 },
+    { WAR_UNIT_TEMPLE,                    0,      3,       700,     __bts(2000),    800,    500 },
+    { WAR_UNIT_TOWER_HUMANS,              0,      2,       900,     __bts(2000),   1400,    300 },
+    { WAR_UNIT_TOWER_ORCS,                0,      2,       900,     __bts(2000),   1400,    300 },
+    { WAR_UNIT_TOWNHALL_HUMANS,           0,      3,      2500,     __bts(1000),    400,    400 },
+    { WAR_UNIT_TOWNHALL_ORCS,             0,      3,      2500,     __bts(1000),    400,    400 },
+    { WAR_UNIT_LUMBERMILL_HUMANS,         0,      3,       600,     __bts(1500),    600,    500 },
+    { WAR_UNIT_LUMBERMILL_ORCS,           0,      3,       600,     __bts(1500),    600,    500 },
+    { WAR_UNIT_STABLE,                    0,      3,       500,     __bts(1500),   1000,    400 },
+    { WAR_UNIT_KENNEL,                    0,      3,       500,     __bts(1500),   1000,    400 },
+    { WAR_UNIT_BLACKSMITH_HUMANS,         0,      2,       800,     __bts(1500),    900,    400 },
+    { WAR_UNIT_BLACKSMITH_ORCS,           0,      2,       800,     __bts(1500),    900,    400 },
+    { WAR_UNIT_STORMWIND,                 0,      4,      5000,              -1,     -1,     -1 },
+    { WAR_UNIT_BLACKROCK,                 0,      4,      5000,              -1,     -1,     -1 },
+    { WAR_UNIT_GOLDMINE,                  0,      3,     25500,              -1,     -1,     -1 },
+};
+static_assert(arrayLength(buildingStats) == 19, "buildingStats array size does not match WAR_UNIT_COUNT");
+
+const WarUpgradeData upgradesData[] =
+{
+    { WAR_UPGRADE_ARROWS,           2, { WAR_PORTRAIT_ARROW_2,          WAR_PORTRAIT_ARROW_3         } },
+    { WAR_UPGRADE_SPEARS,           2, { WAR_PORTRAIT_SPEAR_2,          WAR_PORTRAIT_SPEAR_3         } },
+    { WAR_UPGRADE_SWORDS,           2, { WAR_PORTRAIT_SWORD_2,          WAR_PORTRAIT_SWORD_3         } },
+    { WAR_UPGRADE_AXES,             2, { WAR_PORTRAIT_AXE_2,            WAR_PORTRAIT_AXE_3           } },
+    { WAR_UPGRADE_HORSES,           2, { WAR_PORTRAIT_HORSE_1,          WAR_PORTRAIT_HORSE_2         } },
+    { WAR_UPGRADE_WOLVES,           2, { WAR_PORTRAIT_WOLVES_1,         WAR_PORTRAIT_WOLVES_2        } },
+    { WAR_UPGRADE_SCORPIONS,        1, { WAR_PORTRAIT_SCORPION,         WAR_PORTRAIT_SCORPION        } },
+    { WAR_UPGRADE_SPIDERS,          1, { WAR_PORTRAIT_SPIDER,           WAR_PORTRAIT_SPIDER          } },
+    { WAR_UPGRADE_RAIN_OF_FIRE,     1, { WAR_PORTRAIT_RAIN_OF_FIRE,     WAR_PORTRAIT_RAIN_OF_FIRE    } },
+    { WAR_UPGRADE_POISON_CLOUD,     1, { WAR_PORTRAIT_POISON_CLOUD,     WAR_PORTRAIT_POISON_CLOUD    } },
+    { WAR_UPGRADE_WATER_ELEMENTAL,  1, { WAR_PORTRAIT_WATER_ELEMENTAL,  WAR_PORTRAIT_WATER_ELEMENTAL } },
+    { WAR_UPGRADE_DAEMON,           1, { WAR_PORTRAIT_DAEMON,           WAR_PORTRAIT_DAEMON          } },
+    { WAR_UPGRADE_HEALING,          1, { WAR_PORTRAIT_HEALING,          WAR_PORTRAIT_HEALING         } },
+    { WAR_UPGRADE_RAISE_DEAD,       1, { WAR_PORTRAIT_RAISE_DEAD,       WAR_PORTRAIT_RAISE_DEAD      } },
+    { WAR_UPGRADE_FAR_SIGHT,        1, { WAR_PORTRAIT_FAR_SIGHT,        WAR_PORTRAIT_FAR_SIGHT       } },
+    { WAR_UPGRADE_DARK_VISION,      1, { WAR_PORTRAIT_DARK_VISION,      WAR_PORTRAIT_DARK_VISION     } },
+    { WAR_UPGRADE_INVISIBILITY,     1, { WAR_PORTRAIT_INVISIBILITY,     WAR_PORTRAIT_INVISIBILITY    } },
+    { WAR_UPGRADE_UNHOLY_ARMOR,     1, { WAR_PORTRAIT_UNHOLY_ARMOR,     WAR_PORTRAIT_UNHOLY_ARMOR    } },
+    { WAR_UPGRADE_SHIELD,           2, { WAR_PORTRAIT_SHIELD_2_HUMANS,  WAR_PORTRAIT_SHIELD_3_HUMANS } },
+};
+static_assert(arrayLength(upgradesData) == 19, "upgradesData array size does not match WAR_UPGRADE_COUNT");
+
+const WarUpgradeStats upgradeStats[] =
+{
+    { WAR_UPGRADE_ARROWS,           __bts(1600), {  750, 1500 } },
+    { WAR_UPGRADE_SPEARS,           __bts(1600), {  750, 1500 } },
+    { WAR_UPGRADE_SWORDS,           __bts(1750), {  750, 1500 } },
+    { WAR_UPGRADE_AXES,             __bts(1750), {  750, 1500 } },
+    { WAR_UPGRADE_HORSES,           __bts(1750), {  750, 1500 } },
+    { WAR_UPGRADE_WOLVES,           __bts(1750), {  750, 1500 } },
+    { WAR_UPGRADE_SCORPIONS,        __bts(1750), {  750,    0 } },
+    { WAR_UPGRADE_SPIDERS,          __bts(1750), {  750,    0 } },
+    { WAR_UPGRADE_RAIN_OF_FIRE,     __bts(1750), { 1500,    0 } },
+    { WAR_UPGRADE_POISON_CLOUD,     __bts(1750), { 1500,    0 } },
+    { WAR_UPGRADE_WATER_ELEMENTAL,  __bts(1750), { 3000,    0 } },
+    { WAR_UPGRADE_DAEMON,           __bts(1750), { 3000,    0 } },
+    { WAR_UPGRADE_HEALING,          __bts(1600), {  750,    0 } },
+    { WAR_UPGRADE_RAISE_DEAD,       __bts(1600), {  750,    0 } },
+    { WAR_UPGRADE_FAR_SIGHT,        __bts(1600), { 1500,    0 } },
+    { WAR_UPGRADE_DARK_VISION,      __bts(1600), { 1500,    0 } },
+    { WAR_UPGRADE_INVISIBILITY,     __bts(1600), { 3000,    0 } },
+    { WAR_UPGRADE_UNHOLY_ARMOR,     __bts(1600), { 3000,    0 } },
+    { WAR_UPGRADE_SHIELD,           __bts(1600), {  750, 1500 } },
+};
+static_assert(arrayLength(upgradeStats) == 19, "upgradeStats array size does not match WAR_UPGRADE_COUNT");
+
+const WarSpellData spellData[] =
+{
+    // summons
+    { WAR_SUMMON_SPIDER,            WAR_PORTRAIT_SPIDER             },
+    { WAR_SUMMON_SCORPION,          WAR_PORTRAIT_SCORPION           },
+    { WAR_SUMMON_DAEMON,            WAR_PORTRAIT_DAEMON             },
+    { WAR_SUMMON_WATER_ELEMENTAL,   WAR_PORTRAIT_WATER_ELEMENTAL    },
+
+    // spells
+    { WAR_SPELL_HEALING,            WAR_PORTRAIT_HEALING            },
+    { WAR_SPELL_FAR_SIGHT,          WAR_PORTRAIT_FAR_SIGHT          },
+    { WAR_SPELL_INVISIBILITY,       WAR_PORTRAIT_INVISIBILITY       },
+    { WAR_SPELL_RAIN_OF_FIRE,       WAR_PORTRAIT_RAIN_OF_FIRE       },
+    { WAR_SPELL_RAISE_DEAD,         WAR_PORTRAIT_RAISE_DEAD         },
+    { WAR_SPELL_DARK_VISION,        WAR_PORTRAIT_DARK_VISION        },
+    { WAR_SPELL_UNHOLY_ARMOR,       WAR_PORTRAIT_UNHOLY_ARMOR       },
+    { WAR_SPELL_POISON_CLOUD,       WAR_PORTRAIT_POISON_CLOUD       },
+};
+static_assert(arrayLength(spellData) == 12, "spellData array size does not match WAR_SPELL_COUNT");
+
+const WarSpellStats spellStats[] =
+{
+    // summons
+#ifdef WAR_FRANK
+    // frank: the original's costs (WAR.EXE 0x27AB0: 60 a spider or
+    // scorpion, up to four a cast; 255 a daemon or water elemental)
+    { WAR_SUMMON_SPIDER,             60,  0,  0 },
+    { WAR_SUMMON_SCORPION,           60,  0,  0 },
+    { WAR_SUMMON_DAEMON,            255,  0,  0 },
+    { WAR_SUMMON_WATER_ELEMENTAL,   255,  0,  0 },
+#else
+    { WAR_SUMMON_SPIDER,             51,  0,  0 },
+    { WAR_SUMMON_SCORPION,           51,  0,  0 },
+    { WAR_SUMMON_DAEMON,            255,  0,  0 },
+    { WAR_SUMMON_WATER_ELEMENTAL,   250,  0,  0 },
+#endif
+
+    // spells
+    { WAR_SPELL_HEALING,              6,  0,  6 },
+    { WAR_SPELL_FAR_SIGHT,           70, 10,  0 },
+    { WAR_SPELL_INVISIBILITY,       200, 50,  6 },
+    { WAR_SPELL_RAIN_OF_FIRE,        25,  0, 12 },
+    { WAR_SPELL_RAISE_DEAD,          50,  0,  6 },
+    { WAR_SPELL_DARK_VISION,         50, 10,  0 },
+    { WAR_SPELL_UNHOLY_ARMOR,       100, 13,  6 },
+    { WAR_SPELL_POISON_CLOUD,       100, 10, 12 },
+};
+static_assert(arrayLength(spellStats) == 12, "spellStats array size does not match WAR_SPELL_COUNT");
+
+const WarSpellMapping spellMappings[] =
+{
+    // summon
+    { WAR_SUMMON_SPIDER,            WAR_UNIT_SPIDER             },
+    { WAR_SUMMON_SCORPION,          WAR_UNIT_SCORPION           },
+    { WAR_SUMMON_DAEMON,            WAR_UNIT_DAEMON             },
+    { WAR_SUMMON_WATER_ELEMENTAL,   WAR_UNIT_WATER_ELEMENTAL    },
+};
+static_assert(arrayLength(spellMappings) == 4, "spellMappings array size does not match WAR_SUMMON_COUNT");
+
+const WarUnitCommandBaseData commandsBaseData[] =
+{
+    { WAR_COMMAND_NONE,                     NULL,                        WAR_KEY_NONE,      -1, 1, WSV_INIT(""),                             WSV_INIT("") },
+
+    // unit commands
+    { WAR_COMMAND_MOVE,                     move,                        WAR_KEY_M,          0, 1, WSV_INIT("MOVE"),                         WSV_INIT("") },
+    { WAR_COMMAND_STOP,                     wcmd_stop,                   WAR_KEY_S,          0, 1, WSV_INIT("STOP"),                         WSV_INIT("") },
+    { WAR_COMMAND_HARVEST,                  wcmd_harvest,                WAR_KEY_H,          0, 1, WSV_INIT("HARVEST LUMBER/MINE GOLD"),     WSV_INIT("") },
+    { WAR_COMMAND_DELIVER,                  deliver,                     WAR_KEY_T,         16, 1, WSV_INIT("RETURN GOODS TO TOWN HALL"),    WSV_INIT("") },
+    { WAR_COMMAND_REPAIR,                   repair,                      WAR_KEY_R,          0, 1, WSV_INIT("REPAIR"),                       WSV_INIT("") },
+    { WAR_COMMAND_BUILD_BASIC,              wcmd_buildBasic,             WAR_KEY_B,          0, 1, WSV_INIT("BUILD BASIC STRUCTURE"),        WSV_INIT("") },
+    { WAR_COMMAND_BUILD_ADVANCED,           wcmd_buildAdvanced,          WAR_KEY_A,          6, 1, WSV_INIT("BUILD ADVANCED STRUCTURE"),     WSV_INIT("") },
+    { WAR_COMMAND_ATTACK,                   attack,                      WAR_KEY_A,          0, 1, WSV_INIT("ATTACK"),                       WSV_INIT("") },
+
+    // train commands
+    { WAR_COMMAND_TRAIN_FOOTMAN,            wcmd_trainFootman,           WAR_KEY_F,          6, 1, WSV_INIT("TRAIN FOOTMAN"),                WSV_INIT("TRAINING A FOOTMAN")        },
+    { WAR_COMMAND_TRAIN_GRUNT,              wcmd_trainGrunt,             WAR_KEY_U,          8, 1, WSV_INIT("TRAIN GRUNT"),                  WSV_INIT("TRAINING A GRUNT")          },
+    { WAR_COMMAND_TRAIN_PEASANT,            wcmd_trainPeasant,           WAR_KEY_P,          6, 1, WSV_INIT("TRAIN PEASANT"),                WSV_INIT("TRAINING A PEASANT")        },
+    { WAR_COMMAND_TRAIN_PEON,               wcmd_trainPeon,              WAR_KEY_P,          6, 1, WSV_INIT("TRAIN PEON"),                   WSV_INIT("TRAINING A PEON")           },
+    { WAR_COMMAND_TRAIN_CATAPULT_HUMANS,    wcmd_trainHumanCatapult,     WAR_KEY_T,          8, 1, WSV_INIT("BUILD CATAPULT"),               WSV_INIT("TRAINING A CATAPULT CREW")  },
+    { WAR_COMMAND_TRAIN_CATAPULT_ORCS,      wcmd_trainOrcCatapult,       WAR_KEY_T,          8, 1, WSV_INIT("BUILD CATAPULT"),               WSV_INIT("TRAINING A CATAPULT CREW")  },
+    { WAR_COMMAND_TRAIN_KNIGHT,             wcmd_trainKnight,            WAR_KEY_K,          6, 1, WSV_INIT("TRAIN KNIGHT"),                 WSV_INIT("TRAINING A KNIGHT")         },
+    { WAR_COMMAND_TRAIN_RAIDER,             wcmd_trainRaider,            WAR_KEY_R,          6, 1, WSV_INIT("TRAIN RAIDER"),                 WSV_INIT("TRAINING A RAIDER")         },
+    { WAR_COMMAND_TRAIN_ARCHER,             wcmd_trainArcher,            WAR_KEY_A,          6, 1, WSV_INIT("TRAIN ARCHER"),                 WSV_INIT("TRAINING AN ARCHER")        },
+    { WAR_COMMAND_TRAIN_SPEARMAN,           wcmd_trainSpearman,          WAR_KEY_S,          6, 1, WSV_INIT("TRAIN SPEARMAN"),               WSV_INIT("TRAINING A SPEARMAN")       },
+    { WAR_COMMAND_TRAIN_CONJURER,           wcmd_trainConjurer,          WAR_KEY_T,          0, 1, WSV_INIT("TRAIN CONJURER"),               WSV_INIT("TRAINING A CONJURER")       },
+    { WAR_COMMAND_TRAIN_WARLOCK,            wcmd_trainWarlock,           WAR_KEY_T,          0, 1, WSV_INIT("TRAIN WARLOCK"),                WSV_INIT("TRAINING A WARLOCK")        },
+    { WAR_COMMAND_TRAIN_CLERIC,             wcmd_trainCleric,            WAR_KEY_T,          0, 1, WSV_INIT("TRAIN CLERIC"),                 WSV_INIT("TRAINING A CLERIC")         },
+    { WAR_COMMAND_TRAIN_NECROLYTE,          wcmd_trainNecrolyte,         WAR_KEY_T,          0, 1, WSV_INIT("TRAIN NECROLYTE"),              WSV_INIT("TRAINING A NECROLYTE")      },
+
+    // spell commands
+    { WAR_COMMAND_SPELL_HEALING,            wcmd_castHeal,               WAR_KEY_H,          0, 1, WSV_INIT("HEALING"),                      WSV_INIT("")                          },
+    { WAR_COMMAND_SPELL_POISON_CLOUD,       wcmd_castPoisonCloud,        WAR_KEY_P,          9, 1, WSV_INIT("CLOUD OF POISON"),              WSV_INIT("")                          },
+    { WAR_COMMAND_SPELL_FAR_SIGHT,          wcmd_castFarSight,           WAR_KEY_F,          0, 1, WSV_INIT("FAR SEEING"),                   WSV_INIT("")                          },
+    { WAR_COMMAND_SPELL_DARK_VISION,        wcmd_castDarkVision,         WAR_KEY_D,          0, 1, WSV_INIT("DARK VISION"),                  WSV_INIT("")                          },
+    { WAR_COMMAND_SPELL_INVISIBILITY,       wcmd_castInvisibility,       WAR_KEY_I,          0, 1, WSV_INIT("INVISIBILITY"),                 WSV_INIT("")                          },
+    { WAR_COMMAND_SPELL_UNHOLY_ARMOR,       wcmd_castUnHolyArmor,        WAR_KEY_U,          0, 1, WSV_INIT("UNHOLY ARMOR"),                 WSV_INIT("")                          },
+    { WAR_COMMAND_SPELL_RAIN_OF_FIRE,       wcmd_castRainOfFire,         WAR_KEY_R,          0, 1, WSV_INIT("RAIN OF FIRE"),                 WSV_INIT("")                          },
+    { WAR_COMMAND_SPELL_RAISE_DEAD,         wcmd_castRaiseDead,          WAR_KEY_R,          0, 1, WSV_INIT("RAISE DEAD"),                   WSV_INIT("")                          },
+
+    // summons
+    { WAR_COMMAND_SUMMON_SCORPION,          wcmd_summonScorpion,         WAR_KEY_O,          9, 1, WSV_INIT("SUMMON SCORPIONS"),             WSV_INIT("")                          },
+    { WAR_COMMAND_SUMMON_SPIDER,            wcmd_summonSpider,           WAR_KEY_R,         12, 1, WSV_INIT("SUMMON SPIDERS"),               WSV_INIT("")                          },
+    { WAR_COMMAND_SUMMON_WATER_ELEMENTAL,   wcmd_summonWaterElemental,   WAR_KEY_W,          7, 1, WSV_INIT("SUMMON WATER ELEMENTAL"),       WSV_INIT("")                          },
+    { WAR_COMMAND_SUMMON_DAEMON,            wcmd_summonDaemon,           WAR_KEY_D,          7, 1, WSV_INIT("SUMMON DAEMON"),                WSV_INIT("")                          },
+
+    // build commands
+    { WAR_COMMAND_BUILD_FARM_HUMANS,        wcmd_buildFarmHumans,        WAR_KEY_F,          6, 1, WSV_INIT("BUILD FARM"),                   WSV_INIT("")                          },
+    { WAR_COMMAND_BUILD_FARM_ORCS,          wcmd_buildFarmOrcs,          WAR_KEY_F,          6, 1, WSV_INIT("BUILD FARM"),                   WSV_INIT("")                          },
+    { WAR_COMMAND_BUILD_BARRACKS_HUMANS,    wcmd_buildBarracksHumans,    WAR_KEY_B,          6, 1, WSV_INIT("BUILD BARRACKS"),               WSV_INIT("")                          },
+    { WAR_COMMAND_BUILD_BARRACKS_ORCS,      wcmd_buildBarracksOrcs,      WAR_KEY_B,          6, 1, WSV_INIT("BUILD BARRACKS"),               WSV_INIT("")                          },
+    { WAR_COMMAND_BUILD_CHURCH,             wcmd_buildChurch,            WAR_KEY_U,          8, 1, WSV_INIT("BUILD CHURCH"),                 WSV_INIT("")                          },
+    { WAR_COMMAND_BUILD_TEMPLE,             wcmd_buildTemple,            WAR_KEY_E,          7, 1, WSV_INIT("BUILD TEMPLE"),                 WSV_INIT("")                          },
+    { WAR_COMMAND_BUILD_TOWER_HUMANS,       wcmd_buildTowerHumans,       WAR_KEY_T,          6, 1, WSV_INIT("BUILD TOWER"),                  WSV_INIT("")                          },
+    { WAR_COMMAND_BUILD_TOWER_ORCS,         wcmd_buildTowerOrcs,         WAR_KEY_T,          6, 1, WSV_INIT("BUILD TOWER"),                  WSV_INIT("")                          },
+    { WAR_COMMAND_BUILD_TOWNHALL_HUMANS,    wcmd_buildTownHallHumans,    WAR_KEY_H,         11, 1, WSV_INIT("BUILD TOWN HALL"),              WSV_INIT("")                          },
+    { WAR_COMMAND_BUILD_TOWNHALL_ORCS,      wcmd_buildTownHallOrcs,      WAR_KEY_H,         11, 1, WSV_INIT("BUILD TOWN HALL"),              WSV_INIT("")                          },
+    { WAR_COMMAND_BUILD_LUMBERMILL_HUMANS,  wcmd_buildLumbermillHumans,  WAR_KEY_L,          6, 1, WSV_INIT("BUILD LUMBER MILL"),            WSV_INIT("")                          },
+    { WAR_COMMAND_BUILD_LUMBERMILL_ORCS,    wcmd_buildLumbermillOrcs,    WAR_KEY_L,          6, 1, WSV_INIT("BUILD LUMBER MILL"),            WSV_INIT("")                          },
+    { WAR_COMMAND_BUILD_STABLE,             wcmd_buildStable,            WAR_KEY_S,          6, 1, WSV_INIT("BUILD STABLES"),                WSV_INIT("")                          },
+    { WAR_COMMAND_BUILD_KENNEL,             wcmd_buildKennel,            WAR_KEY_K,          6, 1, WSV_INIT("BUILD KENNEL"),                 WSV_INIT("")                          },
+    { WAR_COMMAND_BUILD_BLACKSMITH_HUMANS,  wcmd_buildBlacksmithHumans,  WAR_KEY_B,          6, 1, WSV_INIT("BUILD BLACKSMITH"),             WSV_INIT("")                          },
+    { WAR_COMMAND_BUILD_BLACKSMITH_ORCS,    wcmd_buildBlacksmithOrcs,    WAR_KEY_B,          6, 1, WSV_INIT("BUILD BLACKSMITH"),             WSV_INIT("")                          },
+    { WAR_COMMAND_BUILD_ROAD,               wcmd_buildRoad,              WAR_KEY_R,          6, 1, WSV_INIT("BUILD ROAD"),                   WSV_INIT("")                          },
+    { WAR_COMMAND_BUILD_WALL,               wcmd_buildWall,              WAR_KEY_W,          6, 1, WSV_INIT("BUILD WALL"),                   WSV_INIT("")                          },
+
+    // upgrades
+    { WAR_COMMAND_UPGRADE_SWORDS,           wcmd_upgradeSwords,          WAR_KEY_W,          9, 1, WSV_INIT("UPGRADE SWORD STRENGTH"),       WSV_INIT("RESEARCHING WEAPONRY")      },
+    { WAR_COMMAND_UPGRADE_AXES,             wcmd_upgradeAxes,            WAR_KEY_A,          8, 1, WSV_INIT("UPGRADE AXE STRENGTH"),         WSV_INIT("RESEARCHING WEAPONRY")      },
+    { WAR_COMMAND_UPGRADE_SHIELD_HUMANS,    wcmd_upgradeHumanShields,    WAR_KEY_H,          9, 1, WSV_INIT("UPGRADE SHIELD STRENGTH"),      WSV_INIT("RESEARCHING ARMOR")         },
+    { WAR_COMMAND_UPGRADE_SHIELD_ORCS,      wcmd_upgradeOrcsShields,     WAR_KEY_H,          9, 1, WSV_INIT("UPGRADE SHIELD STRENGTH"),      WSV_INIT("RESEARCHING ARMOR")         },
+    { WAR_COMMAND_UPGRADE_ARROWS,           wcmd_upgradeArrows,          WAR_KEY_U,          0, 1, WSV_INIT("UPGRADE ARROW STRENGTH"),       WSV_INIT("RESEARCHING WEAPONRY")      },
+    { WAR_COMMAND_UPGRADE_SPEARS,           wcmd_upgradeSpears,          WAR_KEY_U,          0, 1, WSV_INIT("UPGRADE SPEAR STRENGTH"),       WSV_INIT("RESEARCHING WEAPONRY")      },
+    { WAR_COMMAND_UPGRADE_HORSES,           wcmd_upgradeHorses,          WAR_KEY_B,          0, 1, WSV_INIT("BREED FASTER HORSES"),          WSV_INIT("BREADING BETTER STOCK")     },
+    { WAR_COMMAND_UPGRADE_WOLVES,           wcmd_upgradeWolves,          WAR_KEY_B,          0, 1, WSV_INIT("BREED FASTER WOLVES"),          WSV_INIT("BREADING BETTER STOCK")     },
+    { WAR_COMMAND_UPGRADE_SCORPION,         wcmd_upgradeScorpions,       WAR_KEY_M,          9, 1, WSV_INIT("RESEARCH MINOR SUMMONING"),     WSV_INIT("RESEARCHING NEW SPELL")     },
+    { WAR_COMMAND_UPGRADE_SPIDER,           wcmd_upgradeSpiders,         WAR_KEY_M,          9, 1, WSV_INIT("RESEARCH MINOR SUMMONING"),     WSV_INIT("RESEARCHING NEW SPELL")     },
+    { WAR_COMMAND_UPGRADE_RAIN_OF_FIRE,     wcmd_upgradeRainOfFire,      WAR_KEY_R,          9, 1, WSV_INIT("RESEARCH RAIN OF FIRE"),        WSV_INIT("RESEARCHING NEW SPELL")     },
+    { WAR_COMMAND_UPGRADE_POISON_CLOUD,     wcmd_upgradePoisonCloud,     WAR_KEY_P,         18, 1, WSV_INIT("RESEARCH CLOUD OF POISON"),     WSV_INIT("RESEARCHING NEW SPELL")     },
+    { WAR_COMMAND_UPGRADE_WATER_ELEMENTAL,  wcmd_upgradeWaterElemental,  WAR_KEY_A,         10, 1, WSV_INIT("RESEARCH MAJOR SUMMONING"),     WSV_INIT("RESEARCHING NEW SPELL")     },
+    { WAR_COMMAND_UPGRADE_DAEMON,           wcmd_upgradeDaemon,          WAR_KEY_A,         10, 1, WSV_INIT("RESEARCH MAJOR SUMMONING"),     WSV_INIT("RESEARCHING NEW SPELL")     },
+    { WAR_COMMAND_UPGRADE_HEALING,          wcmd_upgradeHealing,         WAR_KEY_H,          9, 1, WSV_INIT("RESEARCH HEALING"),             WSV_INIT("RESEARCHING NEW SPELL")     },
+    { WAR_COMMAND_UPGRADE_RAISE_DEAD,       wcmd_upgradeRaiseDead,       WAR_KEY_R,          9, 1, WSV_INIT("RESEARCH RAISING DEAD"),        WSV_INIT("RESEARCHING NEW SPELL")     },
+    { WAR_COMMAND_UPGRADE_FAR_SIGHT,        wcmd_upgradeFarSight,        WAR_KEY_F,          9, 1, WSV_INIT("RESEARCH FAR SEEING"),          WSV_INIT("RESEARCHING NEW SPELL")     },
+    { WAR_COMMAND_UPGRADE_DARK_VISION,      wcmd_upgradeDarkVision,      WAR_KEY_D,          9, 1, WSV_INIT("RESEARCH DARK VISION"),         WSV_INIT("RESEARCHING NEW SPELL")     },
+    { WAR_COMMAND_UPGRADE_INVISIBILITY,     wcmd_upgradeInvisibility,    WAR_KEY_I,          9, 1, WSV_INIT("RESEARCH INVISIBILITY"),        WSV_INIT("RESEARCHING NEW SPELL")     },
+    { WAR_COMMAND_UPGRADE_UNHOLY_ARMOR,     wcmd_upgradeUnholyArmor,     WAR_KEY_U,          9, 1, WSV_INIT("RESEARCH UNHOLY ARMOR"),        WSV_INIT("RESEARCHING NEW SPELL")     },
+
+    // wcmd_cancel
+    { WAR_COMMAND_CANCEL,                   wcmd_cancel,                 WAR_KEY_ESC,        0, 3, WSV_INIT("ESC - CANCEL"),                 WSV_INIT("")                          }
+};
+static_assert(arrayLength(commandsBaseData) == 74, "commandsBaseData array size does not match WAR_COMMAND_COUNT");
+
+const WarUnitCommandMapping commandMappings[] =
+{
+    // train commands
+    { WAR_COMMAND_TRAIN_FOOTMAN,            WAR_UNIT_FOOTMAN            },
+    { WAR_COMMAND_TRAIN_GRUNT,              WAR_UNIT_GRUNT              },
+    { WAR_COMMAND_TRAIN_PEASANT,            WAR_UNIT_PEASANT            },
+    { WAR_COMMAND_TRAIN_PEON,               WAR_UNIT_PEON               },
+    { WAR_COMMAND_TRAIN_CATAPULT_HUMANS,    WAR_UNIT_CATAPULT_HUMANS    },
+    { WAR_COMMAND_TRAIN_CATAPULT_ORCS,      WAR_UNIT_CATAPULT_ORCS      },
+    { WAR_COMMAND_TRAIN_KNIGHT,             WAR_UNIT_KNIGHT             },
+    { WAR_COMMAND_TRAIN_RAIDER,             WAR_UNIT_RAIDER             },
+    { WAR_COMMAND_TRAIN_ARCHER,             WAR_UNIT_ARCHER             },
+    { WAR_COMMAND_TRAIN_SPEARMAN,           WAR_UNIT_SPEARMAN           },
+    { WAR_COMMAND_TRAIN_CONJURER,           WAR_UNIT_CONJURER           },
+    { WAR_COMMAND_TRAIN_WARLOCK,            WAR_UNIT_WARLOCK            },
+    { WAR_COMMAND_TRAIN_CLERIC,             WAR_UNIT_CLERIC             },
+    { WAR_COMMAND_TRAIN_NECROLYTE,          WAR_UNIT_NECROLYTE          },
+
+    // build commands
+    { WAR_COMMAND_BUILD_FARM_HUMANS,        WAR_UNIT_FARM_HUMANS        },
+    { WAR_COMMAND_BUILD_FARM_ORCS,          WAR_UNIT_FARM_ORCS          },
+    { WAR_COMMAND_BUILD_BARRACKS_HUMANS,    WAR_UNIT_BARRACKS_HUMANS    },
+    { WAR_COMMAND_BUILD_BARRACKS_ORCS,      WAR_UNIT_BARRACKS_ORCS      },
+    { WAR_COMMAND_BUILD_CHURCH,             WAR_UNIT_CHURCH             },
+    { WAR_COMMAND_BUILD_TEMPLE,             WAR_UNIT_TEMPLE             },
+    { WAR_COMMAND_BUILD_TOWER_HUMANS,       WAR_UNIT_TOWER_HUMANS       },
+    { WAR_COMMAND_BUILD_TOWER_ORCS,         WAR_UNIT_TOWER_ORCS         },
+    { WAR_COMMAND_BUILD_TOWNHALL_HUMANS,    WAR_UNIT_TOWNHALL_HUMANS    },
+    { WAR_COMMAND_BUILD_TOWNHALL_ORCS,      WAR_UNIT_TOWNHALL_ORCS      },
+    { WAR_COMMAND_BUILD_LUMBERMILL_HUMANS,  WAR_UNIT_LUMBERMILL_HUMANS  },
+    { WAR_COMMAND_BUILD_LUMBERMILL_ORCS,    WAR_UNIT_LUMBERMILL_ORCS    },
+    { WAR_COMMAND_BUILD_STABLE,             WAR_UNIT_STABLE             },
+    { WAR_COMMAND_BUILD_KENNEL,             WAR_UNIT_KENNEL             },
+    { WAR_COMMAND_BUILD_BLACKSMITH_HUMANS,  WAR_UNIT_BLACKSMITH_HUMANS  },
+    { WAR_COMMAND_BUILD_BLACKSMITH_ORCS,    WAR_UNIT_BLACKSMITH_ORCS    },
+
+    // upgrades
+    { WAR_COMMAND_UPGRADE_SWORDS,           WAR_UPGRADE_SWORDS          },
+    { WAR_COMMAND_UPGRADE_AXES,             WAR_UPGRADE_AXES            },
+    { WAR_COMMAND_UPGRADE_SHIELD_HUMANS,    WAR_UPGRADE_SHIELD          },
+    { WAR_COMMAND_UPGRADE_SHIELD_ORCS,      WAR_UPGRADE_SHIELD          },
+    { WAR_COMMAND_UPGRADE_ARROWS,           WAR_UPGRADE_ARROWS          },
+    { WAR_COMMAND_UPGRADE_SPEARS,           WAR_UPGRADE_SPEARS          },
+    { WAR_COMMAND_UPGRADE_HORSES,           WAR_UPGRADE_HORSES          },
+    { WAR_COMMAND_UPGRADE_WOLVES,           WAR_UPGRADE_WOLVES          },
+    { WAR_COMMAND_UPGRADE_SCORPION,         WAR_UPGRADE_SCORPIONS       },
+    { WAR_COMMAND_UPGRADE_SPIDER,           WAR_UPGRADE_SPIDERS         },
+    { WAR_COMMAND_UPGRADE_RAIN_OF_FIRE,     WAR_UPGRADE_RAIN_OF_FIRE    },
+    { WAR_COMMAND_UPGRADE_POISON_CLOUD,     WAR_UPGRADE_POISON_CLOUD    },
+    { WAR_COMMAND_UPGRADE_WATER_ELEMENTAL,  WAR_UPGRADE_WATER_ELEMENTAL },
+    { WAR_COMMAND_UPGRADE_DAEMON,           WAR_UPGRADE_DAEMON          },
+    { WAR_COMMAND_UPGRADE_HEALING,          WAR_UPGRADE_HEALING         },
+    { WAR_COMMAND_UPGRADE_RAISE_DEAD,       WAR_UPGRADE_RAISE_DEAD      },
+    { WAR_COMMAND_UPGRADE_FAR_SIGHT,        WAR_UPGRADE_FAR_SIGHT       },
+    { WAR_COMMAND_UPGRADE_DARK_VISION,      WAR_UPGRADE_DARK_VISION     },
+    { WAR_COMMAND_UPGRADE_INVISIBILITY,     WAR_UPGRADE_INVISIBILITY    },
+    { WAR_COMMAND_UPGRADE_UNHOLY_ARMOR,     WAR_UPGRADE_UNHOLY_ARMOR    },
+
+    // summon commands
+    { WAR_COMMAND_SUMMON_SPIDER,            WAR_SUMMON_SPIDER           },
+    { WAR_COMMAND_SUMMON_SCORPION,          WAR_SUMMON_SCORPION         },
+    { WAR_COMMAND_SUMMON_DAEMON,            WAR_SUMMON_DAEMON           },
+    { WAR_COMMAND_SUMMON_WATER_ELEMENTAL,   WAR_SUMMON_WATER_ELEMENTAL  },
+
+    // spells
+    { WAR_COMMAND_SPELL_HEALING,            WAR_SPELL_HEALING           },
+    { WAR_COMMAND_SPELL_FAR_SIGHT,          WAR_SPELL_FAR_SIGHT         },
+    { WAR_COMMAND_SPELL_INVISIBILITY,       WAR_SPELL_INVISIBILITY      },
+    { WAR_COMMAND_SPELL_RAIN_OF_FIRE,       WAR_SPELL_RAIN_OF_FIRE      },
+    { WAR_COMMAND_SPELL_RAISE_DEAD,         WAR_SPELL_RAISE_DEAD        },
+    { WAR_COMMAND_SPELL_DARK_VISION,        WAR_SPELL_DARK_VISION       },
+    { WAR_COMMAND_SPELL_UNHOLY_ARMOR,       WAR_SPELL_UNHOLY_ARMOR      },
+    { WAR_COMMAND_SPELL_POISON_CLOUD,       WAR_SPELL_POISON_CLOUD      },
+};
+static_assert(arrayLength(commandMappings) == 62, "commandMappings array size does not match expected number of commands with mappings");
+
+const WarRoadPieceType roadTileTypeMap[16] =
+{
+    // 0-15
+    0, 3, 0, 4, 1, 5, 11, 7, 2, 6, 12, 8, 14, 9, 13, 10,
+};
+static_assert(arrayLength(roadTileTypeMap) == 16, "roadTileTypeMap array size does not match expected size of 16");
+
+const WarWallPieceType wallTileTypeMap[16] =
+{
+    // 0-15
+    0, 3, 0, 4, 1, 5, 11, 7, 2, 6, 12, 8, 14, 9, 13, 10,
+};
+static_assert(arrayLength(wallTileTypeMap) == 16, "wallTileTypeMap array size does not match expected size of 16");
+
+const WarRuinPieceType ruinTileTypeMap[256] =
+{
+    // 0-15
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 7,
+    // 16-31
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 7,
+    // 32-47
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 0,
+    // 48-63
+    0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 4, 4,
+    // 64-79
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 7,
+    // 80-95
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 7,
+    // 96-111
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 7,
+    // 112-127
+    0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 4, 4,
+    // 128-143
+    0, 0, 0, 9, 0, 0, 0, 9, 0, 0, 0, 9, 0, 0, 7, 8,
+    // 144-159
+    0, 0, 0, 9, 0, 0, 0, 9, 0, 0, 0, 9, 0, 0, 7, 8,
+    // 160-175
+    0, 0, 0, 9, 0, 0, 0, 9, 0, 0, 0, 9, 0, 0, 7, 8,
+    // 176-191
+    0, 0, 0, 9, 0, 0, 0, 9, 1, 1, 1, 14, 1, 1, 4, 11,
+    // 192-207
+    0, 0, 0, 9, 0, 0, 0, 9, 0, 0, 0, 9, 0, 0, 7, 8,
+    // 208-223
+    0, 0, 0, 9, 0, 0, 0, 9, 0, 0, 0, 9, 0, 0, 7, 8,
+    // 224-239
+    3, 3, 3, 6, 3, 3, 3, 6, 3, 3, 3, 6, 3, 3, 15, 10,
+    // 240-255
+    3, 3, 3, 6, 3, 3, 3, 6, 2, 2, 2, 12, 2, 2, 13, 5,
+};
+static_assert(arrayLength(ruinTileTypeMap) == 256, "ruinTileTypeMap array size does not match expected size of 256");
+
+const WarTreeTileType treeTileTypeMap[256] =
+{
+    // 0-15
+    0, 0, 15, 15, 0, 0, 15, 15, 0, 0, 0, 0, 0, 0, 7, 7,
+    // 16-31
+    0, 0, 15, 15, 0, 0, 15, 15, 0, 0, 15, 15, 0, 0, 7, 7,
+    // 32-47
+    14, 14, 16, 16, 14, 14, 16, 16, 0, 0, 0, 0, 14, 14, 4, 4,
+    // 48-63
+    14, 14, 16, 16, 14, 14, 16, 16, 1, 1, 4, 4, 1, 1, 4, 4,
+    // 64-79
+    0, 0, 15, 15, 0, 0, 15, 15, 0, 0, 0, 0, 0, 0, 7, 7,
+    // 80-95
+    0, 0, 15, 15, 0, 0, 15, 15, 0, 0, 7, 15, 0, 0, 7, 7,
+    // 96-111
+    14, 14, 16, 16, 14, 14, 16, 16, 1, 0, 4, 0, 14, 1, 4, 4,
+    // 112-127
+    14, 14, 16, 16, 14, 14, 16, 16, 1, 1, 4, 4, 1, 1, 4, 4,
+    // 128-143
+    0, 0, 0, 9, 0, 0, 0, 9, 0, 0, 0, 8, 0, 0, 8, 8,
+    // 144-159
+    0, 0, 0, 9, 0, 0, 0, 9, 0, 0, 8, 9, 0, 0, 8, 8,
+    // 160-175
+    0, 14, 0, 6, 0, 3, 6, 6, 2, 0, 0, 0, 0, 14, 0, 5,
+    // 176-191
+    0, 14, 0, 6, 0, 14, 0, 6, 0, 1, 0, 18, 0, 14, 5, 11,
+    // 192-207
+    0, 0, 15, 9, 0, 0, 15, 9, 0, 0, 0, 0, 0, 0, 7, 8,
+    // 208-223
+    0, 0, 9, 9, 0, 0, 15, 9, 0, 0, 15, 9, 0, 0, 7, 8,
+    // 224-239
+    3, 3, 6, 6, 3, 3, 6, 6, 2, 2, 0, 5, 3, 2, 17, 10,
+    // 240-255
+    3, 3, 6, 6, 3, 3, 6, 6, 2, 2, 5, 12, 2, 2, 13, 5,
+};
+static_assert(arrayLength(treeTileTypeMap) == 256, "treeTileTypeMap array size does not match expected size of 256");
+
+const WarFogPieceType fogTileTypeMap[256] =
+{
+    // 0-15
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 7,
+    // 16-31
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 7,
+    // 32-47
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 0,
+    // 48-63
+    0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 4, 4,
+    // 64-79
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 7,
+    // 80-95
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 7,
+    // 96-111
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 7,
+    // 112-127
+    0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 4, 4,
+    // 128-143
+    0, 0, 0, 9, 0, 0, 0, 9, 0, 0, 0, 9, 0, 0, 7, 8,
+    // 144-159
+    0, 0, 0, 9, 0, 0, 0, 9, 0, 0, 0, 9, 0, 0, 7, 8,
+    // 160-175
+    0, 0, 0, 9, 0, 0, 0, 9, 0, 0, 0, 9, 0, 0, 7, 8,
+    // 176-191
+    0, 0, 0, 9, 0, 0, 0, 9, 1, 1, 1, 0, 1, 1, 4, 0,
+    // 192-207
+    0, 0, 0, 9, 0, 0, 0, 9, 0, 0, 0, 9, 0, 0, 7, 8,
+    // 208-223
+    0, 0, 0, 9, 0, 0, 0, 9, 0, 0, 0, 9, 0, 0, 7, 8,
+    // 224-239
+    3, 3, 3, 6, 3, 3, 3, 6, 3, 3, 3, 6, 3, 3, 0, 0,
+    // 240-255
+    3, 3, 3, 6, 3, 3, 3, 6, 2, 2, 0, 0, 2, 2, 0, 5,
+};
+static_assert(arrayLength(fogTileTypeMap) == 256, "fogTileTypeMap array size does not match expected size of 256");
+
+u32 wu_hashUnitType(const WarUnitType type)
+{
+    return type;
+}
+
+bool wu_equalsUnitType(const WarUnitType t1, const WarUnitType t2)
+{
+    return t1 == t2;
+}
+
+#define FIND_BY_TYPE(array, type) \
+    s32 index = 0; \
+    s32 length = arrayLength(array); \
+    while (index < length && array[index].type != type) \
+        index++; \
+    assert(index < length); \
+    return &array[index];
+
+const WarUnitData* wu_getUnitData(WarUnitType type)
+{
+    FIND_BY_TYPE(unitsData, type);
+}
+
+const WarWorkerData* wu_getWorkerData(WarUnitType type)
+{
+    FIND_BY_TYPE(workersData, type);
+}
+
+const WarBuildingData* wu_getBuildingData(WarUnitType type)
+{
+    FIND_BY_TYPE(buildingsData, type);
+}
+
+const WarRoadData* wu_getRoadData(WarRoadPieceType type)
+{
+    FIND_BY_TYPE(roadsData, type);
+}
+
+const WarWallData* wu_getWallData(WarWallPieceType type)
+{
+    FIND_BY_TYPE(wallsData, type);
+}
+
+const WarRuinData* wu_getRuinData(WarRuinPieceType type)
+{
+    FIND_BY_TYPE(ruinsData, type);
+}
+
+const WarTreeData* wu_getTreeData(WarTreeTileType type)
+{
+    FIND_BY_TYPE(treesData, type);
+}
+
+const WarUpgradeData* wu_getUpgradeData(WarUpgradeType type)
+{
+    FIND_BY_TYPE(upgradesData, type);
+}
+
+const WarSpellData* wu_getSpellData(WarSpellType type)
+{
+    FIND_BY_TYPE(spellData, type);
+}
+
+#ifdef WAR_FRANK
+// original 20 dragon, 21 spider, 22 slime, 23 fire elemental, 24 scorpion,
+// 25 brigand, 26 skeleton (raise dead makes them), 27 the dead, 28 daemon,
+// 31 water elemental (WAR.EXE 1.20: its name list, stat tables, spells)
+static const s8 wu_originalToWar1[12] = {
+    WAR_UNIT_DRAGON_CYCLOPS_GIANT, WAR_UNIT_SPIDER, WAR_UNIT_SLIME, WAR_UNIT_FIRE_ELEMENTAL, WAR_UNIT_SCORPION,
+    WAR_UNIT_BRIGAND, WAR_UNIT_SKELETON, WAR_UNIT_THE_DEAD, WAR_UNIT_DAEMON, WAR_UNIT_26, WAR_UNIT_30, WAR_UNIT_WATER_ELEMENTAL };
+
+WarUnitType wu_fromOriginalType(s32 original)
+{
+    return original >= 20 && original < 32 ? (WarUnitType)wu_originalToWar1[original - 20] : (WarUnitType)original;
+}
+
+s32 wu_toOriginalType(WarUnitType type)
+{
+    if (type >= 20 && type < 32)
+        for (s32 i = 0; i < 12; i++)
+            if (wu_originalToWar1[i] == type) return 20 + i;
+    return (s32)type;
+}
+
+f32 wu_unitTrainSeconds(const WarUnitStats* stats)
+{
+    const s32 steps = stats->buildTime * 1000 / 80 / 10;
+    return (f32)(steps * 18 + 27) * 0.03f;
+}
+#endif
+
+const WarUnitStats* wu_getUnitStats(WarUnitType type)
+{
+    FIND_BY_TYPE(unitStats, type);
+}
+
+const WarBuildingStats* wu_getBuildingStats(WarUnitType type)
+{
+    FIND_BY_TYPE(buildingStats, type);
+}
+
+const WarUpgradeStats* wu_getUpgradeStats(WarUpgradeType type)
+{
+    FIND_BY_TYPE(upgradeStats, type);
+}
+
+const WarSpellStats* wu_getSpellStats(WarSpellType type)
+{
+    FIND_BY_TYPE(spellStats, type);
+}
+
+const WarSpellMapping* wu_getSpellMapping(WarSpellType type)
+{
+    FIND_BY_TYPE(spellMappings, type);
+}
+
+const WarUnitCommandBaseData* wu_getCommandBaseData(WarUnitCommandType type)
+{
+    FIND_BY_TYPE(commandsBaseData, type);
+}
+
+const WarUnitCommandMapping* wu_getCommandMapping(WarUnitCommandType type)
+{
+    FIND_BY_TYPE(commandMappings, type);
+}
+
+const WarUnitCommandMapping* wu_getCommandMappingFromUnitType(WarUnitType unitType)
+{
+    s32 index = 0;
+    s32 length = index + 30;
+    while (index < length && commandMappings[index].mappedType != unitType)
+        index++;
+
+    assert(index < length);
+    return &commandMappings[index];
+}
+
+const WarUnitCommandMapping* wu_getCommandMappingFromUpgradeType(WarUpgradeType upgradeType)
+{
+    s32 index = 30;
+    s32 length = index + 20;
+    while (index < length && commandMappings[index].mappedType != upgradeType)
+        index++;
+
+    assert(index < length);
+    return &commandMappings[index];
+}
+
+const WarUnitCommandMapping* wu_getCommandMappingFromSpellType(WarSpellType spellType)
+{
+    s32 index = 50;
+    s32 length = arrayLength(commandMappings);
+    while (index < length && commandMappings[index].mappedType != spellType)
+        index++;
+
+    assert(index < length);
+    return &commandMappings[index];
+}
+
+bool wu_isUnit(const WarEntity* entity)
+{
+    return entity->type == WAR_ENTITY_TYPE_UNIT;
+}
+
+bool wu_isUnitOfType(WarContext* ctx, const WarEntity* entity, WarUnitType unitType)
+{
+    if (!wu_isUnit(entity))
+        return false;
+
+    WarUnitComponent* unit = we_getUnitComponent(ctx, entity);
+    return unit && unit->type == unitType;
+}
+
+bool wu_isRoad(const WarEntity* entity)
+{
+    return entity->type == WAR_ENTITY_TYPE_ROAD;
+}
+
+bool wu_isWall(const WarEntity* entity)
+{
+    return entity->type == WAR_ENTITY_TYPE_WALL;
+}
+
+bool wu_isRuin(const WarEntity* entity)
+{
+    return entity->type == WAR_ENTITY_TYPE_RUIN;
+}
+
+bool wu_isDudeUnitType(WarUnitType type)
+{
+    switch (type)
+    {
+        case WAR_UNIT_FOOTMAN:
+        case WAR_UNIT_GRUNT:
+        case WAR_UNIT_PEASANT:
+        case WAR_UNIT_PEON:
+        case WAR_UNIT_CATAPULT_HUMANS:
+        case WAR_UNIT_CATAPULT_ORCS:
+        case WAR_UNIT_KNIGHT:
+        case WAR_UNIT_RAIDER:
+        case WAR_UNIT_ARCHER:
+        case WAR_UNIT_SPEARMAN:
+        case WAR_UNIT_CONJURER:
+        case WAR_UNIT_WARLOCK:
+        case WAR_UNIT_CLERIC:
+        case WAR_UNIT_NECROLYTE:
+        case WAR_UNIT_MEDIVH:
+        case WAR_UNIT_LOTHAR:
+        case WAR_UNIT_WOUNDED:
+        case WAR_UNIT_GRIZELDA:
+        case WAR_UNIT_GARONA:
+        case WAR_UNIT_OGRE:
+        case WAR_UNIT_SPIDER:
+        case WAR_UNIT_SLIME:
+        case WAR_UNIT_FIRE_ELEMENTAL:
+        case WAR_UNIT_SCORPION:
+        case WAR_UNIT_BRIGAND:
+        case WAR_UNIT_THE_DEAD:
+        case WAR_UNIT_SKELETON:
+        case WAR_UNIT_DAEMON:
+        case WAR_UNIT_WATER_ELEMENTAL:
+            return true;
+
+        default:
+            return false;
+    }
+}
+bool wu_isBuildingUnitType(WarUnitType type)
+{
+    switch (type)
+    {
+        case WAR_UNIT_FARM_HUMANS:
+        case WAR_UNIT_FARM_ORCS:
+        case WAR_UNIT_BARRACKS_HUMANS:
+        case WAR_UNIT_BARRACKS_ORCS:
+        case WAR_UNIT_CHURCH:
+        case WAR_UNIT_TEMPLE:
+        case WAR_UNIT_TOWER_HUMANS:
+        case WAR_UNIT_TOWER_ORCS:
+        case WAR_UNIT_TOWNHALL_HUMANS:
+        case WAR_UNIT_TOWNHALL_ORCS:
+        case WAR_UNIT_LUMBERMILL_HUMANS:
+        case WAR_UNIT_LUMBERMILL_ORCS:
+        case WAR_UNIT_STABLE:
+        case WAR_UNIT_KENNEL:
+        case WAR_UNIT_BLACKSMITH_HUMANS:
+        case WAR_UNIT_BLACKSMITH_ORCS:
+        case WAR_UNIT_STORMWIND:
+        case WAR_UNIT_BLACKROCK:
+        case WAR_UNIT_GOLDMINE:
+            return true;
+
+        default:
+            return false;
+    }
+}
+bool wu_isWorkerUnitType(WarUnitType type)
+{
+    switch (type)
+    {
+        case WAR_UNIT_PEASANT:
+        case WAR_UNIT_PEON:
+            return true;
+
+        default:
+            return false;
+    }
+}
+bool wu_isWarriorUnitType(WarUnitType type)
+{
+    switch (type)
+    {
+        case WAR_UNIT_FOOTMAN:
+        case WAR_UNIT_GRUNT:
+        case WAR_UNIT_CATAPULT_HUMANS:
+        case WAR_UNIT_CATAPULT_ORCS:
+        case WAR_UNIT_KNIGHT:
+        case WAR_UNIT_RAIDER:
+        case WAR_UNIT_ARCHER:
+        case WAR_UNIT_SPEARMAN:
+        case WAR_UNIT_CONJURER:
+        case WAR_UNIT_WARLOCK:
+        case WAR_UNIT_CLERIC:
+        case WAR_UNIT_NECROLYTE:
+        case WAR_UNIT_MEDIVH:
+        case WAR_UNIT_LOTHAR:
+        case WAR_UNIT_WOUNDED:
+        case WAR_UNIT_OGRE:
+        case WAR_UNIT_SPIDER:
+        case WAR_UNIT_SLIME:
+        case WAR_UNIT_FIRE_ELEMENTAL:
+        case WAR_UNIT_SCORPION:
+        case WAR_UNIT_BRIGAND:
+        case WAR_UNIT_THE_DEAD:
+        case WAR_UNIT_SKELETON:
+        case WAR_UNIT_DAEMON:
+        case WAR_UNIT_WATER_ELEMENTAL:
+            return true;
+
+        default:
+            return false;
+    }
+}
+bool wu_isRangeUnitType(WarUnitType type)
+{
+    switch (type)
+    {
+        case WAR_UNIT_CATAPULT_HUMANS:
+        case WAR_UNIT_CATAPULT_ORCS:
+        case WAR_UNIT_ARCHER:
+        case WAR_UNIT_SPEARMAN:
+        case WAR_UNIT_CONJURER:
+        case WAR_UNIT_WARLOCK:
+        case WAR_UNIT_CLERIC:
+        case WAR_UNIT_NECROLYTE:
+        case WAR_UNIT_MEDIVH:
+        case WAR_UNIT_WATER_ELEMENTAL:
+            return true;
+
+        default:
+            return false;
+    }
+}
+bool wu_isMeleeUnitType(WarUnitType type)
+{
+    switch (type)
+    {
+        case WAR_UNIT_FOOTMAN:
+        case WAR_UNIT_GRUNT:
+        case WAR_UNIT_KNIGHT:
+        case WAR_UNIT_RAIDER:
+        case WAR_UNIT_CLERIC:
+        case WAR_UNIT_LOTHAR:
+        case WAR_UNIT_OGRE:
+        case WAR_UNIT_SPIDER:
+        case WAR_UNIT_SLIME:
+        case WAR_UNIT_FIRE_ELEMENTAL:
+        case WAR_UNIT_SCORPION:
+        case WAR_UNIT_BRIGAND:
+        case WAR_UNIT_SKELETON:
+        case WAR_UNIT_DAEMON:
+            return true;
+
+        default:
+            return false;
+    }
+}
+bool wu_isFistUnitType(WarUnitType type)
+{
+    switch (type)
+    {
+        case WAR_UNIT_OGRE:
+        case WAR_UNIT_SPIDER:
+        case WAR_UNIT_SLIME:
+        case WAR_UNIT_FIRE_ELEMENTAL:
+        case WAR_UNIT_SCORPION:
+            return true;
+
+        default:
+            return false;
+    }
+}
+bool wu_isSwordUnitType(WarUnitType type)
+{
+    switch (type)
+    {
+        case WAR_UNIT_FOOTMAN:
+        case WAR_UNIT_GRUNT:
+        case WAR_UNIT_KNIGHT:
+        case WAR_UNIT_RAIDER:
+        case WAR_UNIT_LOTHAR:
+        case WAR_UNIT_BRIGAND:
+        case WAR_UNIT_SKELETON:
+        case WAR_UNIT_DAEMON:
+            return true;
+
+        default:
+            return false;
+    }
+}
+bool wu_isMagicUnitType(WarUnitType type)
+{
+    switch (type)
+    {
+        case WAR_UNIT_CONJURER:
+        case WAR_UNIT_WARLOCK:
+        case WAR_UNIT_CLERIC:
+        case WAR_UNIT_NECROLYTE:
+        case WAR_UNIT_SCORPION:
+        case WAR_UNIT_SPIDER:
+        case WAR_UNIT_WATER_ELEMENTAL:
+        case WAR_UNIT_DAEMON:
+        case WAR_UNIT_THE_DEAD:
+            return true;
+
+        default:
+            return false;
+    }
+}
+bool wu_isCorpseUnitType(WarUnitType type)
+{
+    switch (type)
+    {
+        case WAR_UNIT_HUMAN_CORPSE:
+        case WAR_UNIT_ORC_CORPSE:
+            return true;
+
+        default:
+            return false;
+    }
+}
+bool wu_isCatapultUnitType(WarUnitType type)
+{
+    switch (type)
+    {
+        case WAR_UNIT_CATAPULT_HUMANS:
+        case WAR_UNIT_CATAPULT_ORCS:
+            return true;
+
+        default:
+            return false;
+    }
+}
+bool wu_isConjurerOrWarlockUnitType(WarUnitType type)
+{
+    switch (type)
+    {
+        case WAR_UNIT_CONJURER:
+        case WAR_UNIT_WARLOCK:
+            return true;
+
+        default:
+            return false;
+    }
+}
+bool wu_isClericOrNecrolyteUnitType(WarUnitType type)
+{
+    switch (type)
+    {
+        case WAR_UNIT_CLERIC:
+        case WAR_UNIT_NECROLYTE:
+            return true;
+
+        default:
+            return false;
+    }
+}
+bool wu_isSummonUnitType(WarUnitType type)
+{
+#ifdef WAR_FRANK
+    // frank: the original's summoned types (they decay, WAR.EXE 0x51DF0):
+    // spiders, scorpions, raised skeletons, daemons, water elementals
+    return type == WAR_UNIT_SPIDER || type == WAR_UNIT_SCORPION || type == WAR_UNIT_SKELETON ||
+           type == WAR_UNIT_DAEMON || type == WAR_UNIT_WATER_ELEMENTAL;
+#endif
+    switch (type)
+    {
+        case WAR_UNIT_SCORPION:
+        case WAR_UNIT_SPIDER:
+        case WAR_UNIT_WATER_ELEMENTAL:
+        case WAR_UNIT_DAEMON:
+        case WAR_UNIT_THE_DEAD:
+            return true;
+
+        default:
+            return false;
+    }
+}
+
+bool wu_isDudeUnit(WarContext* context, WarEntity* entity)
+{
+    WarUnitComponent* unit = we_getUnitComponent(context, entity);
+    return unit && wu_isDudeUnitType(unit->type);
+}
+
+bool wu_isBuildingUnit(WarContext* context, WarEntity* entity)
+{
+    WarUnitComponent* unit = we_getUnitComponent(context, entity);
+    return unit && wu_isBuildingUnitType(unit->type);
+}
+
+bool wu_isWorkerUnit(WarContext* context, WarEntity* entity)
+{
+    WarUnitComponent* unit = we_getUnitComponent(context, entity);
+    return unit && wu_isWorkerUnitType(unit->type);
+}
+
+bool wu_isWarriorUnit(WarContext* context, WarEntity* entity)
+{
+    WarUnitComponent* unit = we_getUnitComponent(context, entity);
+    return unit && wu_isWarriorUnitType(unit->type);
+}
+
+bool wu_isRangeUnit(WarContext* context, WarEntity* entity)
+{
+    WarUnitComponent* unit = we_getUnitComponent(context, entity);
+    return unit && wu_isRangeUnitType(unit->type);
+}
+
+bool wu_isMeleeUnit(WarContext* context, WarEntity* entity)
+{
+    WarUnitComponent* unit = we_getUnitComponent(context, entity);
+    return unit && wu_isMeleeUnitType(unit->type);
+}
+
+bool wu_isFistUnit(WarContext* context, WarEntity* entity)
+{
+    WarUnitComponent* unit = we_getUnitComponent(context, entity);
+    return unit && wu_isFistUnitType(unit->type);
+}
+
+bool wu_isSwordUnit(WarContext* context, WarEntity* entity)
+{
+    WarUnitComponent* unit = we_getUnitComponent(context, entity);
+    return unit && wu_isSwordUnitType(unit->type);
+}
+
+bool wu_isMagicUnit(WarContext* context, WarEntity* entity)
+{
+    WarUnitComponent* unit = we_getUnitComponent(context, entity);
+    return unit && wu_isMagicUnitType(unit->type);
+}
+
+bool wu_isCorpseUnit(WarContext* context, WarEntity* entity)
+{
+    WarUnitComponent* unit = we_getUnitComponent(context, entity);
+    return unit && wu_isCorpseUnitType(unit->type);
+}
+
+bool wu_isCatapultUnit(WarContext* context, WarEntity* entity)
+{
+    WarUnitComponent* unit = we_getUnitComponent(context, entity);
+    return unit && wu_isCatapultUnitType(unit->type);
+}
+
+bool wu_isConjurerOrWarlockUnit(WarContext* context, WarEntity* entity)
+{
+    WarUnitComponent* unit = we_getUnitComponent(context, entity);
+    return unit && wu_isConjurerOrWarlockUnitType(unit->type);
+}
+
+bool wu_isClericOrNecrolyteUnit(WarContext* context, WarEntity* entity)
+{
+    WarUnitComponent* unit = we_getUnitComponent(context, entity);
+    return unit && wu_isClericOrNecrolyteUnitType(unit->type);
+}
+
+bool wu_isSummonUnit(WarContext* context, WarEntity* entity)
+{
+    WarUnitComponent* unit = we_getUnitComponent(context, entity);
+    return unit && wu_isSummonUnitType(unit->type);
+}
+
+bool wu_isSkeletonUnit(WarContext* context, WarEntity* entity)
+{
+    WarUnitComponent* unit = we_getUnitComponent(context, entity);
+    return unit && unit->type == WAR_UNIT_SKELETON;
+}
+
+WarRace wu_getUnitTypeRace(WarUnitType type)
+{
+    switch (type)
+    {
+        // units
+        case WAR_UNIT_FOOTMAN:
+        case WAR_UNIT_PEASANT:
+        case WAR_UNIT_CATAPULT_HUMANS:
+        case WAR_UNIT_KNIGHT:
+        case WAR_UNIT_ARCHER:
+        case WAR_UNIT_CONJURER:
+        case WAR_UNIT_CLERIC:
+        case WAR_UNIT_LOTHAR:
+        case WAR_UNIT_SCORPION:
+        case WAR_UNIT_WATER_ELEMENTAL:
+        case WAR_UNIT_HUMAN_CORPSE:
+        // buildings
+        case WAR_UNIT_FARM_HUMANS:
+        case WAR_UNIT_BARRACKS_HUMANS:
+        case WAR_UNIT_CHURCH:
+        case WAR_UNIT_TOWER_HUMANS:
+        case WAR_UNIT_TOWNHALL_HUMANS:
+        case WAR_UNIT_LUMBERMILL_HUMANS:
+        case WAR_UNIT_STABLE:
+        case WAR_UNIT_BLACKSMITH_HUMANS:
+        case WAR_UNIT_STORMWIND:
+            return WAR_RACE_HUMANS;
+
+        // units
+        case WAR_UNIT_GRUNT:
+        case WAR_UNIT_PEON:
+        case WAR_UNIT_CATAPULT_ORCS:
+        case WAR_UNIT_RAIDER:
+        case WAR_UNIT_SPEARMAN:
+        case WAR_UNIT_WARLOCK:
+        case WAR_UNIT_NECROLYTE:
+        case WAR_UNIT_GRIZELDA:
+        case WAR_UNIT_GARONA:
+        case WAR_UNIT_SPIDER:
+        case WAR_UNIT_DAEMON:
+        case WAR_UNIT_ORC_CORPSE:
+        // buildings
+        case WAR_UNIT_FARM_ORCS:
+        case WAR_UNIT_BARRACKS_ORCS:
+        case WAR_UNIT_TEMPLE:
+        case WAR_UNIT_TOWER_ORCS:
+        case WAR_UNIT_TOWNHALL_ORCS:
+        case WAR_UNIT_LUMBERMILL_ORCS:
+        case WAR_UNIT_KENNEL:
+        case WAR_UNIT_BLACKSMITH_ORCS:
+        case WAR_UNIT_BLACKROCK:
+            return WAR_RACE_ORCS;
+
+        default:
+            return WAR_RACE_NEUTRAL;
+    }
+}
+
+WarRace wu_getUnitRace(WarContext* context, WarEntity* entity)
+{
+    WarUnitComponent* unit = we_getUnitComponent(context, entity);
+    return unit ? wu_getUnitTypeRace(unit->type) : WAR_RACE_NEUTRAL;
+}
+
+bool wu_isHumanUnit(WarContext* context, WarEntity* entity)
+{
+    return wu_getUnitRace(context, entity) == WAR_RACE_HUMANS;
+}
+
+bool wu_isOrcUnit(WarContext* context, WarEntity* entity)
+{
+    return wu_getUnitRace(context, entity) == WAR_RACE_ORCS;
+}
+
+bool wu_isNeutralUnit(WarContext* context, WarEntity* entity)
+{
+    return wu_getUnitRace(context, entity) == WAR_RACE_NEUTRAL;
+}
+
+WarProjectileType wu_getProjectileType(WarUnitType type)
+{
+    assert(wu_isRangeUnitType(type));
+
+    switch (type)
+    {
+        case WAR_UNIT_ARCHER:
+        case WAR_UNIT_SPEARMAN:
+        {
+            return WAR_PROJECTILE_ARROW;
+        }
+
+        case WAR_UNIT_CATAPULT_HUMANS:
+        case WAR_UNIT_CATAPULT_ORCS:
+        {
+            return WAR_PROJECTILE_CATAPULT;
+        }
+
+        case WAR_UNIT_CONJURER:
+        case WAR_UNIT_WARLOCK:
+        case WAR_UNIT_CLERIC:
+        case WAR_UNIT_NECROLYTE:
+        {
+            return WAR_PROJECTILE_FIREBALL;
+        }
+
+        case WAR_UNIT_WATER_ELEMENTAL:
+        {
+            return WAR_PROJECTILE_WATER_ELEMENTAL;
+        }
+
+        default:
+        {
+            // unreachable
+            logWarning("Invalid unit firing a projectile: %d", type);
+            return WAR_PROJECTILE_ARROW;
+        }
+    }
+}
+WarUnitType wu_getTownHallOfRace(WarRace race)
+{
+    switch (race)
+    {
+        case WAR_RACE_HUMANS: return WAR_UNIT_TOWNHALL_HUMANS;
+        case WAR_RACE_ORCS: return WAR_UNIT_TOWNHALL_ORCS;
+        default: return WAR_UNIT_TOWNHALL_HUMANS;
+    }
+}
+WarUnitType wu_getProducerUnitOfType(WarUnitType type)
+{
+    switch (type)
+    {
+        case WAR_UNIT_PEASANT:
+            return WAR_UNIT_TOWNHALL_HUMANS;
+        case WAR_UNIT_PEON:
+            return WAR_UNIT_TOWNHALL_ORCS;
+
+        case WAR_UNIT_FOOTMAN:
+        case WAR_UNIT_CATAPULT_HUMANS:
+        case WAR_UNIT_KNIGHT:
+        case WAR_UNIT_ARCHER:
+            return WAR_UNIT_BARRACKS_HUMANS;
+
+        case WAR_UNIT_GRUNT:
+        case WAR_UNIT_CATAPULT_ORCS:
+        case WAR_UNIT_RAIDER:
+        case WAR_UNIT_SPEARMAN:
+            return WAR_UNIT_BARRACKS_ORCS;
+
+        case WAR_UNIT_CONJURER:
+            return WAR_UNIT_TOWER_HUMANS;
+        case WAR_UNIT_WARLOCK:
+            return WAR_UNIT_TOWER_ORCS;
+        case WAR_UNIT_CLERIC:
+            return WAR_UNIT_CHURCH;
+        case WAR_UNIT_NECROLYTE:
+            return WAR_UNIT_TEMPLE;
+
+        default:
+        {
+            logWarning("There is not producer unit for unit type %d", type);
+            return -1;
+        }
+    }
+}
+
+vec2 wu_getUnitSize(WarContext* context, WarEntity* entity)
+{
+    assert(wu_isUnit(entity));
+
+    WarUnitComponent* unit = we_getUnitComponent(context, entity);
+    assert(unit);
+
+    return vec2i(unit->sizex, unit->sizey);
+}
+
+vec2 wu_getUnitFrameSize(WarContext* context, WarEntity* entity)
+{
+    if (we_isComponentEnabled(context, entity, COMP_SPRITE))
+    {
+        WarSpriteComponent* sprite = we_getSpriteComponent(context, entity);
+        assert(sprite);
+
+        return vec2i(sprite->sprite.frameWidth, sprite->sprite.frameHeight);
+    }
+
+    return VEC2_ZERO;
+}
+
+rect wu_getUnitFrameRect(WarContext* context, WarEntity* entity)
+{
+    return rectv(VEC2_ZERO, wu_getUnitFrameSize(context, entity));
+}
+
+vec2 wu_getUnitSpriteSize(WarContext* context, WarEntity* entity)
+{
+    assert(wu_isUnit(entity));
+
+    WarUnitComponent* unit = we_getUnitComponent(context, entity);
+    assert(unit);
+
+    return vec2i(unit->sizex * MEGA_TILE_WIDTH, unit->sizey * MEGA_TILE_HEIGHT);
+}
+
+rect wu_getUnitSpriteRect(WarContext* context, WarEntity* entity)
+{
+    vec2 frameSize = wu_getUnitFrameSize(context, entity);
+    vec2 unitSize = wu_getUnitSpriteSize(context, entity);
+    vec2 pos = vec2_half(vec2_subv(frameSize, unitSize));
+    return rectv(pos, unitSize);
+}
+
+vec2 wu_getUnitSpriteCenter(WarContext* context, WarEntity* entity)
+{
+    vec2 frameSize = wu_getUnitFrameSize(context, entity);
+    vec2 unitSize = wu_getUnitSpriteSize(context, entity);
+    vec2 pos = vec2_half(vec2_subv(frameSize, unitSize));
+    return vec2_addv(pos, vec2_half(unitSize));
+}
+
+rect wu_getUnitRect(WarContext* context, WarEntity* entity)
+{
+    assert(wu_isUnit(entity));
+
+    vec2 position = wu_getUnitPosition(context, entity);
+    vec2 size = wu_getUnitSpriteSize(context, entity);
+    return rectv(position, size);
+}
+
+rect wu_getUnitRectTiles(WarContext* context, WarEntity* entity)
+{
+    assert(wu_isUnit(entity));
+
+    vec2 tile = wu_getUnitTile(context, entity);
+    vec2 size = wu_getUnitSize(context, entity);
+    return rectv(tile, size);
+}
+
+vec2 wu_getUnitPosition(WarContext* context, WarEntity* entity)
+{
+    WarTransformComponent* transform = we_getTransformComponent(context, entity);
+    assert(transform);
+
+    return transform->position;
+}
+
+vec2 wu_getUnitTile(WarContext* context, WarEntity* entity)
+{
+    vec2 position = wu_getUnitPosition(context, entity);
+    return wmap_mapToTileCoordinatesV(position);
+}
+
+vec2 wu_getUnitCenterPosition(WarContext* context, WarEntity* entity)
+{
+    WarTransformComponent* transform = we_getTransformComponent(context, entity);
+    assert(transform);
+
+    vec2 spriteSize = wu_getUnitSpriteSize(context, entity);
+    vec2 unitCenter = vec2_half(spriteSize);
+    vec2 position = vec2_addv(transform->position, unitCenter);
+    return position;
+}
+
+vec2 wu_getUnitCenterTile(WarContext* context, WarEntity* entity)
+{
+    vec2 position = wu_getUnitCenterPosition(context, entity);
+    return wmap_mapToTileCoordinatesV(position);
+}
+
+void wu_setUnitPosition(WarContext* context, WarEntity* entity, vec2 position)
+{
+    WarTransformComponent* transform = we_getTransformComponent(context, entity);
+    assert(transform);
+
+    transform->position = position;
+}
+
+void wu_setUnitTile(WarContext* context, WarEntity* entity, vec2 tile)
+{
+    vec2 position = wmap_tileToMapCoordinatesV(tile, true);
+    wu_setUnitPosition(context, entity, position);
+}
+
+void wu_setUnitCenterPosition(WarContext* context, WarEntity* entity, vec2 position)
+{
+    WarTransformComponent* transform = we_getTransformComponent(context, entity);
+    assert(transform);
+
+    vec2 spriteSize = wu_getUnitSpriteSize(context, entity);
+    vec2 unitCenter = vec2_half(spriteSize);
+    transform->position = vec2_subv(position, unitCenter);
+}
+
+void wu_setUnitCenterTile(WarContext* context, WarEntity* entity, vec2 tile)
+{
+    vec2 position = wmap_tileToMapCoordinatesV(tile, true);
+    wu_setUnitCenterPosition(context, entity, position);
+}
+
+WarDirection wu_getUnitDirection(WarContext* context, WarEntity* entity)
+{
+    assert(wu_isUnit(entity));
+
+    WarUnitComponent* unit = we_getUnitComponent(context, entity);
+    assert(unit);
+
+    return unit->direction;
+}
+
+WarDirection wu_getDirectionFromDiff(f32 x, f32 y)
+{
+    if (x < 0 && y < 0)
+        return WAR_DIRECTION_NORTH_WEST;
+    if (x == 0 && y < 0)
+        return WAR_DIRECTION_NORTH;
+    if (x > 0 && y < 0)
+        return WAR_DIRECTION_NORTH_EAST;
+
+    if (x < 0 && y == 0)
+        return WAR_DIRECTION_WEST;
+    if (x > 0 && y == 0)
+        return WAR_DIRECTION_EAST;
+
+    if (x < 0 && y > 0)
+        return WAR_DIRECTION_SOUTH_WEST;
+    if (x == 0 && y > 0)
+        return WAR_DIRECTION_SOUTH;
+    if (x > 0 && y > 0)
+        return WAR_DIRECTION_SOUTH_EAST;
+
+    return WAR_DIRECTION_NORTH;
+}
+
+void wu_setUnitDirection(WarContext* context, WarEntity* entity, WarDirection direction)
+{
+    assert(wu_isUnit(entity));
+
+    WarUnitComponent* unit = we_getUnitComponent(context, entity);
+    assert(unit);
+
+    unit->direction = direction;
+}
+
+void wu_setUnitDirectionFromDiff(WarContext* context, WarEntity* entity, f32 dx, f32 dy)
+{
+    assert(wu_isUnit(entity));
+
+    WarDirection direction = wu_getDirectionFromDiff(dx, dy);
+    wu_setUnitDirection(context, entity, direction);
+}
+
+f32 wu_getUnitActionScale(WarContext* context, WarEntity* entity)
+{
+    assert(wu_isUnit(entity));
+
+    WarUnitComponent* unit = we_getUnitComponent(context, entity);
+    assert(unit);
+
+    return 1 - unit->speed * 0.1f;
+}
+
+vec2 wu_unitTileOnTarget(WarContext* context, WarEntity* entity, WarEntity* targetEntity)
+{
+    assert(wu_isUnit(entity));
+    assert(wu_isUnit(targetEntity));
+
+    vec2 tile = wu_getUnitCenterTile(context, entity);
+    rect targetRect = wu_getUnitRectTiles(context, targetEntity);
+    return rect_closestPointOnRect(targetRect, tile);
+}
+
+vec2 wu_unitPointOnTarget(WarContext* context, WarEntity* entity, WarEntity* targetEntity)
+{
+    assert(wu_isUnit(entity));
+    assert(wu_isUnit(targetEntity));
+
+    vec2 position = wu_getUnitCenterPosition(context, entity);
+    rect targetRect = wu_getUnitRect(context, targetEntity);
+    return rect_closestPointOnRect(targetRect, position);
+}
+
+s32 wu_entityTileDistance(WarContext* context, WarEntity* entity, vec2 targetTile)
+{
+    assert(wu_isUnit(entity));
+
+    vec2 tile = wu_getUnitCenterTile(context, entity);
+    f32 distance = vec2_distanceInTiles(tile, targetTile);
+    return (s32)distance;
+}
+
+bool wu_tileInRange(WarContext* context, WarEntity* entity, vec2 targetTile, s32 range)
+{
+    assert(range >= 0);
+
+    s32 distance = wu_entityTileDistance(context, entity, targetTile);
+    return distance <= range;
+}
+
+s32 wu_unitDistanceInTiles(WarContext* context, WarEntity* entity, WarEntity* targetEntity)
+{
+    assert(wu_isUnit(entity));
+    assert(wu_isUnit(targetEntity));
+
+    vec2 tileOnTarget = wu_unitTileOnTarget(context, entity, targetEntity);
+    return wu_entityTileDistance(context, entity, tileOnTarget);
+}
+
+bool wu_unitInRange(WarContext* context, WarEntity* entity, WarEntity* targetEntity, s32 range)
+{
+    assert(wu_isUnit(entity));
+    assert(wu_isUnit(targetEntity));
+    assert(range >= 0);
+
+    s32 distance = wu_unitDistanceInTiles(context, entity, targetEntity);
+    return distance <= range;
+}
+
+bool wu_isCarryingResources(WarContext* context, WarEntity* entity)
+{
+    assert(entity);
+    assert(wu_isUnit(entity));
+
+    WarUnitComponent* unit = we_getUnitComponent(context, entity);
+    assert(unit);
+
+    switch (unit->resourceKind)
+    {
+        case WAR_RESOURCE_GOLD: return unit->amount == UNIT_MAX_CARRY_GOLD;
+        case WAR_RESOURCE_WOOD: return unit->amount == UNIT_MAX_CARRY_WOOD;
+        default: return false;
+    }
+}
+
+s32 wu_getUnitSightRange(WarContext* context, WarEntity* entity)
+{
+    assert(wu_isUnit(entity));
+
+    WarUnitComponent* unit = we_getUnitComponent(context, entity);
+    assert(unit);
+
+    s32 sight = 0;
+
+    if (wu_isBuildingUnit(context, entity))
+    {
+        const WarBuildingStats* stats = wu_getBuildingStats(unit->type);
+        sight = stats->sight;
+    }
+    else
+    {
+        const WarUnitStats* stats = wu_getUnitStats(unit->type);
+        sight = stats->sight;
+    }
+
+    return sight;
+}
+
+bool wu_isFriendlyUnit(WarContext* context, WarEntity* entity)
+{
+    WarMap* map = context->map;
+    WarPlayerInfo* player = &map->players[0];
+
+    WarUnitComponent* unit = we_getUnitComponent(context, entity);
+    return unit && unit->player == player->index;
+}
+
+bool wu_isEnemyUnit(WarContext* context, WarEntity* entity)
+{
+    WarMap* map = context->map;
+    WarPlayerInfo* player = &map->players[0];
+
+    WarUnitComponent* unit = we_getUnitComponent(context, entity);
+
+    if (!unit) return false;
+    if (unit->player == player->index) return false;
+
+    WarPlayerInfo* otherPlayer = &map->players[unit->player];
+    return !isNeutralPlayer(otherPlayer);
+}
+
+bool wu_areEnemies(WarContext* context, WarEntity* entity1, WarEntity* entity2)
+{
+    WarMap* map = context->map;
+
+    WarUnitComponent* unit1 = we_getUnitComponent(context, entity1);
+    WarUnitComponent* unit2 = we_getUnitComponent(context, entity2);
+
+    if (!unit1 || !unit2) return false;
+	if (entity1->id == entity2->id) return false;
+    if (unit1->player == unit2->player) return false;
+
+    WarPlayerInfo* otherPlayer = &map->players[unit2->player];
+    return !isNeutralPlayer(otherPlayer);
+}
+
+bool wu_canAttack(WarContext* context, WarEntity* entity, WarEntity* targetEntity)
+{
+    NOT_USED(context);
+
+    if (wu_isWarriorUnit(context, entity) && !wst_isDead(context, entity) && !wst_isGoingToDie(context, entity))
+    {
+        if (wu_isWall(targetEntity))
+            return true;
+
+        if (wu_isUnit(targetEntity) &&
+            !wst_isDead(context, targetEntity) &&
+            !wst_isGoingToDie(context, targetEntity) &&
+            !wu_isCorpseUnit(context, targetEntity) &&
+            !wst_isCollapsing(context, entity) &&
+            !wst_isGoingToCollapse(context, entity))
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool wu_displayUnitOnMinimap(WarContext* context, WarEntity* entity)
+{
+    assert(wu_isUnit(entity));
+
+    if (wu_isCorpseUnit(context, entity))
+        return false;
+
+    if (wst_isDead(context, entity) || wst_isGoingToDie(context, entity))
+        return false;
+
+    if (wst_isCollapsing(context, entity) || wst_isGoingToCollapse(context, entity))
+        return false;
+
+    return true;
+}
+
+WarColor wu_getUnitColorOnMinimap(WarContext* context, WarEntity* entity)
+{
+    assert(wu_isUnit(entity));
+
+    WarUnitComponent* unit = we_getUnitComponent(context, entity);
+    assert(unit);
+
+    u8 r = 211, g = 211, b = 211;
+
+    if (unit->type == WAR_UNIT_TOWNHALL_HUMANS ||
+        unit->type == WAR_UNIT_TOWNHALL_ORCS)
+    {
+        r = 255; g = 255; b = 0;
+    }
+    else if(unit->player == 0)
+    {
+        r = 0; g = 199; b = 0;
+    }
+    else if(unit->player < 4)
+    {
+        r = 199; g = 0; b = 0;
+    }
+
+    return WAR_COLOR_RGB(r, g, b);
+}
+
+s32 wu_getTotalNumberOfUnits(WarContext* context, u8 player)
+{
+    s32 count = 0;
+
+    WarEntityList* units = we_getEntitiesOfType(context, WAR_ENTITY_TYPE_UNIT);
+    for (s32 i = 0; i < units->count; i++)
+    {
+        WarEntity* entity = units->items[i];
+        if (entity)
+        {
+            WarUnitComponent* unit = we_getUnitComponent(context, entity);
+            if (unit && unit->player == player)
+            {
+                count++;
+            }
+        }
+    }
+
+    return count;
+}
+
+bool wu_playerHasUnit(WarContext* context, u8 player, WarUnitType unitType)
+{
+    return wu_getNumberOfUnitsOfType(context, player, unitType) > 0;
+}
+
+bool wu_playerHasBuilding(WarContext* context, u8 player, WarUnitType unitType)
+{
+    return wu_getNumberOfBuildingsOfType(context, player, unitType, true) > 0;
+}
+
+WarPlayerInfo* wu_getOwningPlayer(WarContext* context, WarEntity* entity)
+{
+    WarUnitComponent* unit = we_getUnitComponent(context, entity);
+    if (!unit)
+    {
+        return NULL;
+    }
+
+    WarMap* map = context->map;
+
+    if (!inRange(unit->player, 0, map->playersCount))
+    {
+        return NULL;
+    }
+
+    return &map->players[unit->player];
+}
+
+bool wu_canRepairEntity(WarContext* context, WarEntity* worker, WarEntity* target)
+{
+    return wu_getOwningPlayer(context, worker) == wu_getOwningPlayer(context, target);
+}
+
+bool wu_isValidUnitType(WarUnitType type)
+{
+    return inRange(type, WAR_UNIT_FOOTMAN, WAR_UNIT_COUNT);
+}
+
+s32 wu_getTotalNumberOfDudes(WarContext* context, u8 player)
+{
+    s32 count = 0;
+
+    WarEntityList* units = we_getEntitiesOfType(context, WAR_ENTITY_TYPE_UNIT);
+    for (s32 i = 0; i < units->count; i++)
+    {
+        WarEntity* entity = units->items[i];
+        if (entity && wu_isDudeUnit(context, entity) && !wu_isSummonUnit(context, entity) && !wu_isSkeletonUnit(context, entity))
+        {
+            WarUnitComponent* unit = we_getUnitComponent(context, entity);
+            if (unit && unit->player == player)
+            {
+                count++;
+            }
+        }
+    }
+
+    return count;
+}
+
+s32 wu_getTotalNumberOfBuildings(WarContext* context, u8 player, bool alreadyBuilt)
+{
+    s32 count = 0;
+
+    WarEntityList* units = we_getEntitiesOfType(context, WAR_ENTITY_TYPE_UNIT);
+    for (s32 i = 0; i < units->count; i++)
+    {
+        WarEntity* entity = units->items[i];
+        if (entity)
+        {
+            WarUnitComponent* unit = we_getUnitComponent(context, entity);
+            if (unit && unit->player == player && wu_isBuildingUnit(context, entity))
+            {
+                if (alreadyBuilt && (wst_isBuilding(context, entity) || wst_isGoingToBuild(context, entity)))
+                    continue;
+
+                count++;
+            }
+        }
+    }
+
+    return count;
+}
+
+s32 wu_getNumberOfBuildingsOfType(WarContext* context, u8 player, WarUnitType unitType, bool alreadyBuilt)
+{
+    assert(wu_isBuildingUnitType(unitType));
+
+    s32 count = 0;
+
+    WarEntityList* units = we_getEntitiesOfType(context, WAR_ENTITY_TYPE_UNIT);
+    for (s32 i = 0; i < units->count; i++)
+    {
+        WarEntity* entity = units->items[i];
+        if (entity)
+        {
+            WarUnitComponent* unit = we_getUnitComponent(context, entity);
+            if (unit &&
+                unit->player == player &&
+                unit->type == unitType)
+            {
+                if (alreadyBuilt && (wst_isBuilding(context, entity) || wst_isGoingToBuild(context, entity)))
+                    continue;
+
+                count++;
+            }
+        }
+    }
+
+    return count;
+}
+
+s32 wu_getNumberOfUnitsOfType(WarContext* context, u8 player, WarUnitType unitType)
+{
+    s32 count = 0;
+
+    WarEntityList* units = we_getEntitiesOfType(context, WAR_ENTITY_TYPE_UNIT);
+    for (s32 i = 0; i < units->count; i++)
+    {
+        WarEntity* entity = units->items[i];
+        if (entity)
+        {
+            WarUnitComponent* unit = we_getUnitComponent(context, entity);
+            if (unit &&
+                unit->player == player &&
+                unit->type == unitType)
+            {
+                count++;
+            }
+        }
+    }
+
+    return count;
+}
+
+WarUnitType wu_getUnitTypeForRace(WarUnitType type, WarRace race)
+{
+    if (race == WAR_RACE_HUMANS)
+    {
+        switch (type)
+        {
+            case WAR_UNIT_GRUNT: return WAR_UNIT_FOOTMAN;
+            case WAR_UNIT_PEON: return WAR_UNIT_PEASANT;
+            case WAR_UNIT_CATAPULT_ORCS: return WAR_UNIT_CATAPULT_HUMANS;
+            case WAR_UNIT_RAIDER: return WAR_UNIT_KNIGHT;
+            case WAR_UNIT_SPEARMAN: return WAR_UNIT_ARCHER;
+            case WAR_UNIT_WARLOCK: return WAR_UNIT_CONJURER;
+            case WAR_UNIT_NECROLYTE: return WAR_UNIT_CLERIC;
+            case WAR_UNIT_FARM_ORCS: return WAR_UNIT_FARM_HUMANS;
+            case WAR_UNIT_BARRACKS_ORCS: return WAR_UNIT_BARRACKS_HUMANS;
+            case WAR_UNIT_TEMPLE: return WAR_UNIT_CHURCH;
+            case WAR_UNIT_TOWER_ORCS: return WAR_UNIT_TOWER_HUMANS;
+            case WAR_UNIT_TOWNHALL_ORCS: return WAR_UNIT_TOWNHALL_HUMANS;
+            case WAR_UNIT_LUMBERMILL_ORCS: return WAR_UNIT_LUMBERMILL_HUMANS;
+            case WAR_UNIT_KENNEL: return WAR_UNIT_STABLE;
+            case WAR_UNIT_BLACKSMITH_ORCS: return WAR_UNIT_BLACKSMITH_HUMANS;
+            case WAR_UNIT_ORC_CORPSE: return WAR_UNIT_HUMAN_CORPSE;
+            default: return type;
+        }
+    }
+
+    if (race == WAR_RACE_ORCS)
+    {
+        switch (type)
+        {
+            case WAR_UNIT_FOOTMAN: return WAR_UNIT_GRUNT;
+            case WAR_UNIT_PEASANT: return WAR_UNIT_PEON;
+            case WAR_UNIT_CATAPULT_HUMANS: return WAR_UNIT_CATAPULT_ORCS;
+            case WAR_UNIT_KNIGHT: return WAR_UNIT_RAIDER;
+            case WAR_UNIT_ARCHER: return WAR_UNIT_SPEARMAN;
+            case WAR_UNIT_CONJURER: return WAR_UNIT_WARLOCK;
+            case WAR_UNIT_CLERIC: return WAR_UNIT_NECROLYTE;
+            case WAR_UNIT_FARM_HUMANS: return WAR_UNIT_FARM_ORCS;
+            case WAR_UNIT_BARRACKS_HUMANS: return WAR_UNIT_BARRACKS_ORCS;
+            case WAR_UNIT_CHURCH: return WAR_UNIT_TEMPLE;
+            case WAR_UNIT_TOWER_HUMANS: return WAR_UNIT_TOWER_ORCS;
+            case WAR_UNIT_TOWNHALL_HUMANS: return WAR_UNIT_TOWNHALL_ORCS;
+            case WAR_UNIT_LUMBERMILL_HUMANS: return WAR_UNIT_LUMBERMILL_ORCS;
+            case WAR_UNIT_STABLE: return WAR_UNIT_KENNEL;
+            case WAR_UNIT_BLACKSMITH_HUMANS: return WAR_UNIT_BLACKSMITH_ORCS;
+            case WAR_UNIT_HUMAN_CORPSE: return WAR_UNIT_ORC_CORPSE;
+            default: return type;
+        }
+    }
+
+    logWarning("Trying to get type %d for race %d, returning %d", type, race, type);
+    return type;
+}
+
+void wu_getUnitCommands(WarContext* context, WarEntity* entity, WarUnitCommandType commands[])
+{
+    assert(entity);
+    assert(wu_isUnit(entity));
+
+    WarMap* map = context->map;
+    assert(map);
+
+    WarPlayerInfo* player = wu_getOwningPlayer(context, entity);
+    assert(player);
+
+    WarUnitComponent* unit = we_getUnitComponent(context, entity);
+    assert(unit);
+
+    if (player->race != wu_getUnitTypeRace(unit->type))
+    {
+        return;
+    }
+
+    WarUnitCommand* command = &map->commandState.command;
+
+    switch (unit->type)
+    {
+        // units
+        case WAR_UNIT_FOOTMAN:
+        case WAR_UNIT_GRUNT:
+        case WAR_UNIT_CATAPULT_HUMANS:
+        case WAR_UNIT_CATAPULT_ORCS:
+        case WAR_UNIT_KNIGHT:
+        case WAR_UNIT_RAIDER:
+        case WAR_UNIT_ARCHER:
+        case WAR_UNIT_SPEARMAN:
+        case WAR_UNIT_WATER_ELEMENTAL:
+        case WAR_UNIT_DAEMON:
+        case WAR_UNIT_SCORPION:
+        case WAR_UNIT_SPIDER:
+        case WAR_UNIT_SKELETON:
+        {
+            if (command->type != WAR_COMMAND_NONE)
+            {
+                commands[5] = WAR_COMMAND_CANCEL;
+            }
+            else
+            {
+                commands[0] = WAR_COMMAND_MOVE;
+                commands[1] = WAR_COMMAND_STOP;
+                commands[2] = WAR_COMMAND_ATTACK;
+            }
+
+            break;
+        }
+
+        case WAR_UNIT_PEASANT:
+        {
+            if (command->type != WAR_COMMAND_NONE)
+            {
+                if (command->type == WAR_COMMAND_BUILD_BASIC)
+                {
+                    commands[0] = WAR_COMMAND_BUILD_FARM_HUMANS;
+
+                    if (isFeatureAllowed(player, WAR_FEATURE_UNIT_LUMBER_MILL_HUMANS))
+                    {
+                        commands[1] = WAR_COMMAND_BUILD_LUMBERMILL_HUMANS;
+                    }
+
+                    commands[2] = WAR_COMMAND_BUILD_BARRACKS_HUMANS;
+                }
+                else if (command->type == WAR_COMMAND_BUILD_ADVANCED)
+                {
+                    commands[0] = WAR_COMMAND_BUILD_BLACKSMITH_HUMANS;
+                    commands[1] = WAR_COMMAND_BUILD_CHURCH;
+                    commands[2] = WAR_COMMAND_BUILD_STABLE;
+
+                    if (wu_playerHasBuilding(context, player->index, WAR_UNIT_BLACKSMITH_HUMANS))
+                    {
+                        commands[3] = WAR_COMMAND_BUILD_TOWER_HUMANS;
+                    }
+                }
+
+                commands[5] = WAR_COMMAND_CANCEL;
+            }
+            else
+            {
+                commands[0] = WAR_COMMAND_MOVE;
+                commands[1] = WAR_COMMAND_STOP;
+                commands[2] = WAR_COMMAND_REPAIR;
+                commands[3] = !wu_isCarryingResources(context, entity)
+                    ? WAR_COMMAND_HARVEST : WAR_COMMAND_DELIVER;
+
+                commands[4] = WAR_COMMAND_BUILD_BASIC;
+
+                if (wu_playerHasBuilding(context, player->index, WAR_UNIT_LUMBERMILL_HUMANS))
+                {
+                    commands[5] = WAR_COMMAND_BUILD_ADVANCED;
+                }
+            }
+
+            break;
+        }
+        case WAR_UNIT_PEON:
+        {
+            if (command->type != WAR_COMMAND_NONE)
+            {
+                if (command->type == WAR_COMMAND_BUILD_BASIC)
+                {
+                    commands[0] = WAR_COMMAND_BUILD_FARM_ORCS;
+
+                    if (isFeatureAllowed(player, WAR_FEATURE_UNIT_LUMBER_MILL_ORCS))
+                    {
+                        commands[1] = WAR_COMMAND_BUILD_LUMBERMILL_ORCS;
+                    }
+
+                    commands[2] = WAR_COMMAND_BUILD_BARRACKS_ORCS;
+                }
+                else if (command->type == WAR_COMMAND_BUILD_ADVANCED)
+                {
+                    commands[0] = WAR_COMMAND_BUILD_BARRACKS_ORCS;
+                    commands[1] = WAR_COMMAND_BUILD_TEMPLE;
+                    commands[2] = WAR_COMMAND_BUILD_KENNEL;
+
+                    if (wu_playerHasBuilding(context, player->index, WAR_UNIT_BLACKSMITH_ORCS))
+                    {
+                        commands[3] = WAR_COMMAND_BUILD_TOWER_ORCS;
+                    }
+                }
+
+                commands[5] = WAR_COMMAND_CANCEL;
+            }
+            else
+            {
+                commands[0] = WAR_COMMAND_MOVE;
+                commands[1] = WAR_COMMAND_STOP;
+                commands[2] = WAR_COMMAND_REPAIR;
+                commands[3] = !wu_isCarryingResources(context, entity)
+                    ? WAR_COMMAND_HARVEST : WAR_COMMAND_DELIVER;
+
+                commands[4] = WAR_COMMAND_BUILD_BASIC;
+
+                if (wu_playerHasBuilding(context, player->index, WAR_UNIT_LUMBERMILL_ORCS))
+                {
+                    commands[5] = WAR_COMMAND_BUILD_ADVANCED;
+                }
+            }
+
+            break;
+        }
+        case WAR_UNIT_CONJURER:
+        {
+            if (command->type != WAR_COMMAND_NONE)
+            {
+                commands[5] = WAR_COMMAND_CANCEL;
+            }
+            else
+            {
+                commands[0] = WAR_COMMAND_MOVE;
+                commands[1] = WAR_COMMAND_STOP;
+                commands[2] = WAR_COMMAND_ATTACK;
+
+                // only if these spells are researshed
+                if (isFeatureAllowed(player, WAR_FEATURE_SPELL_RAIN_OF_FIRE) &&
+                    hasAnyUpgrade(player, WAR_UPGRADE_RAIN_OF_FIRE))
+                {
+                    commands[3] = WAR_COMMAND_SPELL_RAIN_OF_FIRE;
+                }
+
+                if (isFeatureAllowed(player, WAR_FEATURE_SPELL_SCORPION) &&
+                    hasAnyUpgrade(player, WAR_UPGRADE_SCORPIONS))
+                {
+                    commands[4] = WAR_COMMAND_SUMMON_SCORPION;
+                }
+
+                if (isFeatureAllowed(player, WAR_FEATURE_SPELL_WATER_ELEMENTAL) &&
+                    hasAnyUpgrade(player, WAR_UPGRADE_WATER_ELEMENTAL))
+                {
+                    commands[5] = WAR_COMMAND_SUMMON_WATER_ELEMENTAL;
+                }
+            }
+
+            break;
+        }
+        case WAR_UNIT_WARLOCK:
+        {
+            if (command->type != WAR_COMMAND_NONE)
+            {
+                commands[5] = WAR_COMMAND_CANCEL;
+            }
+            else
+            {
+                commands[0] = WAR_COMMAND_MOVE;
+                commands[1] = WAR_COMMAND_STOP;
+                commands[2] = WAR_COMMAND_ATTACK;
+
+                // only if these spells are researshed
+                if (isFeatureAllowed(player, WAR_FEATURE_SPELL_POISON_CLOUD) &&
+                    hasAnyUpgrade(player, WAR_UPGRADE_POISON_CLOUD))
+                {
+                    commands[3] = WAR_COMMAND_SPELL_POISON_CLOUD;
+                }
+
+                if (isFeatureAllowed(player, WAR_FEATURE_SPELL_SPIDER) &&
+                    hasAnyUpgrade(player, WAR_UPGRADE_SPIDERS))
+                {
+                    commands[4] = WAR_COMMAND_SUMMON_SPIDER;
+                }
+
+                if (isFeatureAllowed(player, WAR_FEATURE_SPELL_DAEMON) &&
+                    hasAnyUpgrade(player, WAR_UPGRADE_DAEMON))
+                {
+                    commands[5] = WAR_COMMAND_SUMMON_DAEMON;
+                }
+            }
+
+            break;
+        }
+        case WAR_UNIT_CLERIC:
+        {
+            if (command->type != WAR_COMMAND_NONE)
+            {
+                commands[5] = WAR_COMMAND_CANCEL;
+            }
+            else
+            {
+                commands[0] = WAR_COMMAND_MOVE;
+                commands[1] = WAR_COMMAND_STOP;
+                commands[2] = WAR_COMMAND_ATTACK;
+
+                // only if these spells are researshed
+                if (isFeatureAllowed(player, WAR_FEATURE_SPELL_HEALING) &&
+                    hasAnyUpgrade(player, WAR_UPGRADE_HEALING))
+                {
+                    commands[3] = WAR_COMMAND_SPELL_HEALING;
+                }
+
+                if (isFeatureAllowed(player, WAR_FEATURE_SPELL_FAR_SIGHT) &&
+                    hasAnyUpgrade(player, WAR_UPGRADE_FAR_SIGHT))
+                {
+                    commands[4] = WAR_COMMAND_SPELL_FAR_SIGHT;
+                }
+
+                if (isFeatureAllowed(player, WAR_FEATURE_SPELL_INVISIBILITY) &&
+                    hasAnyUpgrade(player, WAR_UPGRADE_INVISIBILITY))
+                {
+                    commands[5] = WAR_COMMAND_SPELL_INVISIBILITY;
+                }
+            }
+
+            break;
+        }
+        case WAR_UNIT_NECROLYTE:
+        {
+            if (command->type != WAR_COMMAND_NONE)
+            {
+                commands[5] = WAR_COMMAND_CANCEL;
+            }
+            else
+            {
+                commands[0] = WAR_COMMAND_MOVE;
+                commands[1] = WAR_COMMAND_STOP;
+                commands[2] = WAR_COMMAND_ATTACK;
+
+                // only if these spells are researshed
+                if (isFeatureAllowed(player, WAR_FEATURE_SPELL_RAISE_DEAD) &&
+                    hasAnyUpgrade(player, WAR_UPGRADE_RAISE_DEAD))
+                {
+                    commands[3] = WAR_COMMAND_SPELL_RAISE_DEAD;
+                }
+
+                if (isFeatureAllowed(player, WAR_FEATURE_SPELL_DARK_VISION) &&
+                    hasAnyUpgrade(player, WAR_UPGRADE_DARK_VISION))
+                {
+                    commands[4] = WAR_COMMAND_SPELL_DARK_VISION;
+                }
+
+                if (isFeatureAllowed(player, WAR_FEATURE_SPELL_UNHOLY_ARMOR) &&
+                    hasAnyUpgrade(player, WAR_UPGRADE_UNHOLY_ARMOR))
+                {
+                    commands[5] = WAR_COMMAND_SPELL_UNHOLY_ARMOR;
+                }
+            }
+
+            break;
+        }
+
+        // buildings
+        case WAR_UNIT_FARM_HUMANS:
+        case WAR_UNIT_FARM_ORCS:
+        {
+            if (unit->building)
+            {
+                commands[5] = WAR_COMMAND_CANCEL;
+            }
+
+            break;
+        }
+
+        case WAR_UNIT_BARRACKS_HUMANS:
+        {
+            if (unit->building)
+            {
+                commands[5] = WAR_COMMAND_CANCEL;
+            }
+            else
+            {
+                commands[0] = WAR_COMMAND_TRAIN_FOOTMAN;
+
+                // only if there is a lumber mill
+                if (wu_playerHasBuilding(context, player->index, WAR_UNIT_LUMBERMILL_HUMANS))
+                {
+                    commands[1] = WAR_COMMAND_TRAIN_ARCHER;
+                }
+
+                // only if there is a blacksmith
+                if (wu_playerHasBuilding(context, player->index, WAR_UNIT_BLACKSMITH_HUMANS))
+                {
+                    commands[2] = WAR_COMMAND_TRAIN_CATAPULT_HUMANS;
+
+                    // only if there is a stable
+                    if (wu_playerHasBuilding(context, player->index, WAR_UNIT_STABLE))
+                    {
+                        commands[3] = WAR_COMMAND_TRAIN_KNIGHT;
+                    }
+                }
+            }
+
+            break;
+        }
+        case WAR_UNIT_BARRACKS_ORCS:
+        {
+            if (unit->building)
+            {
+                commands[5] = WAR_COMMAND_CANCEL;
+            }
+            else
+            {
+                commands[0] = WAR_COMMAND_TRAIN_GRUNT;
+
+                // only if there is a lumber mill
+                if (wu_playerHasBuilding(context, player->index, WAR_UNIT_LUMBERMILL_ORCS))
+                {
+                    commands[1] = WAR_COMMAND_TRAIN_SPEARMAN;
+                }
+
+                // only if there is a blacksmith
+                if (wu_playerHasBuilding(context, player->index, WAR_UNIT_BLACKSMITH_ORCS))
+                {
+                    commands[2] = WAR_COMMAND_TRAIN_CATAPULT_ORCS;
+
+                    // only if there is a kennel
+                    if (wu_playerHasBuilding(context, player->index, WAR_UNIT_KENNEL))
+                    {
+                        commands[3] = WAR_COMMAND_TRAIN_RAIDER;
+                    }
+                }
+            }
+
+            break;
+        }
+        case WAR_UNIT_CHURCH:
+        {
+            if (unit->building)
+            {
+                commands[5] = WAR_COMMAND_CANCEL;
+            }
+            else
+            {
+                commands[0] = WAR_COMMAND_TRAIN_CLERIC;
+
+                // only if this upgrade is not been researched yet
+                if (isFeatureAllowed(player, WAR_FEATURE_SPELL_HEALING) &&
+                    hasRemainingUpgrade(player, WAR_UPGRADE_HEALING))
+                {
+                    commands[1] = WAR_COMMAND_UPGRADE_HEALING;
+                }
+
+                if (isFeatureAllowed(player, WAR_FEATURE_SPELL_FAR_SIGHT) &&
+                    hasRemainingUpgrade(player, WAR_UPGRADE_FAR_SIGHT))
+                {
+                    commands[2] = WAR_COMMAND_UPGRADE_FAR_SIGHT;
+                }
+
+                if (isFeatureAllowed(player, WAR_FEATURE_SPELL_INVISIBILITY) &&
+                    hasRemainingUpgrade(player, WAR_UPGRADE_INVISIBILITY))
+                {
+                    commands[3] = WAR_COMMAND_UPGRADE_INVISIBILITY;
+                }
+            }
+
+            break;
+        }
+        case WAR_UNIT_TEMPLE:
+        {
+            if (unit->building)
+            {
+                commands[5] = WAR_COMMAND_CANCEL;
+            }
+            else
+            {
+                commands[0] = WAR_COMMAND_TRAIN_NECROLYTE;
+
+                // only if this upgrade is not been researched yet
+                if (isFeatureAllowed(player, WAR_FEATURE_SPELL_RAISE_DEAD) &&
+                    hasRemainingUpgrade(player, WAR_UPGRADE_RAISE_DEAD))
+                {
+                    commands[1] = WAR_COMMAND_UPGRADE_RAISE_DEAD;
+                }
+
+                if (isFeatureAllowed(player, WAR_FEATURE_SPELL_DARK_VISION) &&
+                    hasRemainingUpgrade(player, WAR_UPGRADE_DARK_VISION))
+                {
+                    commands[2] = WAR_COMMAND_UPGRADE_DARK_VISION;
+                }
+
+                if (isFeatureAllowed(player, WAR_FEATURE_SPELL_UNHOLY_ARMOR) &&
+                    hasRemainingUpgrade(player, WAR_UPGRADE_UNHOLY_ARMOR))
+                {
+                    commands[3] = WAR_COMMAND_UPGRADE_UNHOLY_ARMOR;
+                }
+            }
+
+            break;
+        }
+        case WAR_UNIT_TOWER_HUMANS:
+        {
+            if (unit->building)
+            {
+                commands[5] = WAR_COMMAND_CANCEL;
+            }
+            else
+            {
+                commands[0] = WAR_COMMAND_TRAIN_CONJURER;
+
+                // only if this upgrade is not been researched yet
+                if (isFeatureAllowed(player, WAR_FEATURE_SPELL_SCORPION) &&
+                    hasRemainingUpgrade(player, WAR_UPGRADE_SCORPIONS))
+                {
+                    commands[1] = WAR_COMMAND_UPGRADE_SCORPION;
+                }
+
+                if (isFeatureAllowed(player, WAR_FEATURE_SPELL_RAIN_OF_FIRE) &&
+                    hasRemainingUpgrade(player, WAR_UPGRADE_RAIN_OF_FIRE))
+                {
+                    commands[2] = WAR_COMMAND_UPGRADE_RAIN_OF_FIRE;
+                }
+
+                if (isFeatureAllowed(player, WAR_FEATURE_SPELL_WATER_ELEMENTAL) &&
+                    hasRemainingUpgrade(player, WAR_UPGRADE_WATER_ELEMENTAL))
+                {
+                    commands[3] = WAR_COMMAND_UPGRADE_WATER_ELEMENTAL;
+                }
+            }
+
+            break;
+        }
+        case WAR_UNIT_TOWER_ORCS:
+        {
+            if (unit->building)
+            {
+                commands[5] = WAR_COMMAND_CANCEL;
+            }
+            else
+            {
+                commands[0] = WAR_COMMAND_TRAIN_WARLOCK;
+
+                // only if this upgrade is not been researched yet
+                if (isFeatureAllowed(player, WAR_FEATURE_SPELL_SPIDER) &&
+                    hasRemainingUpgrade(player, WAR_UPGRADE_SPIDERS))
+                {
+                    commands[1] = WAR_COMMAND_UPGRADE_SPIDER;
+                }
+
+                if (isFeatureAllowed(player, WAR_FEATURE_SPELL_POISON_CLOUD) &&
+                    hasRemainingUpgrade(player, WAR_UPGRADE_POISON_CLOUD))
+                {
+                    commands[2] = WAR_COMMAND_UPGRADE_POISON_CLOUD;
+                }
+
+                if (isFeatureAllowed(player, WAR_FEATURE_SPELL_DAEMON) &&
+                    hasRemainingUpgrade(player, WAR_UPGRADE_DAEMON))
+                {
+                    commands[3] = WAR_COMMAND_UPGRADE_DAEMON;
+                }
+            }
+
+            break;
+        }
+        case WAR_UNIT_TOWNHALL_HUMANS:
+        case WAR_UNIT_TOWNHALL_ORCS:
+        {
+            if (command->type == WAR_COMMAND_BUILD_WALL ||
+                command->type == WAR_COMMAND_BUILD_ROAD ||
+                unit->building)
+            {
+                commands[5] = WAR_COMMAND_CANCEL;
+            }
+            else
+            {
+                commands[0] = unit->type == WAR_UNIT_TOWNHALL_HUMANS
+                    ? WAR_COMMAND_TRAIN_PEASANT : WAR_COMMAND_TRAIN_PEON;
+
+                commands[1] = WAR_COMMAND_BUILD_ROAD;
+
+                // only if this is allowed
+                if (isFeatureAllowed(player, WAR_FEATURE_UNIT_WALL))
+                {
+                    commands[2] = WAR_COMMAND_BUILD_WALL;
+                }
+            }
+
+            break;
+        }
+        case WAR_UNIT_LUMBERMILL_HUMANS:
+        {
+            if (unit->building)
+            {
+                commands[5] = WAR_COMMAND_CANCEL;
+            }
+            else
+            {
+                // only if this upgrade is less than level 2
+                if (hasRemainingUpgrade(player, WAR_UPGRADE_ARROWS))
+                {
+                    commands[0] = WAR_COMMAND_UPGRADE_ARROWS;
+                }
+            }
+
+            break;
+        }
+        case WAR_UNIT_LUMBERMILL_ORCS:
+        {
+            if (unit->building)
+            {
+                commands[5] = WAR_COMMAND_CANCEL;
+            }
+            else
+            {
+                // only if this upgrade is less than level 2
+                if (hasRemainingUpgrade(player, WAR_UPGRADE_SPEARS))
+                {
+                    commands[0] = WAR_COMMAND_UPGRADE_SPEARS;
+                }
+            }
+
+            break;
+        }
+        case WAR_UNIT_STABLE:
+        {
+            if (unit->building)
+            {
+                commands[5] = WAR_COMMAND_CANCEL;
+            }
+            else
+            {
+                // only if this upgrade is less than level 2
+                if (hasRemainingUpgrade(player, WAR_UPGRADE_HORSES))
+                {
+                    commands[0] = WAR_COMMAND_UPGRADE_HORSES;
+                }
+            }
+
+            break;
+        }
+        case WAR_UNIT_KENNEL:
+        {
+            if (unit->building)
+            {
+                commands[5] = WAR_COMMAND_CANCEL;
+            }
+            else
+            {
+                // only if this upgrade is less than level 2
+                if (hasRemainingUpgrade(player, WAR_UPGRADE_WOLVES))
+                {
+                    commands[0] = WAR_COMMAND_UPGRADE_WOLVES;
+                }
+            }
+
+            break;
+        }
+        case WAR_UNIT_BLACKSMITH_HUMANS:
+        {
+            if (unit->building)
+            {
+                commands[5] = WAR_COMMAND_CANCEL;
+            }
+            else
+            {
+                // only if this upgrade is less than level 2
+                if (hasRemainingUpgrade(player, WAR_UPGRADE_SWORDS))
+                {
+                    commands[0] = WAR_COMMAND_UPGRADE_SWORDS;
+                }
+
+                if (hasRemainingUpgrade(player, WAR_UPGRADE_SHIELD))
+                {
+                    commands[1] = WAR_COMMAND_UPGRADE_SHIELD_HUMANS;
+                }
+            }
+
+            break;
+        }
+        case WAR_UNIT_BLACKSMITH_ORCS:
+        {
+            if (unit->building)
+            {
+                commands[5] = WAR_COMMAND_CANCEL;
+            }
+            else
+            {
+                // only if this upgrade is less than level 2
+                if (hasRemainingUpgrade(player, WAR_UPGRADE_AXES))
+                {
+                    commands[0] = WAR_COMMAND_UPGRADE_AXES;
+                }
+
+                if (hasRemainingUpgrade(player, WAR_UPGRADE_SHIELD))
+                {
+                    commands[1] = WAR_COMMAND_UPGRADE_SHIELD_ORCS;
+                }
+            }
+
+            break;
+        }
+
+        default:
+        {
+            logWarning("Commands for unit type %d not handled yet.", unit->type);
+            break;
+        }
+    }
+}
+
+WarUnitCommandData wu_getUnitCommandData(WarContext* context, WarEntity* entity, WarUnitCommandType commandType)
+{
+    WarPlayerInfo* player = wu_getOwningPlayer(context, entity);
+    assert(player);
+
+    const WarUnitCommandBaseData* commandBaseData = wu_getCommandBaseData(commandType);
+
+    WarUnitCommandData data = (WarUnitCommandData){0};
+    data.type = commandType;
+    data.hotKey = commandBaseData->hotKey;
+    data.highlightIndex = commandBaseData->highlightIndex;
+    data.highlightCount = commandBaseData->highlightCount;
+    data.tooltip = commandBaseData->tooltip;
+    data.clickHandler = commandBaseData->clickHandler;
+
+    switch (commandType)
+    {
+        // unit commands
+        case WAR_COMMAND_MOVE:
+        {
+            data.frameIndex = isHumanPlayer(player)
+                ? WAR_PORTRAIT_MOVE_HUMANS : WAR_PORTRAIT_MOVE_ORCS;
+            break;
+        }
+        case WAR_COMMAND_STOP:
+        {
+            // check here upgrades for the shields
+            if (getUpgradeLevel(player, WAR_UPGRADE_SHIELD) == 2)
+            {
+                data.frameIndex = isHumanPlayer(player)
+                    ? WAR_PORTRAIT_SHIELD_3_HUMANS : WAR_PORTRAIT_SHIELD_3_ORCS;
+            }
+            else if (getUpgradeLevel(player, WAR_UPGRADE_SHIELD) == 1)
+            {
+                data.frameIndex = isHumanPlayer(player)
+                    ? WAR_PORTRAIT_SHIELD_2_HUMANS : WAR_PORTRAIT_SHIELD_2_ORCS;
+            }
+            else
+            {
+                data.frameIndex = isHumanPlayer(player)
+                    ? WAR_PORTRAIT_SHIELD_1_HUMANS : WAR_PORTRAIT_SHIELD_1_ORCS;
+            }
+
+            break;
+        }
+        case WAR_COMMAND_HARVEST:
+        {
+            data.frameIndex = WAR_PORTRAIT_HARVEST;
+            break;
+        }
+        case WAR_COMMAND_DELIVER:
+        {
+            data.frameIndex = WAR_PORTRAIT_DELIVER;
+            break;
+        }
+        case WAR_COMMAND_REPAIR:
+        {
+            data.frameIndex = WAR_PORTRAIT_REPAIR;
+            break;
+        }
+        case WAR_COMMAND_BUILD_BASIC:
+        {
+            data.frameIndex = WAR_PORTRAIT_BUILD_BASIC;
+            break;
+        }
+        case WAR_COMMAND_BUILD_ADVANCED:
+        {
+            data.frameIndex = WAR_PORTRAIT_BUILD_ADVANCED;
+            break;
+        }
+        case WAR_COMMAND_ATTACK:
+        {
+            if (entity && wu_isUnit(entity))
+            {
+                WarUnitComponent* unit = we_getUnitComponent(context, entity);
+                assert(unit);
+
+                switch (unit->type)
+                {
+                    // units
+                    case WAR_UNIT_FOOTMAN:
+                    case WAR_UNIT_GRUNT:
+                    case WAR_UNIT_KNIGHT:
+                    case WAR_UNIT_RAIDER:
+                    case WAR_UNIT_CATAPULT_HUMANS:
+                    case WAR_UNIT_CATAPULT_ORCS:
+                    case WAR_UNIT_SCORPION:
+                    case WAR_UNIT_SPIDER:
+                    case WAR_UNIT_DAEMON:
+                    {
+                        // check here upgrades for the sword
+                        WarUpgradeType swordAxeUpgrade = isHumanPlayer(player)
+                            ? WAR_UPGRADE_SWORDS : WAR_UPGRADE_AXES;
+
+                        if (getUpgradeLevel(player, swordAxeUpgrade) == 2)
+                        {
+                            data.frameIndex = isHumanPlayer(player)
+                                ? WAR_PORTRAIT_SWORD_3 : WAR_PORTRAIT_AXE_3;
+                        }
+                        else if (getUpgradeLevel(player, swordAxeUpgrade) == 1)
+                        {
+                            data.frameIndex = isHumanPlayer(player)
+                                ? WAR_PORTRAIT_SWORD_2 : WAR_PORTRAIT_AXE_2;
+                        }
+                        else
+                        {
+                            data.frameIndex = isHumanPlayer(player)
+                                ? WAR_PORTRAIT_SWORD_1 : WAR_PORTRAIT_AXE_1;
+                        }
+
+                        break;
+                    }
+
+                    case WAR_UNIT_ARCHER:
+                    case WAR_UNIT_SPEARMAN:
+                    {
+                        // check here upgrades for the arrows
+                        WarUpgradeType arrowSpearUpgrade = isHumanPlayer(player)
+                            ? WAR_UPGRADE_ARROWS : WAR_UPGRADE_SPEARS;
+
+                        if (getUpgradeLevel(player, arrowSpearUpgrade) == 2)
+                        {
+                            data.frameIndex = isHumanPlayer(player)
+                                ? WAR_PORTRAIT_ARROW_3 : WAR_PORTRAIT_SPEAR_3;
+                        }
+                        else if (getUpgradeLevel(player, arrowSpearUpgrade) == 1)
+                        {
+                            data.frameIndex = isHumanPlayer(player)
+                                ? WAR_PORTRAIT_ARROW_2 : WAR_PORTRAIT_SPEAR_2;
+                        }
+                        else
+                        {
+                            data.frameIndex = isHumanPlayer(player)
+                                ? WAR_PORTRAIT_ARROW_1 : WAR_PORTRAIT_SPEAR_1;
+                        }
+
+                        break;
+                    }
+
+                    case WAR_UNIT_CONJURER:
+                    case WAR_UNIT_WATER_ELEMENTAL:
+                    {
+                        data.frameIndex = WAR_PORTRAIT_ELEMENTAL_BLAST;
+                        break;
+                    }
+
+                    case WAR_UNIT_CLERIC:
+                    {
+                        data.frameIndex = WAR_PORTRAIT_HOLY_LANCE;
+                        break;
+                    }
+
+                    case WAR_UNIT_NECROLYTE:
+                    {
+                        data.frameIndex = WAR_PORTRAIT_SHADOW_SPEAR;
+                        break;
+                    }
+
+                    case WAR_UNIT_WARLOCK:
+                    {
+                        data.frameIndex = WAR_PORTRAIT_FIREBALL;
+                        break;
+                    }
+
+                    default:
+                    {
+                        logWarning("Trying to get an attack command for unit of type: %d", unit->type);
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                // check here upgrades for the sword
+                if (isHumanPlayer(player))
+                {
+                    if (getUpgradeLevel(player, WAR_UPGRADE_SWORDS) == 2)
+                        data.frameIndex = WAR_PORTRAIT_SWORD_3;
+                    else if (getUpgradeLevel(player, WAR_UPGRADE_SWORDS) == 1)
+                        data.frameIndex = WAR_PORTRAIT_SWORD_2;
+                    else
+                        data.frameIndex = WAR_PORTRAIT_SWORD_1;
+                }
+                else if (isOrcPlayer(player))
+                {
+                    if (getUpgradeLevel(player, WAR_UPGRADE_AXES) == 2)
+                        data.frameIndex = WAR_PORTRAIT_AXE_3;
+                    else if (getUpgradeLevel(player, WAR_UPGRADE_AXES) == 1)
+                        data.frameIndex = WAR_PORTRAIT_AXE_2;
+                    else
+                        data.frameIndex = WAR_PORTRAIT_AXE_1;
+                }
+                else
+                {
+                    logWarning("Trying to get a frame index for player race: %d", player->race);
+                    assert(false);
+                }
+            }
+
+            break;
+        }
+
+        case WAR_COMMAND_TRAIN_PEASANT:
+        case WAR_COMMAND_TRAIN_PEON:
+        case WAR_COMMAND_TRAIN_FOOTMAN:
+        case WAR_COMMAND_TRAIN_GRUNT:
+        case WAR_COMMAND_TRAIN_CATAPULT_HUMANS:
+        case WAR_COMMAND_TRAIN_CATAPULT_ORCS:
+        case WAR_COMMAND_TRAIN_KNIGHT:
+        case WAR_COMMAND_TRAIN_RAIDER:
+        case WAR_COMMAND_TRAIN_ARCHER:
+        case WAR_COMMAND_TRAIN_SPEARMAN:
+        case WAR_COMMAND_TRAIN_CONJURER:
+        case WAR_COMMAND_TRAIN_WARLOCK:
+        case WAR_COMMAND_TRAIN_CLERIC:
+        case WAR_COMMAND_TRAIN_NECROLYTE:
+        {
+            const WarUnitCommandMapping* commandMapping = wu_getCommandMapping(commandType);
+            const WarUnitData* unitData = wu_getUnitData(commandMapping->mappedType);
+            const WarUnitStats* stats = wu_getUnitStats(commandMapping->mappedType);
+
+            data.gold = stats->goldCost;
+            data.wood = stats->woodCost;
+            data.frameIndex = unitData->portraitFrameIndex;
+            break;
+        }
+
+        case WAR_COMMAND_BUILD_FARM_HUMANS:
+        case WAR_COMMAND_BUILD_FARM_ORCS:
+        case WAR_COMMAND_BUILD_BARRACKS_HUMANS:
+        case WAR_COMMAND_BUILD_BARRACKS_ORCS:
+        case WAR_COMMAND_BUILD_CHURCH:
+        case WAR_COMMAND_BUILD_TEMPLE:
+        case WAR_COMMAND_BUILD_TOWER_HUMANS:
+        case WAR_COMMAND_BUILD_TOWER_ORCS:
+        case WAR_COMMAND_BUILD_TOWNHALL_HUMANS:
+        case WAR_COMMAND_BUILD_TOWNHALL_ORCS:
+        case WAR_COMMAND_BUILD_LUMBERMILL_HUMANS:
+        case WAR_COMMAND_BUILD_LUMBERMILL_ORCS:
+        case WAR_COMMAND_BUILD_STABLE:
+        case WAR_COMMAND_BUILD_KENNEL:
+        case WAR_COMMAND_BUILD_BLACKSMITH_HUMANS:
+        case WAR_COMMAND_BUILD_BLACKSMITH_ORCS:
+        {
+            const WarUnitCommandMapping* commandMapping = wu_getCommandMapping(commandType);
+            const WarUnitData* unitData = wu_getUnitData(commandMapping->mappedType);
+            const WarBuildingStats* stats = wu_getBuildingStats(commandMapping->mappedType);
+
+            data.gold = stats->goldCost;
+            data.wood = stats->woodCost;
+            data.frameIndex = unitData->portraitFrameIndex;
+            break;
+        }
+
+        case WAR_COMMAND_BUILD_ROAD:
+        {
+            data.gold = 50;
+            data.frameIndex = WAR_PORTRAIT_ROAD;
+            break;
+        }
+
+        case WAR_COMMAND_BUILD_WALL:
+        {
+            data.gold = WAR_WALL_GOLD_COST;
+            data.frameIndex = WAR_PORTRAIT_WALL;
+            break;
+        }
+
+        case WAR_COMMAND_UPGRADE_SWORDS:
+        case WAR_COMMAND_UPGRADE_AXES:
+        case WAR_COMMAND_UPGRADE_SHIELD_HUMANS:
+        case WAR_COMMAND_UPGRADE_SHIELD_ORCS:
+        case WAR_COMMAND_UPGRADE_ARROWS:
+        case WAR_COMMAND_UPGRADE_SPEARS:
+        case WAR_COMMAND_UPGRADE_HORSES:
+        case WAR_COMMAND_UPGRADE_WOLVES:
+        case WAR_COMMAND_UPGRADE_SCORPION:
+        case WAR_COMMAND_UPGRADE_SPIDER:
+        case WAR_COMMAND_UPGRADE_RAIN_OF_FIRE:
+        case WAR_COMMAND_UPGRADE_POISON_CLOUD:
+        case WAR_COMMAND_UPGRADE_WATER_ELEMENTAL:
+        case WAR_COMMAND_UPGRADE_DAEMON:
+        case WAR_COMMAND_UPGRADE_HEALING:
+        case WAR_COMMAND_UPGRADE_RAISE_DEAD:
+        case WAR_COMMAND_UPGRADE_FAR_SIGHT:
+        case WAR_COMMAND_UPGRADE_DARK_VISION:
+        case WAR_COMMAND_UPGRADE_INVISIBILITY:
+        case WAR_COMMAND_UPGRADE_UNHOLY_ARMOR:
+        {
+            const WarUnitCommandMapping* commandMapping = wu_getCommandMapping(commandType);
+
+            assert(hasRemainingUpgrade(player, commandMapping->mappedType));
+
+            const WarUpgradeData* upgradeData = wu_getUpgradeData(commandMapping->mappedType);
+            const WarUpgradeStats* stats = wu_getUpgradeStats(commandMapping->mappedType);
+            s32 upgradeLevel = getUpgradeLevel(player, commandMapping->mappedType);
+
+            data.gold = stats->goldCost[upgradeLevel];
+            data.frameIndex = upgradeData->frameIndices[upgradeLevel];
+            break;
+        }
+
+        case WAR_COMMAND_SUMMON_SPIDER:
+        case WAR_COMMAND_SUMMON_SCORPION:
+        case WAR_COMMAND_SUMMON_DAEMON:
+        case WAR_COMMAND_SUMMON_WATER_ELEMENTAL:
+        case WAR_COMMAND_SPELL_HEALING:
+        case WAR_COMMAND_SPELL_FAR_SIGHT:
+        case WAR_COMMAND_SPELL_INVISIBILITY:
+        case WAR_COMMAND_SPELL_RAIN_OF_FIRE:
+        case WAR_COMMAND_SPELL_RAISE_DEAD:
+        case WAR_COMMAND_SPELL_DARK_VISION:
+        case WAR_COMMAND_SPELL_UNHOLY_ARMOR:
+        case WAR_COMMAND_SPELL_POISON_CLOUD:
+        {
+            const WarUnitCommandMapping* commandMapping = wu_getCommandMapping(commandType);
+            const WarSpellData* spell = wu_getSpellData(commandMapping->mappedType);
+
+            data.frameIndex = spell->portraitFrameIndex;
+            break;
+        }
+
+        // wcmd_cancel
+        case WAR_COMMAND_CANCEL:
+        {
+            data.frameIndex = WAR_PORTRAIT_CANCEL;
+            break;
+        }
+
+        default:
+        {
+            logWarning("Unkown command type: %d", commandType);
+            break;
+        }
+    }
+
+    return data;
+}
+

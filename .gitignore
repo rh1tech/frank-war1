@@ -1,0 +1,15 @@
+build/
+**/build/
+*.uf2
+*.elf
+*.bin
+*.o
+*.a
+.DS_Store
+third_party/nblood-amiga/nblood
+third_party/nblood-amiga/src/version-auto.c
+third_party/nblood-amiga/jfbuild/src/version-auto.c
+release/
+shots/
+*.wav
+*.zip

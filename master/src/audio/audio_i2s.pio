@@ -1,0 +1,58 @@
+;
+; I2S transmit for the TDA1387T (U8), 16-bit stereo.
+;
+; Copyright (c) 2020 Raspberry Pi (Trading) Ltd.
+; SPDX-License-Identifier: BSD-3-Clause
+;
+; Taken from pico-extras unchanged, by way of frank-test's drivers/audio_i2s.pio.
+; The cs4334 variant that file also carries is dropped: this board has a
+; TDA1387, which wants plain I2S.
+;
+; Autopull is on with a threshold of 32, and the shift is left because I2S is
+; MSB first, so one FIFO word is one stereo frame:
+;
+;   | 31   :   16 | 15   :    0 |
+;   | left (ws=0) | right (ws=1)|
+;
+; One output pin carries data; two side-set pins carry the bit clock and word
+; select. A bit goes out per clock, so the sample rate is set by the state
+; machine's clock divider -- see audio_set_rate() in audio.c.
+
+.program audio_i2s
+.side_set 2
+
+                    ;        /--- LRCLK
+                    ;        |/-- BCLK
+bitloop1:           ;        ||
+    out pins, 1       side 0b10
+    jmp x-- bitloop1  side 0b11
+    out pins, 1       side 0b00
+    set x, 14         side 0b01
+
+bitloop0:
+    out pins, 1       side 0b00
+    jmp x-- bitloop0  side 0b01
+    out pins, 1       side 0b10
+public entry_point:
+    set x, 14         side 0b11
+
+% c-sdk {
+
+static inline void audio_i2s_program_init(PIO pio, uint sm, uint offset,
+                                          uint data_pin, uint clock_pin_base) {
+    pio_sm_config sm_config = audio_i2s_program_get_default_config(offset);
+
+    sm_config_set_out_pins(&sm_config, data_pin, 1);
+    sm_config_set_sideset_pins(&sm_config, clock_pin_base);
+    sm_config_set_out_shift(&sm_config, false, true, 32);
+
+    pio_sm_init(pio, sm, offset, &sm_config);
+
+    uint pin_mask = (1u << data_pin) | (3u << clock_pin_base);
+    pio_sm_set_pindirs_with_mask(pio, sm, pin_mask, pin_mask);
+    pio_sm_set_pins(pio, sm, 0);
+
+    pio_sm_exec(pio, sm, pio_encode_jmp(offset + audio_i2s_offset_entry_point));
+}
+
+%}

@@ -1,0 +1,146 @@
+﻿#include "war_entities.h"
+
+#include <assert.h>
+
+bool we_hasWallPieceAtPosition(WarContext* context, WarEntity* wall, s32 x, s32 y)
+{
+    WarWallComponent* wallComp = we_getWallComponent(context, wall);
+    assert(wallComp);
+
+    WarWallPieceList* pieces = &wallComp->pieces;
+    for (s32 i = 0; i < pieces->count; i++)
+    {
+        WarWallPiece* piece = &pieces->items[i];
+        if (piece->tilex == x && piece->tiley == y)
+            return true;
+    }
+
+    return false;
+}
+
+WarWallPiece* we_getWallPieceAtPosition(WarContext* context, WarEntity* wall, s32 x, s32 y)
+{
+    WarWallComponent* wallComp = we_getWallComponent(context, wall);
+    assert(wallComp);
+
+    WarWallPieceList* pieces = &wallComp->pieces;
+    for (s32 i = 0; i < pieces->count; i++)
+    {
+        WarWallPiece* piece = &pieces->items[i];
+        if (piece->tilex == x && piece->tiley == y)
+            return piece;
+    }
+
+    return NULL;
+}
+
+void we_determineWallTypes(WarContext* context, WarEntity* entity)
+{
+    assert(entity->type == WAR_ENTITY_TYPE_WALL);
+
+    WarWallComponent* wallComp = we_getWallComponent(context, entity);
+    assert(wallComp);
+
+    WarWallPieceList* pieces = &wallComp->pieces;
+
+    const s32 dirC = 4;
+    const s32 dirX[] = {  0, 1, 0, -1 };
+    const s32 dirY[] = { -1, 0, 1,  0 };
+
+    s32 count = pieces->count;
+    for(s32 i = 0; i < count; i++)
+    {
+        WarWallPiece* pi = &pieces->items[i];
+
+        s32 index = 0;
+
+        for (s32 d = 0; d < dirC; d++)
+        {
+            s32 xx = pi->tilex + dirX[d];
+            s32 yy = pi->tiley + dirY[d];
+
+            if (!wpath_isInside(xx, yy) || we_hasWallPieceAtPosition(context, entity, xx, yy))
+            {
+                index = index | (1 << d);
+            }
+        }
+
+        pi->type = wallTileTypeMap[index];
+    }
+}
+
+WarWallPiece* we_addWallPiece(WarContext* context, WarEntity* entity, s32 x, s32 y, s32 player)
+{
+    WarWallComponent* wallComp = we_getWallComponent(context, entity);
+    assert(wallComp);
+
+    WarWallPieceList* pieces = &wallComp->pieces;
+    WarWallPieceListAdd(pieces, createWallPiece(x, y, player));
+    return &pieces->items[pieces->count - 1];
+}
+
+void we_addWallPiecesFromConstruct(WarContext* context, WarEntity* entity, WarLevelConstruct *construct)
+{
+    assert(entity->type == WAR_ENTITY_TYPE_WALL);
+
+    WarWallComponent* wallComp = we_getWallComponent(context, entity);
+    assert(wallComp);
+
+    WarWallPieceList *pieces = &wallComp->pieces;
+
+    s32 x1 = construct->x1;
+    s32 y1 = construct->y1;
+    s32 x2 = construct->x2;
+    s32 y2 = construct->y2;
+    u8 player = construct->player;
+
+    s32 dx = x2 - x1;
+    dx = SIGN(dx);
+
+    s32 dy = y2 - y1;
+    dy = SIGN(dy);
+
+    s32 x = x1;
+    s32 y = y1;
+
+    while (x != x2)
+    {
+        WarWallPieceListAdd(pieces, createWallPiece(x, y, player));
+        x += dx;
+    }
+
+    WarWallPieceListAdd(pieces, createWallPiece(x, y, player));
+
+    while (y != y2)
+    {
+        WarWallPieceListAdd(pieces, createWallPiece(x, y, player));
+        y += dy;
+    }
+
+    WarWallPieceListAdd(pieces, createWallPiece(x, y, player));
+}
+
+void we_removeWallPiece(WarContext* context, WarEntity* entity, WarWallPiece* piece)
+{
+    WarWallComponent* wallComp = we_getWallComponent(context, entity);
+    assert(wallComp);
+
+    WarWallPieceList* pieces = &wallComp->pieces;
+    WarWallPieceListRemove(pieces, *piece, we_equalsWallPiece);
+}
+
+WarEntity* we_createWall(WarContext* context)
+{
+    WarMap* map = context->map;
+
+    WarWallPieceList pieces;
+    WarWallPieceListInit(&pieces, wm_globalAllocator());
+
+    WarEntity *entity = we_createEntity(context, WAR_ENTITY_TYPE_WALL, true);
+    we_addWallComponent(context, entity, pieces);
+    we_addSpriteComponent(context, entity, WAR_SPRITE_COMPONENT_INIT(
+        .sprite = map->sprite
+    ));
+
+    return entity;
+}

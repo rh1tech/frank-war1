@@ -1,0 +1,82 @@
+#pragma once
+
+#include "SDL3/SDL.h"
+
+#include "war_common.h"
+#include "war.h"
+#include "war_math.h"
+
+struct _WarSpriteFrame
+{
+    u16 dx, dy;
+    u16 w, h;
+    u32 off;
+    u8* data;
+};
+
+#ifdef WAR_FRANK
+// frank: a sprite shares its resource's frames instead of copying them.
+// Resource frames are 8-bit and cropped to (dx, dy, w, h): the four bytes
+// before frame.data hold dx, dy, w, h (see wres_loadSpriteResource).
+struct _WarSprite
+{
+    SDL_Texture* texture;
+    s32 frameWidth;
+    s32 frameHeight;
+    s32 framesCount;
+    WarSpriteFrame* frames;
+    u8 owns;        // WSPR_OWNS_* bits
+    u8 format;      // SDL_PIXELFORMAT_*
+    const u16* lut; // INDEX8 palette
+};
+#define WSPR_OWNS_FRAMES 1 // frames[] was allocated for this sprite
+#define WSPR_OWNS_DATA   2 // and so was every frame's data
+#else
+struct _WarSprite
+{
+    SDL_Texture* texture;
+    s32 frameWidth;
+    s32 frameHeight;
+    s32 framesCount;
+    WarSpriteFrame frames[MAX_SPRITE_FRAME_COUNT];
+};
+#endif
+
+struct _WarSpriteResourceRef
+{
+    s32 resourceIndex;
+    s32 frameIndicesCount;
+    s32 frameIndices[MAX_SPRITE_FRAME_COUNT];
+};
+
+WarSpriteResourceRef wspr_createSpriteResourceRef(s32 resourceIndex, s32 frameIndicesCount, s32 frameIndices[])
+{
+    WarSpriteResourceRef spriteResourceRef = (WarSpriteResourceRef){0};
+    spriteResourceRef.resourceIndex = resourceIndex;
+    spriteResourceRef.frameIndicesCount = frameIndicesCount;
+    if (frameIndices)
+    {
+        memcpy(spriteResourceRef.frameIndices, frameIndices, frameIndicesCount * sizeof(s32));
+    }
+    return spriteResourceRef;
+}
+
+#define invalidResourceRef() wspr_createSpriteResourceRef(-1, 0, NULL)
+#define imageResourceRef(resourceIndex) wspr_createSpriteResourceRef((resourceIndex), 0, NULL)
+#define spriteResourceRef(resourceIndex, spriteIndex) wspr_createSpriteResourceRef((resourceIndex), 1, arrayArg(s32, (spriteIndex)))
+
+WarSprite wspr_createSprite(WarContext* context, u32 width, u32 height, u8 data[]);
+#ifdef WAR_FRANK
+// frame.off of a cropped resource frame (the crop is in the 4 bytes before data)
+#define WSPR_CROPPED_FRAME 0xFFFFFFFFu
+WarSprite wspr_createIndexedSprite(WarContext* context, u32 width, u32 height, u8 data[], const u16* lut);
+WarSprite wspr_createFontSprite(WarContext* context, u32 width, u32 height, const u8 data[], s32 div);
+#endif
+WarSprite wspr_createSpriteFromFrames(WarContext* context, u32 frameWidth, u32 frameHeight, u32 frameCount, WarSpriteFrame frames[]);
+WarSprite wspr_createSpriteFromResource(WarContext* context, WarResource* resource, s32 frameIndicesCount, s32 frameIndices[]);
+WarSprite wspr_createSpriteFromResourceIndex(WarContext* context, WarSpriteResourceRef spriteResourceRef);
+void wspr_updateSpriteImage(WarContext* context, WarSprite sprite, u8 data[]);
+void wspr_renderSubSprite(WarContext* context, WarSprite sprite, rect rs, rect rd, vec2 scale);
+void wspr_renderSprite(WarContext* context, WarSprite sprite, vec2 pos, vec2 scale);
+WarSpriteFrame wspr_getSpriteFrame(WarContext* context, WarSprite sprite, s32 frameIndex);
+void wspr_freeSprite(WarContext* context, WarSprite sprite);

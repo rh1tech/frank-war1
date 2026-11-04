@@ -1,0 +1,373 @@
+#pragma once
+
+#include <stdint.h>
+
+#include "war_enums.h"
+
+// TinySoundFont types — forward-declared here so headers that use war.h
+// (e.g. the editor) do not need TinySoundFont compiled into their TU.
+// When war1.c compiles the full TinySoundFont implementation these forward
+// declarations are harmlessly compatible with the real struct definitions.
+struct tsf;
+typedef struct tsf tsf;
+
+struct tml_message;
+typedef struct tml_message tml_message;
+
+struct _WarInput;
+typedef struct _WarInput WarInput;
+
+struct _WarInputState;
+typedef struct _WarInputState WarInputState;
+
+struct _WarDragState;
+typedef struct _WarDragState WarDragState;
+
+struct _WarFontData;
+typedef struct _WarFontData WarFontData;
+
+struct _WarRawResource;
+typedef struct _WarRawResource WarRawResource;
+
+struct _WarFile;
+typedef struct _WarFile WarFile;
+
+struct _WarMapFileHeader;
+typedef struct _WarMapFileHeader WarMapFileHeader;
+
+struct _WarSpriteFrame;
+typedef struct _WarSpriteFrame WarSpriteFrame;
+
+struct _WarSprite;
+typedef struct _WarSprite WarSprite;
+
+struct _WarSpriteResourceRef;
+typedef struct _WarSpriteResourceRef WarSpriteResourceRef;
+
+struct _WarSpriteAnimation;
+typedef struct _WarSpriteAnimation WarSpriteAnimation;
+
+struct _WarLevelUnit;
+typedef struct _WarLevelUnit WarLevelUnit;
+
+struct _WarLevelConstruct;
+typedef struct _WarLevelConstruct WarLevelConstruct;
+
+struct _WarTilesetTile;
+typedef struct _WarTilesetTile WarTilesetTile;
+
+struct _WarCustomMapConfiguration;
+typedef struct _WarCustomMapConfiguration WarCustomMapConfiguration;
+
+struct _WarResource;
+typedef struct _WarResource WarResource;
+
+struct _WarUnitCommand;
+typedef struct _WarUnitCommand WarUnitCommand;
+
+struct _WarRoadPiece;
+typedef struct _WarRoadPiece WarRoadPiece;
+
+struct _WarWallPiece;
+typedef struct _WarWallPiece WarWallPiece;
+
+struct _WarRuinPiece;
+typedef struct _WarRuinPiece WarRuinPiece;
+
+struct _WarTree;
+typedef struct _WarTree WarTree;
+
+struct _WarUnitActionStep;
+typedef struct _WarUnitActionStep WarUnitActionStep;
+
+struct _WarUnitActionDef;
+typedef struct _WarUnitActionDef WarUnitActionDef;
+
+struct _WarUnitAction;
+typedef struct _WarUnitAction WarUnitAction;
+
+struct _WarUnitData;
+typedef struct _WarUnitData WarUnitData;
+
+struct _WarWorkerData;
+typedef struct _WarWorkerData WarWorkerData;
+
+struct _WarBuildingData;
+typedef struct _WarBuildingData WarBuildingData;
+
+struct _WarRoadData;
+typedef struct _WarRoadData WarRoadData;
+
+struct _WarWallData;
+typedef struct _WarWallData WarWallData;
+
+struct _WarRuinData;
+typedef struct _WarRuinData WarRuinData;
+
+struct _WarTreeData;
+typedef struct _WarTreeData WarTreeData;
+
+struct _WarUnitStats;
+typedef struct _WarUnitStats WarUnitStats;
+
+struct _WarBuildingStats;
+typedef struct _WarBuildingStats WarBuildingStats;
+
+struct _WarUpgradeData;
+typedef struct _WarUpgradeData WarUpgradeData;
+
+struct _WarUpgradeStats;
+typedef struct _WarUpgradeStats WarUpgradeStats;
+
+struct _WarSpellData;
+typedef struct _WarSpellData WarSpellData;
+
+struct _WarSpellStats;
+typedef struct _WarSpellStats WarSpellStats;
+
+struct _WarSpellMapping;
+typedef struct _WarSpellMapping WarSpellMapping;
+
+struct _WarUnitCommandBaseData;
+typedef struct _WarUnitCommandBaseData WarUnitCommandBaseData;
+
+struct _WarUnitCommandMapping;
+typedef struct _WarUnitCommandMapping WarUnitCommandMapping;
+
+struct _WarUnitCommandData;
+typedef struct _WarUnitCommandData WarUnitCommandData;
+
+struct _WarMapPath;
+typedef struct _WarMapPath WarMapPath;
+
+struct _WarMapFlowField;
+typedef struct _WarMapFlowField WarMapFlowField;
+
+struct _WarPathFinder;
+typedef struct _WarPathFinder WarPathFinder;
+
+struct _WarStateRef;
+typedef struct _WarStateRef WarStateRef;
+
+struct _WarTransitionRequest;
+typedef struct _WarTransitionRequest WarTransitionRequest;
+
+struct _WarStateBase;
+typedef struct _WarStateBase WarStateBase;
+typedef WarStateBase WarState;
+
+struct _WarStateIdle;
+typedef struct _WarStateIdle WarStateIdle;
+
+struct _WarStateMove;
+typedef struct _WarStateMove WarStateMove;
+
+struct _WarMoveProgress;
+typedef struct _WarMoveProgress WarMoveProgress;
+
+struct _WarStatePatrol;
+typedef struct _WarStatePatrol WarStatePatrol;
+
+struct _WarStateFollow;
+typedef struct _WarStateFollow WarStateFollow;
+
+struct _WarStateAttack;
+typedef struct _WarStateAttack WarStateAttack;
+
+struct _WarStateGold;
+typedef struct _WarStateGold WarStateGold;
+
+struct _WarStateMining;
+typedef struct _WarStateMining WarStateMining;
+
+struct _WarStateWood;
+typedef struct _WarStateWood WarStateWood;
+
+struct _WarStateChopping;
+typedef struct _WarStateChopping WarStateChopping;
+
+struct _WarStateDeliver;
+typedef struct _WarStateDeliver WarStateDeliver;
+
+struct _WarStateDeath;
+typedef struct _WarStateDeath WarStateDeath;
+
+struct _WarStateCollapse;
+typedef struct _WarStateCollapse WarStateCollapse;
+
+struct _WarStateTrain;
+typedef struct _WarStateTrain WarStateTrain;
+
+struct _WarStateUpgrade;
+typedef struct _WarStateUpgrade WarStateUpgrade;
+
+struct _WarStateBuild;
+typedef struct _WarStateBuild WarStateBuild;
+
+struct _WarStateRepair;
+typedef struct _WarStateRepair WarStateRepair;
+
+struct _WarStateRepairing;
+typedef struct _WarStateRepairing WarStateRepairing;
+
+struct _WarStateCast;
+typedef struct _WarStateCast WarStateCast;
+
+struct _WarStateWait;
+typedef struct _WarStateWait WarStateWait;
+
+struct _WarStateStorage;
+typedef struct _WarStateStorage WarStateStorage;
+
+struct _WarCampaignMapData;
+typedef struct _WarCampaignMapData WarCampaignMapData;
+
+struct _WarSpriteComponent;
+typedef struct _WarSpriteComponent WarSpriteComponent;
+
+struct _WarUnitComponent;
+typedef struct _WarUnitComponent WarUnitComponent;
+
+struct _WarAnimationsComponent;
+typedef struct _WarAnimationsComponent WarAnimationsComponent;
+
+struct _WarRoadComponent;
+typedef struct _WarRoadComponent WarRoadComponent;
+
+struct _WarWallComponent;
+typedef struct _WarWallComponent WarWallComponent;
+
+struct _WarRuinComponent;
+typedef struct _WarRuinComponent WarRuinComponent;
+
+struct _WarForestComponent;
+typedef struct _WarForestComponent WarForestComponent;
+
+struct _WarStateMachineComponent;
+typedef struct _WarStateMachineComponent WarStateMachineComponent;
+
+struct _WarUIComponent;
+typedef struct _WarUIComponent WarUIComponent;
+
+struct _WarTextComponent;
+typedef struct _WarTextComponent WarTextComponent;
+
+struct _WarRectComponent;
+typedef struct _WarRectComponent WarRectComponent;
+
+struct _WarButtonComponent;
+typedef struct _WarButtonComponent WarButtonComponent;
+
+struct _WarAudioComponent;
+typedef struct _WarAudioComponent WarAudioComponent;
+
+struct _WarCursorComponent;
+typedef struct _WarCursorComponent WarCursorComponent;
+
+struct _WarProjectileComponent;
+typedef struct _WarProjectileComponent WarProjectileComponent;
+
+struct _WarPoisonCloudComponent;
+typedef struct _WarPoisonCloudComponent WarPoisonCloudComponent;
+
+struct _WarSightComponent;
+typedef struct _WarSightComponent WarSightComponent;
+
+struct _WarEntity;
+typedef struct _WarEntity WarEntity;
+
+struct _WarMapTile;
+typedef struct _WarMapTile WarMapTile;
+
+struct _WarUpgrade;
+typedef struct _WarUpgrade WarUpgrade;
+
+struct _WarAICommand;
+typedef struct _WarAICommand WarAICommand;
+
+struct _WarAI;
+typedef struct _WarAI WarAI;
+
+struct _WarPlayerInfo;
+typedef struct _WarPlayerInfo WarPlayerInfo;
+
+struct _WarFlashStatus;
+typedef struct _WarFlashStatus WarFlashStatus;
+
+struct _WarCheatStatus;
+typedef struct _WarCheatStatus WarCheatStatus;
+
+struct _WarMapSettings;
+typedef struct _WarMapSettings WarMapSettings;
+
+struct _WarEntityManager;
+typedef struct _WarEntityManager WarEntityManager;
+
+struct _WarMapGrid;
+typedef struct _WarMapGrid WarMapGrid;
+
+struct _WarMapUI;
+typedef struct _WarMapUI WarMapUI;
+
+struct _WarMapCamera;
+typedef struct _WarMapCamera WarMapCamera;
+
+struct _WarMapEditing;
+typedef struct _WarMapEditing WarMapEditing;
+
+struct _WarMapCommandState;
+typedef struct _WarMapCommandState WarMapCommandState;
+
+struct _WarMapCommandPanel;
+typedef struct _WarMapCommandPanel WarMapCommandPanel;
+
+struct _WarMapDebug;
+typedef struct _WarMapDebug WarMapDebug;
+
+struct _WarMapStatus;
+typedef struct _WarMapStatus WarMapStatus;
+
+struct _WarMap;
+typedef struct _WarMap WarMap;
+
+struct _WarScene;
+typedef struct _WarScene WarScene;
+
+struct _WarCheatDescriptor;
+typedef struct _WarCheatDescriptor WarCheatDescriptor;
+
+struct _WarSceneDescriptor;
+typedef struct _WarSceneDescriptor WarSceneDescriptor;
+
+struct _WarTransformComponent;
+typedef struct _WarTransformComponent WarTransformComponent;
+
+struct _WarRenderState;
+typedef struct _WarRenderState WarRenderState;
+
+struct _WarImuiSpriteEntry;
+typedef struct _WarImuiSpriteEntry WarImuiSpriteEntry;
+
+struct _WarImuiState;
+typedef struct _WarImuiState WarImuiState;
+
+struct _WarDebugRenderFlags;
+typedef struct _WarDebugRenderFlags WarDebugRenderFlags;
+
+struct _WarMetricS32;
+typedef struct _WarMetricS32 WarMetricS32;
+
+struct _WarMetricU64;
+typedef struct _WarMetricU64 WarMetricU64;
+
+struct _WarContext;
+typedef struct _WarContext WarContext;
+
+typedef uint16_t WarEntityId;
+
+typedef void (*WarClickHandler)(WarContext* context, WarEntity* entity);
+typedef WarLevelResult (*WarCheckObjectivesFunc)(WarContext* context);
+typedef void (*WarCheatFunc)(WarContext* context, StringView argument);
+typedef void (*WarRenderFunc)(WarContext* context, WarEntity* entity);
+typedef int32_t (*WarRenderCompareFunc)(const WarEntity* e1, const WarEntity* e2, void* userdata);
+typedef void (*WarSceneFunc)(WarContext* context);

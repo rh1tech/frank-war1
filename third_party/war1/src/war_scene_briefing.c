@@ -1,0 +1,164 @@
+#include "war_scene_briefing.h"
+
+#include <assert.h>
+
+#include "shl/wstr.h"
+
+#include "war_animations.h"
+#include "war_audio.h"
+#include "war_campaigns.h"
+#include "war_entities.h"
+#include "war_imui.h"
+
+void wsbr_enterSceneBriefingHumans(WarContext* context)
+{
+    WarScene* scene = context->scene;
+
+    WarCampaignMapData data = wcamp_getCampaignData(scene->briefing.mapType);
+
+    scene->briefing.endRealTime = context->realTime + data.briefingDuration;
+    scene->briefing.scrollY     = 160.0f;
+    scene->briefing.briefingText = data.briefingText;  // transfer ownership
+
+    WarEntity* animEntity = we_createEntity(context, WAR_ENTITY_TYPE_ANIMATION, true);
+    we_addAnimationsComponent(context, animEntity);
+
+    WarSpriteAnimation anim1 = wanim_createAnimationFromResourceIndex(context, wstr_fromCString("anim1"), imageResourceRef(428), 0.2f, true);
+    anim1.offset = vec2i(83, 37);
+    anim1.loopDelay = 2.0f;
+    wanim_addAnimationFramesRange(&anim1, 0, 4);
+    wanim_addAnimationFramesRange(&anim1, 4, 0);
+    wanim_addAnimation(context, animEntity, anim1);
+
+    WarSpriteAnimation anim2 = wanim_createAnimationFromResourceIndex(context, wstr_fromCString("anim2"), imageResourceRef(429), 0.2f, true);
+    anim2.offset = vec2i(207, 29);
+    anim2.loopDelay = 2.0f;
+    wanim_addAnimationFramesRange(&anim2, 0, 20);
+    wanim_addAnimation(context, animEntity, anim2);
+
+    WarSpriteAnimation anim3 = wanim_createAnimationFromResourceIndex(context, wstr_fromCString("anim3"), imageResourceRef(430), 0.1f, true);
+    anim3.offset = vec2i(21, 17);
+    wanim_addAnimationFramesRange(&anim3, 0, 20);
+    wanim_addAnimation(context, animEntity, anim3);
+
+    WarSpriteAnimation anim4 = wanim_createAnimationFromResourceIndex(context, wstr_fromCString("anim4"), imageResourceRef(431), 0.1f, true);
+    anim4.offset = vec2i(275, 21);
+    wanim_addAnimationFramesRange(&anim4, 0, 20);
+    wanim_addAnimation(context, animEntity, anim4);
+
+    if (!isDemo(context))
+        wa_createAudio(context, CREATE_AUDIO_ARGS_INIT(.audioId=data.briefingAudioId, .loop=false));
+}
+
+void wsbr_enterSceneBriefingOrcs(WarContext* context)
+{
+    WarScene* scene = context->scene;
+
+    WarCampaignMapData data = wcamp_getCampaignData(scene->briefing.mapType);
+
+    scene->briefing.endRealTime  = context->realTime + data.briefingDuration;
+    scene->briefing.scrollY      = 160.0f;
+    scene->briefing.briefingText = data.briefingText;  // transfer ownership
+
+    WarEntity* animEntity = we_createEntity(context, WAR_ENTITY_TYPE_ANIMATION, true);
+    we_addAnimationsComponent(context, animEntity);
+
+    WarSpriteAnimation anim1 = wanim_createAnimationFromResourceIndex(context, wstr_fromCString("anim1"), imageResourceRef(426), 0.2f, true);
+    anim1.offset = vec2i(18, 67);
+    anim1.loopDelay = 2.0f;
+    wanim_addAnimationFramesRange(&anim1, 0, 4);
+    wanim_addAnimationFramesRange(&anim1, 4, 0);
+    wanim_addAnimation(context, animEntity, anim1);
+
+    WarSpriteAnimation anim2 = wanim_createAnimationFromResourceIndex(context, wstr_fromCString("anim2"), imageResourceRef(427), 0.2f, true);
+    anim2.offset = vec2i(202, 52);
+    anim2.loopDelay = 2.0f;
+    wanim_addAnimationFramesRange(&anim2, 0, 4);
+    wanim_addAnimationFramesRange(&anim2, 4, 0);
+    wanim_addAnimation(context, animEntity, anim2);
+
+    if (!isDemo(context))
+    {
+        WarSpriteAnimation anim3 = wanim_createAnimationFromResourceIndex(context, wstr_fromCString("anim3"), imageResourceRef(425), 0.1f, true);
+        anim3.offset = vec2i(140, 66);
+        wanim_addAnimationFramesRange(&anim3, 0, 30);
+        wanim_addAnimation(context, animEntity, anim3);
+    }
+
+    if (!isDemo(context))
+        wa_createAudio(context, CREATE_AUDIO_ARGS_INIT(.audioId=data.briefingAudioId, .loop=false));
+}
+
+void wsc_enterSceneBriefing(WarContext* context)
+{
+    WarScene* scene = context->scene;
+
+    switch (scene->briefing.race)
+    {
+        case WAR_RACE_HUMANS:
+        {
+            wsbr_enterSceneBriefingHumans(context);
+            break;
+        }
+
+        case WAR_RACE_ORCS:
+        {
+            wsbr_enterSceneBriefingOrcs(context);
+            break;
+        }
+
+        default:
+        {
+            logError("Not allowed briefing scenes for race: %d", scene->briefing.race);
+            break;
+        }
+    }
+}
+
+void wsc_updateSceneBriefing(WarContext* context)
+{
+    WarInput* input = &context->input;
+    WarScene* scene = context->scene;
+
+    scene->briefing.scrollY -= 10.0f * context->realDeltaTime;
+
+    wanim_updateAnimations(context);
+
+    if (context->realTime >= scene->briefing.endRealTime ||
+        isButtonJustPressed(input, WAR_MOUSE_LEFT) ||
+        isKeyJustPressed(input, WAR_KEY_ENTER) ||
+        isKeyJustPressed(input, WAR_KEY_SPACE))
+    {
+        WarMap* map = wmap_createMap(context, scene->briefing.mapType);
+        wg_setNextMap(context, map, 1.0f);
+    }
+}
+
+void wsc_renderSceneBriefing(WarContext* context)
+{
+    WarScene* scene = context->scene;
+
+    // Background image — must render before animations so it sits behind them.
+    s32 bgSpriteIndex = (scene->briefing.race == WAR_RACE_HUMANS) ? 421 : 422;
+    imui_image(context, "imgBackground", CREATE_UI_IMAGE_ARGS_INIT(
+        .spriteRef = imageResourceRef(bgSpriteIndex),
+        .position  = VEC2_ZERO,
+    ));
+}
+
+void wsc_renderOverlayBriefing(WarContext* context)
+{
+    WarScene* scene = context->scene;
+
+    imui_text(context, "txtBriefing",
+        CREATE_UI_TEXT_ARGS_INIT(
+            .position   = vec2f(20.0f, scene->briefing.scrollY),
+            .fontIndex  = 1,
+            .fontColor  = WAR_COLOR_RGB(255, 215, 138),
+            .multiline  = true,
+            .boundings  = vec2f((f32)(context->originalWindowWidth - 40), 200.0f),
+            .wrapping   = WAR_TEXT_WRAP_CHAR,
+            .lineHeight = 150,
+            .text = scene->briefing.briefingText
+        ));
+}
