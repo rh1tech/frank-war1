@@ -3270,7 +3270,14 @@ bool we_checkTileToBuild(WarContext* context, WarUnitType buildingToBuild, s32 x
 {
     const WarUnitData* unitData = wu_getUnitData(buildingToBuild);
 
-    if (!we_checkRectToBuild(context, x, y, unitData->sizex, unitData->sizey))
+#ifdef WAR_FRANK
+    // the whole building on the map (the rect check skips tiles off it, and
+    // a building at the edge overhung it: off-map tiles for its record)
+    const bool onMap = x >= 0 && y >= 0 && x + unitData->sizex <= MAP_TILES_WIDTH && y + unitData->sizey <= MAP_TILES_HEIGHT;
+#else
+    const bool onMap = true;
+#endif
+    if (!onMap || !we_checkRectToBuild(context, x, y, unitData->sizex, unitData->sizey))
     {
         wmui_setFlashStatus(context, 1.5f, wstr_fromCString("CAN'T BUILD THERE"));
         return false;
