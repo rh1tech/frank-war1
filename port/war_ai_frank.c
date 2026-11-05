@@ -2713,6 +2713,22 @@ static void wai_agCommand(WarContext* context, const char* cmd)
     else if (!strncmp(cmd, "map ", 4)) wai_agMap(context, cmd + 4);
     else if (!strncmp(cmd, "sel ", 4)) wai_agSelect(context, cmd + 4);
     else if (!strncmp(cmd, "fullmap ", 8)) wai_agFullMap(context, cmd + 8);
+    else if (!strcmp(cmd, "foes"))
+    {
+        // (debug, a cheat: every living unit and building of players 1-3, to
+        // stderr, for a mission that does not end)
+        WarEntityList* list = we_getEntitiesOfType(context, WAR_ENTITY_TYPE_UNIT);
+        for (s32 i = 0; i < list->count; i++)
+        {
+            WarEntity* e = list->items[i];
+            if (!wai_alive(context, e)) continue;
+            WarUnitComponent* u = we_getUnitComponent(context, e);
+            if (!u || u->player < 1 || u->player > 3 || u->type >= WAR_UNIT_HUMAN_CORPSE) continue;
+            s32 x, y;
+            wai_tile(context, e, &x, &y);
+            fprintf(stderr, "agent: foe %d type %d player %d at %d,%d hp %d\n", (s32)e->id, u->type, u->player, x, y, u->hp);
+        }
+    }
     else if (!strcmp(cmd, "ents"))
     {
         // the entity pool by entity type (units by state too), to stderr
