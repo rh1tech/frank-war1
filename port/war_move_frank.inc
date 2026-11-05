@@ -330,7 +330,20 @@ static WarStateMove* wmv_activeMove(WarContext* context, WarEntity* e)
 static bool wmv_walkingOn(WarContext* context, WarEntity* o)
 {
     WarUnitComponent* u = we_getUnitComponent(context, o);
-    return u && wmv_activeMove(context, o) && u->wmvBlocks == 0;
+    const bool native = u && wmv_activeMove(context, o) && u->wmvBlocks == 0;
+#ifndef FRANK_BOARD
+    WarOriginalUnit* r = u ? wos_unit(context, o) : NULL;
+    if (r && getenv("WAR_WALKDEBUG"))
+    {
+        bool orig;
+        if (r->flags & WOR_INACTIVE) orig = r->type <= 31;
+        else orig = (r->current == 3 || r->current == 12) && !u->wmvBlocks && !(r->flags & WOR_HELD);
+        if (orig != native)
+            fprintf(stderr, "walkdiff tick %u id %u type %d current %u flags %04x blocks %d native %d\n",
+                    wrng_tick, (unsigned)o->id, u->type, r->current, r->flags, u->wmvBlocks, native);
+    }
+#endif
+    return native;
 }
 
 typedef struct
@@ -948,8 +961,12 @@ static bool wmv_checkpoint(WarContext* context, WarEntity* e, WarUnitComponent* 
         }
         if (u->wmvBlocks >= 15)
         {
+            // the 15th hold-up queues idle (0x2EF9C), which the dispatcher
+            // takes at this same checkpoint (0x2ECFC): idle from wait 1
             u->wmvBlocks = 0;
-            u->wmvGiveUp = true;
+            wmv_finish(context, e, u, mv, WAR_STATE_RESULT_BLOCKED);
+            wmv_settle(context, e);
+            return false;
         }
         else if (u->wmvBlocks >= 8 || !wmv_inside(nx, ny) || !wmv_friendWalksOff(context, e, u, nx, ny))
         {

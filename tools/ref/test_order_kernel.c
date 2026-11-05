@@ -1083,6 +1083,120 @@ static void poison(void)
     runtime.damage = NULL;
 }
 
+static unsigned rainTerrainStrikes;
+
+static void countRainTerrain(WarOriginalRuntime* state, int16_t x, int16_t y, uint8_t damage)
+{
+    (void)state; (void)x; (void)y; (void)damage;
+    rainTerrainStrikes++;
+}
+
+static void unexpectedRainDamage(WarOriginalRuntime* state, uint16_t source, uint16_t target, uint8_t damage)
+{
+    (void)source; (void)damage;
+    kernelError(state, target, "damage in empty rain fixture");
+}
+
+// Rain (0x2793C, 0x11CD8) and its records' falls and impacts through the
+// dispatch's phases (0x11FA8, 0x12338, 0x123E0), on empty occupancy.
+static unsigned rain(void)
+{
+    enum { EFFECTS = 0x238000 };
+    static WarOriginalEffect effects[WOR_EFFECT_COUNT];
+    uint16_t grid[WOR_MAP_WIDTH * WOR_MAP_WIDTH] = {0};
+    unsigned rainCases = 0;
+    runtime.effects = effects;
+    runtime.context = grid;
+    runtime.occupant = occupiedTile;
+    runtime.damage = unexpectedRainDamage;
+    runtime.terrainDamage = countRainTerrain;
+    wr32(&cpu, 0x596D4, EFFECTS);
+    wr32(&cpu, 0x58610, OCCUPANCY);
+    wr32(&cpu, 0x5860C, TERRAIN);
+    memset(cpu.mem + OCCUPANCY, 0, WOR_MAP_WIDTH * WOR_MAP_WIDTH * 4);
+    memset(cpu.mem + TERRAIN, 0, WOR_MAP_WIDTH * WOR_MAP_WIDTH * 2);
+    wr16(&cpu, 0x52130 + 4 * 2, 0);   // (no sound in the fixture: 0x1BBCC)
+    wr16(&cpu, 0x52130 + 7 * 2, 0);
+    const uint8_t program[] = { 4, 2, 1, 2, 0, 3, 192, 0 };
+    const uint8_t fall[] = { 4, 1, 1, 1, 0, 3, 208, 0 };
+    memcpy(scripts + 192, program, sizeof(program));
+    memcpy(scripts + 208, fall, sizeof(fall));
+    memcpy(cpu.mem + SCRIPTS, scripts, sizeof(scripts));
+    for (unsigned mana = 0; mana < 256; mana++)
+        for (unsigned action = 0; action < 2; action++)
+            for (unsigned layout = 0; layout < 5; layout++)
+            {
+                cases++;
+                rainCases++;
+                units[0] = (WarOriginalUnit){ .type = 11, .goalX = (int16_t)(1 + mana % 62),
+                                              .goalY = (int16_t)(1 + (mana * 7) % 62),
+                                              .current = 26, .pending = WOR_NONE, .next = WOR_NONE };
+                exportUnit(0);
+                memset(effects, 0, sizeof(effects));
+                memset(cpu.mem + EFFECTS, 0, WOR_EFFECT_COUNT * 0x26);
+                for (unsigned i = 0; i < WOR_EFFECT_COUNT; i++)
+                {
+                    // none, one, two apart, the last two, or all free
+                    const bool free = layout == 4 || (layout == 1 && i == 40) ||
+                        (layout == 2 && (i == 3 || i == 9 || i == 50)) || (layout == 3 && i >= 98);
+                    effects[i].used = !free;
+                    wr8(&cpu, EFFECTS + i * 0x26 + 1, free);
+                }
+                wr8(&cpu, UNITS + 0x1A, (uint8_t)mana);
+                invoke(0x2793C, UNITS, action, 0);
+                uint8_t remaining = (uint8_t)mana;
+                equal("rain accepted", cpu.r[EAX] != 0,
+                      wor_rain(&runtime, 0, &remaining, action != 0) == WOR_CHANGED);
+                equal("rain payment", rd8(&cpu, UNITS + 0x1A), remaining);
+                equal("rain pending", rd8(&cpu, UNITS + 0x20), units[0].pending);
+                equal("rain next", rd8(&cpu, UNITS + 0x21), units[0].next);
+                equal("random state", rd32(&cpu, 0x50D7C), seed);
+                for (unsigned tick = 0; tick < 400; tick++)
+                {
+                    bool any = false;
+                    for (unsigned i = 0; i < WOR_EFFECT_COUNT; i++)
+                    {
+                        const uint32_t address = EFFECTS + i * 0x26;
+                        WarOriginalEffect* effect = &effects[i];
+                        equal("rain allocation", !(rd8(&cpu, address + 1) & 1), effect->used);
+                        if (!effect->used || (effect->type != 4 && effect->type != 7)) continue;
+                        any = true;
+                        equal("rain type", rd8(&cpu, address), effect->type);
+                        equal("rain X", rd16(&cpu, address + 6), (uint16_t)effect->x);
+                        equal("rain Y", rd16(&cpu, address + 8), (uint16_t)effect->y);
+                        equal("rain PC", rd16(&cpu, address + 0xA), effect->pc);
+                        equal("rain wait", rd8(&cpu, address + 0xC), effect->wait);
+                        equal("rain frame", rd8(&cpu, address + 0xD), effect->frame);
+                        equal("rain phase", rd8(&cpu, address + 2), effect->state);
+                        if (effect->type == 4)
+                        {
+                            equal("rain damage", rd8(&cpu, address + 3), effect->damage);
+                            equal("rain impact X", rd16(&cpu, address + 0x1A), (uint16_t)effect->goalX);
+                            equal("rain impact Y", rd16(&cpu, address + 0x1C), (uint16_t)effect->goalY);
+                            equal("rain strikes", rd8(&cpu, address + 0x18), effect->step);
+                            equal("rain source", rd32(&cpu, address + 0x22), reference(effect->source));
+                        }
+                        // one dispatch pass, record by record (0x2ECFC)
+                        invoke(0x10473, address + 6, 0, 0);
+                        if (cpu.r[EAX])
+                            invoke(rd32(&cpu, 0x511F4 + rd8(&cpu, address + 2) * 4), address, 0, 0);
+                        equal("rain tick error", 0, wor_effectTick(&runtime, effect) == WOR_ERROR);
+                        equal("random state", rd32(&cpu, 0x50D7C), seed);
+                    }
+                    if (!any) break;
+                }
+                for (unsigned i = 0; i < WOR_EFFECT_COUNT; i++)
+                    equal("rain released", !(rd8(&cpu, EFFECTS + i * 0x26 + 1) & 1), effects[i].used);
+            }
+    equal("rain terrain strikes", 1, rainTerrainStrikes > 0);
+    runtime.effects = NULL;
+    runtime.context = NULL;
+    runtime.occupant = NULL;
+    runtime.damage = NULL;
+    runtime.terrainDamage = NULL;
+    return rainCases;
+}
+
 int main(int argc, char** argv)
 {
     if (argc != 2) { fprintf(stderr, "usage: test-order-kernel REFERENCE_IMAGE\n"); return 2; }
@@ -1144,15 +1258,16 @@ int main(int argc, char** argv)
     wind();
     areaTargets();
     poison();
+    const unsigned rainCases = rain();
     scriptControl();
     printf("matched original: %u transition/target cases, %u death/animation cases, "
            "%u exploration/visibility cases, 200 attack-zone cases, %u line paths, 200 tree searches, "
            "400 replacement-post cases, 512 terrain-damage cases, 512 invisibility cases, 3072 mana cases, "
            "512 exit searches, 2048 summoning cases, 624 decay cases, 512 catapult safety cases, "
            "3840 shot-payment cases, %u healing/armour cases, 216 protection-timer cases, 16129 tile facings, "
-           "2048 resurrection selection/payload cases, 20000 wind ticks, 1024 area targets, 1536 poison cases "
-           "and %u script ticks\n",
-           transitionCases, deathCases, explorationCases, lineCases, healingCases, scriptTicks);
+           "2048 resurrection selection/payload cases, 20000 wind ticks, 1024 area targets, 1536 poison cases, "
+           "%u rain cases and %u script ticks\n",
+           transitionCases, deathCases, explorationCases, lineCases, healingCases, rainCases, scriptTicks);
     free(cpu.mem);
     return 0;
 }

@@ -68,6 +68,9 @@ def replay_digest(path, flags, ticks):
     return digest.hexdigest()
 
 
+MIN_ENDED = 20000   # the shortest original run accepted as an ended mission
+
+
 def reference_window(mission, race, number, seed, ticks):
     ai = ROOT / 'build/ai'
     if ticks <= TICKS:
@@ -77,11 +80,11 @@ def reference_window(mission, race, number, seed, ticks):
     tiles, rng = out / f'{mission}.tiles', out / f'{mission}.rng'
     manifest = Path(str(tiles) + '.seed')
     if tiles.exists() and rng.exists() and manifest.exists():
-        if last_seed(manifest) == seed and len(read_run(rng)) >= ticks:
+        if last_seed(manifest) == seed and len(read_run(rng)) >= MIN_ENDED:
             return tiles, rng
     reference = Path(os.environ.get('REF', ROOT.parent / 'war1-reference/recomp'))
     y = 100 if race == 'orc' else 117
-    quit_second = ticks // 330 + 44
+    quit_second = ticks // 300 + 60   # (the original runs about 330 ticks a second at speed 10; slower on busy maps)
     env = os.environ.copy()
     env.update(SDL_VIDEODRIVER='dummy', SDL_AUDIODRIVER='dummy', WAR_MUTE='1', WAR_AIFIRST='1',
                WAR_RNGSEED=f'{seed:x}', WAR_SPEED_SETTING='3', WAR_AITILES='1', WAR_AIEVERY='1',
@@ -98,8 +101,10 @@ def reference_window(mission, race, number, seed, ticks):
         raise ValueError(f'{mission}: original exited {result.returncode}; see {run_log}')
     if last_seed(manifest) != seed:
         raise ValueError(f'{mission}: extended reference seed changed')
-    if len(read_run(rng)) < ticks:
-        raise ValueError(f'{mission}: extended reference lacks {ticks} RNG ticks; see {run_log}')
+    # A mission can end inside a long window (the computer wins); the
+    # comparison then stops there, and the port must end too.
+    if len(read_run(rng)) < MIN_ENDED:
+        raise ValueError(f'{mission}: extended reference lacks {MIN_ENDED} RNG ticks; see {run_log}')
     return tiles, rng
 
 
@@ -120,18 +125,21 @@ def run_mission(mission, self_play=False, check_unlogged=False, ticks=TICKS,
     race, number = match.groups()
     ai = ROOT / 'build/ai'
     seed = last_seed(ai / f'ref/ra_{mission}.txt.seed')
+    requested = ticks
     if not self_play:
         reference, reference_rng = reference_window(mission, race, number, seed, ticks)
         original_rng = read_run(reference_rng)
+        if len(original_rng) < ticks:
+            ticks = len(original_rng)   # (the original's mission ended)
         baseline_rng = RNG_FLOORS.get(mission)
         baseline_tile = TILE_FLOORS.get(mission)
         if last_seed(Path(str(reference) + '.seed')) != seed:
             raise ValueError(f'{mission}: tile and RNG reference seeds differ')
 
-    out = output_directory(self_play, ticks, host)
+    out = output_directory(self_play, requested, host)
     out.mkdir(exist_ok=True)
     script = out / f'{mission}.input'
-    script.write_text(f'{(ticks + 1000) * 9 // 5} quit\n')
+    script.write_text(f'{(requested + 1000) * 9 // 5} quit\n')
     run_log = out / f'{mission}.log'
     tile_log = out / f'{mission}.tiles'
     rng_log = out / f'{mission}.rng'
@@ -159,8 +167,20 @@ def run_mission(mission, self_play=False, check_unlogged=False, ticks=TICKS,
                 if any(new < old for new, old in zip(current, counts)):
                     raise ValueError(f'{mission}: kernel counters went backwards')
                 counts, samples = current, samples + 1
+    end_split = None
+    if not self_play and ticks < requested:
+        # The original's mission ended: the port must end too, no later (the
+        # original checks every 321 polls of its main loop, a few ticks late
+        # on a fast machine; the port checks every tick). Otherwise the end
+        # itself is a split, reported after any earlier one.
+        if terminal and terminal[1] <= ticks:
+            ticks = terminal[1]
+        else:
+            end_split = ticks
+    elif not self_play and terminal and terminal[1] < ticks:
+        end_split = ticks = terminal[1]   # (the port ended, the original did not)
     if flags is None or not samples or not counts[0] or (
-            samples < ticks and not (self_play and terminal)):
+            samples < ticks and not terminal):
         raise ValueError(f'{mission}: missing live-kernel coverage')
     kernel = dict(zip(('idle', 'move', 'attack', 'work', 'spell'), counts))
     if check_unlogged:
@@ -196,14 +216,14 @@ def run_mission(mission, self_play=False, check_unlogged=False, ticks=TICKS,
     if result.returncode not in (0, 1):
         raise ValueError(f'{mission}: {result.stderr.strip()}')
     (out / f'{mission}.comparison').write_text(result.stdout)
-    tile = first_tile_split(result.stdout, ticks)
+    tile = first_tile_split(result.stdout, ticks) or end_split
     rng = compare(original_rng, read_run(rng_log), ticks)
     for label, old, new in (('tiles', baseline_tile, tile), ('RNG', baseline_rng, rng)):
         if (new or ticks + 1) < (old or min(ticks, TICKS) + 1):
             raise ValueError(f'{mission}: {label} regressed from {old or "="} to {new}')
     return dict(mission=mission, seed=f'{seed:x}', ticks=ticks, tile=tile, rng=rng,
                 baseline_tile=baseline_tile, baseline_rng=baseline_rng,
-                kernel=kernel)
+                terminal=terminal, kernel=kernel)
 
 
 def main():
@@ -236,7 +256,8 @@ def main():
             print(f'{mission}: {result["ticks"]} ticks, {result["terminal"] or "window complete"}, '
                   f'replay matched; kernel {result["kernel"]}', flush=True)
         else:
-            print(f'{mission}: tile {result["tile"] or "="}, RNG {result["rng"] or "="}; '
+            print(f'{mission}: tile {result["tile"] or "="}, RNG {result["rng"] or "="}, '
+                  f'window {result["ticks"]}, end {result["terminal"]}; '
                   f'kernel {result["kernel"]}', flush=True)
     out = output_directory(args.self_play, args.ticks, args.host)
     (out / 'results.json').write_text(json.dumps(results, indent=2) + '\n')

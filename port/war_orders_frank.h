@@ -69,6 +69,7 @@ typedef struct
     int16_t run, x, y;
     WarOriginalLine line;
     uint32_t shooter, target, visual;
+    int16_t goalX, goalY;   // a falling effect's impact pixel (+0x1A, +0x1C)
 } WarOriginalEffect;
 
 typedef struct
@@ -109,6 +110,7 @@ struct WarOriginalRuntime
     void (*damage)(WarOriginalRuntime*, uint16_t source, uint16_t target, uint8_t damage);
     void (*effectCreated)(WarOriginalRuntime*, WarOriginalEffect*);
     void (*effectSound)(WarOriginalRuntime*, WarOriginalEffect*, uint8_t sound);
+    void (*terrainDamage)(WarOriginalRuntime*, int16_t x, int16_t y, uint8_t damage);
     void (*error)(WarOriginalRuntime*, uint16_t slot, const char* message);
 };
 
@@ -146,6 +148,11 @@ WarOrderResult wor_areaTarget(WarOriginalRuntime* runtime, uint16_t slot,
 void wor_tickWind(WarOriginalRuntime* runtime, int8_t* x, int8_t* y);
 WarOrderResult wor_poison(WarOriginalRuntime* runtime, uint16_t slot, uint8_t* mana, bool action);
 WarOrderResult wor_poisonTick(WarOriginalRuntime* runtime, WarOriginalEffect* effect);
+WarOrderResult wor_rain(WarOriginalRuntime* runtime, uint16_t slot, uint8_t* mana, bool action);
+WarOrderResult wor_impactVisual(WarOriginalRuntime* runtime, uint8_t type, int16_t x, int16_t y);
+WarOrderResult wor_effectTick(WarOriginalRuntime* runtime, WarOriginalEffect* effect);
+void wor_areaDamage(WarOriginalRuntime* runtime, const WarOriginalEffect* effect, bool quarter,
+                    int width, int height, bool terrain, uint8_t damage);
 WarOrderResult wor_shotMana(WarOriginalRuntime* runtime, uint16_t slot,
                            uint8_t controller, uint8_t* mana, bool action);
 void wor_tickSpellTimers(WarOriginalRuntime* runtime);

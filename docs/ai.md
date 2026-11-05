@@ -1277,6 +1277,83 @@ delivering (order 13) in hall 41 during tick 17426 and comes out onto
 marks the tile when a worker leaves a hall or mine, a building finishes
 training, or a summoning is placed.
 
+### Giving up a blocked walk, and spell points
+
+The 15th hold-up in a row (`0x22080`: the high nibble of +0x0E reaching
+15) clears the count and queues idle with `0x2EF9C`. The walk handler's
+nonzero return lets the dispatcher (`0x2ECFC`) take that pending idle at
+the same checkpoint, so the select's wait of 1 replaces the hold-up's 40.
+The next tick's idle checkpoint thinks again, and the unit is blocked and
+counts again one tick later. The port used to keep the move for the full
+40-tick wait and give up at the next checkpoint. Positions were the same,
+but the blockage counts drifted out of phase, and other units' planners
+read those counts (`0x21F48` treats a unit with blockage as an obstacle).
+In Human 7, axe thrower slot 20 planned around a unit the port wrongly
+saw as walking (tile split 24671). A research probe that reran
+`0x2CD44` on a guest-memory dump showed the original's edge walks: 10
+steps one way and 9 the other, against the port's 10 and 8.
+
+Every command's targetless goal is backed off along its line by the
+command prologue (`0x2E1F0` calls `0x22554`, which calls `0x224AC` unless
+the next order is 18). This applies to spell points as well. Raise dead
+picks the corpse at 12,11 (`0x2A4BC`) but walks to 13,11, and with range 5
+it starts casting one tile earlier. The port backed off only order 27.
+These two fixes move Human 7's split at 40,000 ticks from 24671 to 33691.
+
+A unit struck dead earlier in the same tick is no candidate for anyone's
+acquisition (`0x10908`): its record has the dying bit at once (mask 0x207),
+before its death order runs. The port's cached target list
+(`wai_gatherTargets`) checked only for an active native death state, so the
+human catapult in Human 7 (slot 21) took its dead target again at 33688
+instead of the skeleton (slot 76). The list now skips inactive records,
+and Human 7 matches through 40,000 ticks.
+
+### Rain of fire and the shared effect pool's visuals
+
+Order 26 is now on the original path, like orders 20 and 27: a point
+goal, backed off when blocked; stopping range 9 (`0x52A44`); the check at
+the checkpoint (`0x27B94`); and the action (`0x27BCC`), which unlike every
+other spell does not queue idle afterwards.
+
+- **The action** (`0x2793C`). Below 50 mana it queues idle (`0x2EF9C`) and
+  returns 0, and a checkpoint check then idles at once. Otherwise the
+  action takes 50 and makes four records, so the cast goes on until it
+  cannot pay.
+- **Each record** (`0x11CD8`) takes the first free record of the shared
+  100-record pool (`0x119C0`): type 4, damage 32, its source the caster,
+  set up at the caster's goal pixel (`0x11C50`). It then draws X and Y
+  offsets of `(r % 7) * 16 - 32`. A point equal to one of this cast's
+  earlier records redraws both. The table of points (`0x585F0`) persists
+  between casts, so a record that found no room leaves its old point.
+  The record stores the impact point and starts 120 pixels above it. A
+  full pool draws nothing.
+- **Dispatch.** A pool record's checkpoint runs its *phase*, byte +2
+  (`0x2ECFC` through `0x511F4`), not its type. Phase 0 (`0x11FA8`) takes
+  the type's phase from `0x511A4` and its animation from `0x531EC`: rain 4,
+  impact 5, poison 3.
+- **The fall** (phase 4, `0x12338`). Each checkpoint moves the record 4
+  pixels down. On reaching the impact point it counts a strike, allocates
+  a type-7 impact visual (`0x11E70`), and deals area damage through
+  `0x120C8`. At the next checkpoint it starts again 120 pixels up; after
+  three strikes the record is released.
+- **Area damage** (`0x120C8`) is the general block routine that rocks also
+  use: 3x3 here, quarter damage off the centre and again for a building,
+  the source spared, and an empty tile's terrain struck.
+- **The impact visual** lives one animation: phase 0, then phase 5
+  (`0x123E0`) releases it. A rock's impact (`0x12240`) also allocates
+  one, while its own record is still in use. The port now allocates both
+  in the pool, so later records take the original's indices.
+
+War1's rain projectile only draws each fall; its own splash damage is
+switched off while the original kernel drives the game. Direct
+comparisons cover 2,560 cases: every mana value, both action modes and
+five pool layouts, each run through every record's script and phases
+until all are released. Orc 11, whose first split at 40,000 ticks was
+the rain caster's first step (22243), now matches tiles and RNG to the
+end of its mission (35043). Other type-7 allocators (`0x11EC0`,
+`0x11F10`, `0x27830`, `0x2E740`) and the ordinary missiles' scripts are
+not yet in the pool.
+
 ### Verification corrections and current measurement
 
 The old harness hid several distinctions:
@@ -1597,6 +1674,17 @@ The same flags word selects the win check; defeat is common to all:
   (Lothar or Garona) on map tiles marked as exit, at least the number in
   header 0x92 (human mission 4).
 - Heroes: if Lothar or Garona dies, the mission is lost.
+
+When it is checked: at the level's start (`0x195AC` through `0x2F878`) the
+check routine for the flags is installed with a countdown of 1. The main
+loop (`0x19810`) polls `0x2F8EC` on every pass, including the passes
+between ticks. Each poll decrements the countdown, and at zero the check
+runs and the countdown restarts at 320. A met condition installs the end
+handler (`0x1AB28`, game state 7), and the AI clock stops. The interval is
+therefore machine-speed dependent: on the recompiled original it is a few
+ticks (Human 5 at 40,000 ticks: the human's last unit is gone after tick
+37417, and the last AI tick is 37421). The port checks after every AI tick,
+the limit of a fast machine, instead of war1's once a second of real time.
 
 ## The 24 campaign missions' values
 

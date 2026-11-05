@@ -268,6 +268,9 @@ static void wai_gatherTargetsNow(WarContext* context)
         if (!e || !e->id || !wai_alive(context, e)) continue;
         WarUnitComponent* u = we_getUnitComponent(context, e);
         if (!u || u->player >= MAX_PLAYERS_COUNT || u->invisible || u->type >= WAR_UNIT_HUMAN_CORPSE) continue;
+        // a record struck dead this tick is dying at once (mask 0x207),
+        // before its death state is taken
+        if (manager->originalUnits[slot].flags & WOR_INACTIVE) continue;
         // workers inside a mine or a hall are out of reach
         if (wai_isWorkerType(u->type) && (wst_isMining(context, e) || !we_isComponentEnabled(context, e, COMP_SPRITE))) continue;
         s32 x, y;
@@ -2370,6 +2373,20 @@ void wai_updateAIPlayers(WarContext* context)
 #endif
         wai_step(context, !wai->started);
         wai->started = true;
+        // The original checks the objectives every 321 polls of its main
+        // loop, many to a tick on a fast machine (0x2F8EC from 0x19810), so
+        // at the end of the tick that ends the mission; nothing ticks after.
+        WarLevelResult result;
+        if (context->map->result == WAR_LEVEL_RESULT_NONE && wai_checkObjectives(context, &result) &&
+            result != WAR_LEVEL_RESULT_NONE)
+        {
+            context->map->result = result;
+#ifndef FRANK_BOARD
+            if (getenv("WAR_AILOG"))
+                logInfo("campaign result: %s at tick %u", result == WAR_LEVEL_RESULT_WIN ? "win" : "lose", wrng_tick);
+#endif
+            break;
+        }
 #ifndef FRANK_BOARD
         {
             static u32 ticks;

@@ -127,6 +127,10 @@ void wproj_doProjectileSplashDamage(WarContext* context, WarEntity* entity, s32 
 
 void wproj_doRainOfFireProjectileSplashDamage(WarContext* context, WarEntity* entity, s32 splashRadius)
 {
+#ifdef WAR_FRANK
+    // frank: a rain record strikes on the original's tick (0x12338)
+    if (wai_drivesTicks(context)) return;
+#endif
     WarProjectileComponent* projectile = we_getProjectileComponent(context, entity);
     assert(projectile);
 

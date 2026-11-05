@@ -83,6 +83,7 @@ u8 wst_frankSpellOrder(WarSpellType type)
         case WAR_SUMMON_DAEMON: return 23;
         case WAR_SUMMON_SPIDER: return 24;
         case WAR_SUMMON_SCORPION: return 25;
+        case WAR_SPELL_RAIN_OF_FIRE: return 26;
         case WAR_SPELL_POISON_CLOUD: return 27;
         default: return 0;
     }
@@ -110,7 +111,7 @@ static void wst_frankPrepareCast(WarContext* context, WarEntity* entity, WarStat
         return;
     }
     const bool targeted = order == 17 || order == 19 || order == 21;
-    const bool pointed = order == 20 || order == 27;
+    const bool pointed = order == 20 || order == 26 || order == 27;
     if (!state->frankPrepared && (targeted || pointed))
     {
         WarEntity* target = targeted ? we_findEntity(context, state->targetEntityId) : NULL;
@@ -125,8 +126,10 @@ static void wst_frankPrepareCast(WarContext* context, WarEntity* entity, WarStat
         unit->wmvBlocks = 0;
         original->target = other ? other->frankOriginalSlot : 0;
         vec2 tile = target ? wu_getUnitCenterTile(context, target) : wmap_mapToTileCoordinatesV(state->targetPosition);
-        if (order == 27)
+        if (!target)
         {
+            // every command's targetless goal backs off a blocked tile
+            // along its line (0x2E1F0 through 0x22554 and 0x224AC)
             tile = wmv_backOff(context, entity, (s32)tile.x, (s32)tile.y);
             state->targetPosition = wmap_tileToMapCoordinatesV(tile, true);
         }
@@ -173,6 +176,8 @@ static void wst_frankCastAction(WarContext* context, WarEntity* entity)
         wos_summon(context, entity, true);
     else if (original->current == 20)
         wos_resurrect(context, entity, true);
+    else if (original->current == 26)
+        wft_rain(context, entity, true);
     else if (original->current == 27)
         wft_poison(context, entity, true);
     else if (wos_targetSpell(context, entity, true) == WOR_CHANGED)
@@ -191,7 +196,8 @@ static void wst_frankCastAction(WarContext* context, WarEntity* entity)
             }
         }
     }
-    wos_queue(context, entity, 2, WOR_NONE);
+    // rain goes on until it cannot pay (0x27BCC, 0x2793C)
+    if (original->current != 26) wos_queue(context, entity, 2, WOR_NONE);
 }
 
 void wst_frankCastTick(WarContext* context, WarEntity* entity, WarStateBase* state)
@@ -222,13 +228,14 @@ void wst_frankCastTick(WarContext* context, WarEntity* entity, WarStateBase* sta
             wact_setAction(context, entity, WAR_ACTION_TYPE_ATTACK, false, 1.0f);
         return;
     }
-    if (original->current == 20 || original->current == 27)
+    if (original->current == 20 || original->current == 26 || original->current == 27)
     {
         const vec2 here = wu_getUnitCenterTile(context, entity);
         wu_setUnitDirection(context, entity, (WarDirection)wor_facing(
             (s16)(original->goalX - here.x), (s16)(original->goalY - here.y)));
         if ((original->current == 20 ? wos_resurrect(context, entity, false)
-                                     : wft_poison(context, entity, false)) != WOR_CHANGED)
+             : original->current == 26 ? wft_rain(context, entity, false)
+                                       : wft_poison(context, entity, false)) != WOR_CHANGED)
             wst_frankCastIdle(context, entity);
         else
             wact_setAction(context, entity, WAR_ACTION_TYPE_ATTACK, false, 1.0f);

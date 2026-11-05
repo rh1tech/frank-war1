@@ -279,6 +279,165 @@ WarOrderResult wor_poisonTick(WarOriginalRuntime* runtime, WarOriginalEffect* ef
     return WOR_CHANGED;
 }
 
+// 0x511A4 and 0x531EC: the phase an effect takes at its first checkpoint,
+// by type, and the animation each phase plays.
+static const uint8_t wor_effectPhase[12] = { 1, 2, 1, 3, 4, 5, 5, 5, 5, 5, 1, 1 };
+static const uint8_t wor_phaseAnimation[10] = { 0, 1, 1, 1, 1, 1, 2, 0, 3, 0 };
+
+// 0x119C0: the first free record of the shared pool, cleared.
+static WarOriginalEffect* wor_freeEffect(WarOriginalRuntime* runtime)
+{
+    for (unsigned i = 0; i < WOR_EFFECT_COUNT; i++)
+        if (!runtime->effects[i].used)
+        {
+            runtime->effects[i] = (WarOriginalEffect){ 0 };
+            return &runtime->effects[i];
+        }
+    return NULL;
+}
+
+// 0x11E70: a short-lived visual (an impact: type 7) at a pixel, if the
+// pool has room; it lives one animation (phases 0 and 5).
+WarOrderResult wor_impactVisual(WarOriginalRuntime* runtime, uint8_t type, int16_t x, int16_t y)
+{
+    if (!runtime->effects) return wor_error(runtime, WOR_UNIT_COUNT, "missing effect pool");
+    WarOriginalEffect* effect = wor_freeEffect(runtime);
+    if (!effect) return WOR_UNCHANGED;
+    effect->used = true;
+    effect->type = type;
+    effect->x = x;
+    effect->y = y;
+    if (wor_effectAnimation(runtime, effect, wor_phaseAnimation[0]) == WOR_ERROR) return WOR_ERROR;
+    if (runtime->effectCreated) runtime->effectCreated(runtime, effect);
+    return WOR_CHANGED;
+}
+
+// 0x120C8: damage to the width x height tiles round an effect's tile. With
+// `quarter`, all but the middle take a quarter; a building takes a quarter
+// of that again. The source is spared; an empty tile's terrain is struck
+// when `terrain` is set.
+void wor_areaDamage(WarOriginalRuntime* runtime, const WarOriginalEffect* effect, bool quarter,
+                    int width, int height, bool terrain, uint8_t damage)
+{
+    const int cx = effect->x >= 0 ? effect->x / 16 : -((15 - effect->x) / 16);
+    const int cy = effect->y >= 0 ? effect->y / 16 : -((15 - effect->y) / 16);
+    const int sx = cx - width / 2, sy = cy - height / 2;
+    for (int row = 0; row < height; row++)
+        for (int column = 0; column < width; column++)
+        {
+            const int x = sx + column, y = sy + row;
+            if ((unsigned)x >= WOR_MAP_WIDTH || (unsigned)y >= WOR_MAP_WIDTH) continue;
+            uint8_t amount = damage;
+            if (quarter && !(row == 1 && column == 1)) amount = (uint8_t)(amount / 4);
+            const uint16_t target = runtime->occupant ? runtime->occupant(runtime, (int16_t)x, (int16_t)y) : 0;
+            if (target)
+            {
+                const uint8_t type = runtime->units[target - 1].type;
+                if (type >= 32 && type <= 50) amount = (uint8_t)(amount / 4);
+                if (target != effect->source && runtime->damage)
+                    runtime->damage(runtime, effect->source, target, amount);
+            }
+            else if (terrain && runtime->terrainDamage)
+                runtime->terrainDamage(runtime, (int16_t)x, (int16_t)y, amount);
+        }
+}
+
+// 0x585F0: the impact points of the last cast's four records, kept between
+// casts (a record that found no room leaves its old point).
+static int16_t wor_rainImpacts[4][2];
+
+// 0x11CD8: one falling record at the caster's goal, off by whole tiles
+// (-2..4) each way, a point unlike the cast's earlier records, starting 120
+// pixels above it.
+static WarOrderResult wor_rainRecord(WarOriginalRuntime* runtime, uint16_t slot, unsigned index)
+{
+    WarOriginalEffect* effect = wor_freeEffect(runtime);
+    if (!effect) return WOR_UNCHANGED;
+    const WarOriginalUnit* caster = &runtime->units[slot];
+    *effect = (WarOriginalEffect){
+        .used = true, .type = 4, .damage = 32, .source = slot + 1,
+        .x = (int16_t)(caster->goalX * 16 + 8), .y = (int16_t)(caster->goalY * 16 + 8)
+    };
+    if (wor_effectAnimation(runtime, effect, wor_phaseAnimation[0]) == WOR_ERROR) return WOR_ERROR;
+    int16_t x, y;
+    for (;;)
+    {
+        x = (int16_t)(effect->x + (runtime->random(runtime) % 7) * 16 - 32);
+        y = (int16_t)(effect->y + (runtime->random(runtime) % 7) * 16 - 32);
+        unsigned k = 0;
+        while (k < index && (wor_rainImpacts[k][0] != x || wor_rainImpacts[k][1] != y)) k++;
+        if (k >= index) break;
+    }
+    wor_rainImpacts[index][0] = x;
+    wor_rainImpacts[index][1] = y;
+    effect->x = effect->goalX = x;
+    effect->goalY = y;
+    effect->y = (int16_t)(y - 120);
+    effect->step = 0;
+    if (runtime->effectCreated) runtime->effectCreated(runtime, effect);
+    return WOR_CHANGED;
+}
+
+// 0x2793C: rain of fire. Unaffordable, it queues idle; the action pays
+// fifty for each four records, and the order goes on (0x27BCC).
+WarOrderResult wor_rain(WarOriginalRuntime* runtime, uint16_t slot, uint8_t* mana, bool action)
+{
+    if (slot >= WOR_UNIT_COUNT || !mana) return wor_error(runtime, slot, "invalid rain caster");
+    if (*mana < 50)
+    {
+        if (wor_queue(runtime, slot, 2, WOR_NONE) == WOR_ERROR) return WOR_ERROR;
+        return WOR_UNCHANGED;
+    }
+    if (!action) return WOR_CHANGED;
+    if (!runtime->effects || !runtime->random) return wor_error(runtime, slot, "missing effect pool");
+    *mana -= 50;
+    for (unsigned i = 0; i < 4; i++)
+        if (wor_rainRecord(runtime, slot, i) == WOR_ERROR) return WOR_ERROR;
+    return WOR_CHANGED;
+}
+
+// One pool record's tick in the unit dispatch (0x2ECFC): its script, then
+// its phase at a checkpoint: 0 picks the type's phase (0x11FA8), 4 is a
+// falling record (0x12338), 5 releases a visual (0x123E0).
+WarOrderResult wor_effectTick(WarOriginalRuntime* runtime, WarOriginalEffect* effect)
+{
+    if (!effect->used) return WOR_UNCHANGED;
+    WarOrderResult result = wor_effectScriptTick(runtime, effect);
+    if (result != WOR_CHANGED) return result;
+    switch (effect->state)
+    {
+        case 0:
+            if (effect->type >= sizeof(wor_effectPhase))
+                return wor_error(runtime, WOR_UNIT_COUNT, "invalid effect type");
+            effect->state = wor_effectPhase[effect->type];
+            return wor_effectAnimation(runtime, effect, wor_phaseAnimation[effect->state]);
+        case 4:
+            if (effect->step == 3)
+            {
+                effect->used = false;
+                return WOR_CHANGED;
+            }
+            if (effect->step & 0x80)
+            {
+                effect->y = (int16_t)(effect->goalY - 120);
+                effect->step &= 0x7F;
+                return WOR_CHANGED;
+            }
+            effect->y = (int16_t)(effect->y + 4);
+            if (effect->y < effect->goalY) return WOR_CHANGED;
+            effect->y = effect->goalY;
+            effect->step = (uint8_t)((effect->step + 1) | 0x80);
+            if (wor_impactVisual(runtime, 7, effect->x, effect->y) == WOR_ERROR) return WOR_ERROR;
+            wor_areaDamage(runtime, effect, true, 3, 3, true, effect->damage);
+            return WOR_CHANGED;
+        case 5:
+            effect->used = false;
+            return WOR_CHANGED;
+        default:
+            return wor_error(runtime, WOR_UNIT_COUNT, "unsupported effect phase");
+    }
+}
+
 static WarOrderResult wor_breakTerrain(WarOriginalRuntime* runtime, WarOriginalTerrain* terrain,
                                        int32_t x, int32_t y, bool linked)
 {

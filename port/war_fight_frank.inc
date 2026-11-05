@@ -135,6 +135,50 @@ static WarOrderResult wft_poison(WarContext* context, WarEntity* entity, bool ac
     return result;
 }
 
+static void wft_terrainDamage(WarOriginalRuntime* runtime, s16 x, s16 y, u8 damage)
+{
+    WarOriginalCall* call = runtime->context;
+    wmv_damageTerrain(call->context, x, y, damage);
+}
+
+// war1's rain projectile shows one fall of a record (it strikes nothing:
+// the strike is the record's, 0x12338)
+static void wft_rainFall(WarContext* context, const WarOriginalEffect* effect)
+{
+    wproj_createProjectile(context, WAR_PROJECTILE_RAIN_OF_FIRE, 0, 0,
+                           vec2i(effect->x, effect->goalY - 120), vec2i(effect->x, effect->goalY));
+}
+
+static void wft_rainCreated(WarOriginalRuntime* runtime, WarOriginalEffect* effect)
+{
+    WarOriginalCall* call = runtime->context;
+    if (effect->type == 4) wft_rainFall(call->context, effect);
+}
+
+// The runtime for the shared pool's records.
+static WarOriginalRuntime wft_effectRuntime(WarOriginalCall* call)
+{
+    WarOriginalRuntime runtime = wos_runtime(call);
+    runtime.effects = wft_missiles;
+    runtime.occupant = wos_occupant;
+    runtime.damage = wft_poisonDamage;
+    runtime.terrainDamage = wft_terrainDamage;
+    runtime.effectCreated = wft_rainCreated;
+    return runtime;
+}
+
+static WarOrderResult wft_rain(WarContext* context, WarEntity* entity, bool action)
+{
+    if (!wos_unit(context, entity)) return WOR_ERROR;
+    WarUnitComponent* unit = we_getUnitComponent(context, entity);
+    u8 mana = (u8)unit->mana;
+    WarOriginalCall call = { .context = context, .entity = entity };
+    WarOriginalRuntime runtime = wft_effectRuntime(&call);
+    WarOrderResult result = wor_rain(&runtime, unit->frankOriginalSlot - 1, &mana, action);
+    we_getUnitComponent(context, entity)->mana = mana;
+    return result;
+}
+
 static void wft_windTick(WarContext* context)
 {
     WarOriginalCall call = { .context = context };
@@ -303,6 +347,15 @@ static void wft_missilesTick(WarContext* context)
             }
             continue;
         }
+        if (m->type == 4 || m->type == 7)
+        {
+            // rain and impacts run their own scripts (0x12338, 0x11E70)
+            WarOriginalRuntime pool = wft_effectRuntime(&call);
+            const bool struck = m->type == 4 && (m->step & 0x80);
+            if (wor_effectTick(&pool, m) == WOR_ERROR) return;
+            if (struck && m->used && !(m->step & 0x80) && m->step < 3) wft_rainFall(context, m);
+            continue;
+        }
         if (--m->wait > 0) continue;
         m->wait = 1;
         switch (m->state)
@@ -321,7 +374,14 @@ static void wft_missilesTick(WarContext* context)
                 // 0x12240: targeted strike, or a rock's impact area.
                 WarEntity* shooter = we_findEntity(context, m->shooter);
                 WarEntity* target = we_findEntity(context, m->target);
-                if (m->type == 1) wft_rockUnitSplash(context, m, shooter);
+                if (m->type == 1)
+                {
+                    wft_rockUnitSplash(context, m, shooter);
+                    // its impact takes a record of its own (0x12240)
+                    WarOriginalRuntime pool = wft_effectRuntime(&call);
+                    pool.effectCreated = NULL;
+                    if (wor_impactVisual(&pool, 7, m->x, m->y) == WOR_ERROR) return;
+                }
                 else if (!m->target)
                     wmv_damageTerrain(context, m->x >= 0 ? m->x / 16 : -((15 - m->x) / 16),
                                       m->y >= 0 ? m->y / 16 : -((15 - m->y) / 16), m->damage);
