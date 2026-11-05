@@ -2074,6 +2074,16 @@ walk and the worker's tree search see (`0x2BCD4`). The dropped trees stayed
 standing in those bits and in war1's pathfinder but could not be chopped.
 They stay trees now; their art comes from the level anyway.
 
+### Hidden occupants die with their building
+
+The original's death routine (`0x2E23C`) recursively kills the hidden
+units whose target is the dying building. The port now does too: a worker
+inside a construction it builds or repairs, inside a town hall while
+delivering, or inside a gold mine (also when a mine runs dry). Before, the
+peon inside a computer's town hall under construction survived its
+destruction. The computer rebuilds a lost hall at once and free of charge
+(priority 120), so a besieged town could never be finished.
+
 ### Checking it tile by tile
 
 `tools/ai_ref_compare.sh RACE N MINUTES` plays the mission in the

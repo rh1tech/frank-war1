@@ -335,6 +335,36 @@ void wos_beginDeath(WarContext* context, WarEntity* entity)
     if (original->type >= 32 && original->type <= 50)
         wai_noteBuildingDeath(context, original->owner, original->type == 48 || original->type == 49);
     original->flags = (u16)((original->flags | WOR_DYING) & ~(WOR_HELD | WOR_HOLD_REQUEST));
+    if (wu_isBuildingUnit(context, entity))
+    {
+        // the hidden occupants whose target is this building die with it,
+        // in turn (0x2E23C): a builder inside its construction, a worker
+        // inside a hall or a mine
+        WarEntityManager* manager = we_getEntityManager(context);
+        const u16 me = unit->frankOriginalSlot;
+        for (u16 slot = 0; slot < WOR_UNIT_COUNT; slot++)
+        {
+            WarEntity* inside = manager->originalEntities[slot];
+            WarOriginalUnit* record = &manager->originalUnits[slot];
+            if (!inside || inside == entity || (record->flags & WOR_INACTIVE)) continue;
+            if (!wu_isUnit(inside) || !wst_isInsideBuilding(context, inside)) continue;
+            // (its target: the record's, or war1's link while it is inside)
+            WarEntityId host = 0;
+            if (wst_isMining(context, inside)) host = wst_getMiningState(context, inside)->goldmineId;
+            else if (wst_isDelivering(context, inside)) host = wst_getDeliverState(context, inside)->townHallId;
+            else if (wst_isRepairing2(context, inside)) host = wst_getRepairingState(context, inside)->buildingId;
+            if (record->target != me && host != entity->id) continue;
+            WarUnitComponent* occupant = we_getUnitComponent(context, inside);
+            if (!occupant || occupant->hp <= 0) continue;
+            logInfo("kernel: occupant %u (type %d) dies with building %u (type %d)", inside->id, occupant->type,
+                    entity->id, unit->type);
+            occupant->hp = 0;
+            wos_beginDeath(context, inside);
+            WarStateDeath* death = wst_createDeathState(context, inside);
+            if (!death || !wst_resetState(context, inside, (WarStateBase*)death, WAR_TRANSITION_CAUSE_LIFECYCLE))
+                logError("original kernel: failed occupant death for entity %u", inside->id);
+        }
+    }
     original->workFlags = unit->amount ? 0x20 : 0;
     if (original->type == 16 || (original->type == 15 && original->owner == 4))
     {
