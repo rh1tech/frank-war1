@@ -2542,10 +2542,276 @@ bool wai_checkObjectives(WarContext* context, WarLevelResult* result)
 //   kill N  destroys every unit and building of players 1-3 but N buildings
 //   reveal  the fog-of-war cheat (screenshots)
 //   exit    hands Lothar/Garona to the human and puts them on the exit
+#ifndef FRANK_BOARD
+// ---------------------------------------------------------------- agent
+// Host agent mode (host/plat_host.c, WAR_AGENT): a player outside the game
+// reads what the human side sees and gives the human's orders through
+// war1's own player commands (`ai ag <command>` lines).
+
+static const char* wai_agStateName(WarContext* context, WarEntity* e)
+{
+    static const char* names[] = { "idle", "move", "patrol", "follow", "attack", "gold", "mining", "wood",
+        "chopping", "deliver", "death", "collapse", "train", "upgrade", "build", "repair", "repairing",
+        "cast", "wait" };
+    WarStateBase* st = wst_getActiveState(context, e);
+    return st && (u32)st->type < sizeof(names) / sizeof(names[0]) ? names[st->type] : "none";
+}
+
+static bool wai_agSeen(WarContext* context, WarUnitComponent* u, WarEntity* e)
+{
+    if (u->player == 0) return true;
+    vec2 t = wu_isBuildingUnitType(u->type) ? vec2i(u->tilex, u->tiley) : wu_getUnitCenterTile(context, e);
+    if (u->type == WAR_UNIT_GOLDMINE || wu_isBuildingUnitType(u->type))
+        return !wmap_isTileUnknown(context->map, (s32)t.x, (s32)t.y);
+    return wmap_isTileVisible(context->map, (s32)t.x, (s32)t.y);
+}
+
+static void wai_agState(WarContext* context, const char* path)
+{
+    FILE* f = fopen(path, "w");
+    if (!f) return;
+    WarMap* map = context->map;
+    WarPlayerInfo* p = &map->players[0];
+    s32 units = 0, farms = 0;
+    WarEntityList* list = we_getEntitiesOfType(context, WAR_ENTITY_TYPE_UNIT);
+    for (s32 i = 0; i < list->count; i++)
+    {
+        WarUnitComponent* u = we_getUnitComponent(context, list->items[i]);
+        if (!u || u->player != 0 || !wai_alive(context, list->items[i])) continue;
+        if (u->type == WAR_UNIT_FARM_HUMANS || u->type == WAR_UNIT_FARM_ORCS) { if (!u->building) farms++; }
+        else if (!wu_isBuildingUnitType(u->type) && u->type < WAR_UNIT_HUMAN_CORPSE) units++;
+    }
+    fprintf(f, "tick %u gold %d wood %d units %d farms %d food_ok %d result %d objectives %04x\n",
+            wrng_tick, p->gold, p->wood, units, farms, we_enoughFarmFood(context, p), (s32)map->result, wai->lv->flags);
+    for (s32 i = 0; i < list->count; i++)
+    {
+        WarEntity* e = list->items[i];
+        WarUnitComponent* u = we_getUnitComponent(context, e);
+        if (!u || !wai_alive(context, e) || u->type >= WAR_UNIT_HUMAN_CORPSE || !wai_agSeen(context, u, e)) continue;
+        const bool bld = wu_isBuildingUnitType(u->type);
+        vec2 t = bld ? vec2i(u->tilex, u->tiley) : wu_getUnitCenterTile(context, e);
+        const WarUnitData* d = wu_getUnitData(u->type);
+        fprintf(f, "U id %u type %d %.*s owner %d at %d,%d size %dx%d hp %d/%d state %s",
+                (unsigned)e->id, u->type, d ? (int)d->name.length : 0, d ? d->name.data : "", u->player,
+                (s32)t.x, (s32)t.y, u->sizex, u->sizey, u->hp, u->maxhp, wai_agStateName(context, e));
+        if (u->building) fprintf(f, " building %d%%", (s32)(u->buildPercent * 100));
+        if (u->amount && !bld) fprintf(f, " carries %d", u->amount);
+        if (u->type == WAR_UNIT_GOLDMINE) fprintf(f, " gold %d", u->amount);
+        if (u->mana) fprintf(f, " mana %d", u->mana);
+        WarEntity* t2 = we_getAttackTarget(context, e);
+        if (t2) fprintf(f, " target %u", (unsigned)t2->id);
+        fprintf(f, "\n");
+    }
+    fclose(f);
+}
+
+// The map as the human knows it: ? unknown, . open, T tree, ~ water, # rock or
+// a building, W wall, , road unknown to war1's grid as such
+static void wai_agMap(WarContext* context, const char* path)
+{
+    FILE* f = fopen(path, "w");
+    if (!f) return;
+    WarMap* map = context->map;
+    WarResource* levelInfo = wres_getOrCreateResource(context, map->levelInfoIndex);
+    WarResource* passable = wres_getOrCreateResource(context, levelInfo->levelInfo.passableIndex);
+    const u16* flags = passable && passable->type == WAR_RESOURCE_TYPE_LEVEL_PASSABLE ? passable->levelPassable.data : NULL;
+    for (s32 y = 0; y < MAP_TILES_HEIGHT; y++)
+    {
+        for (s32 x = 0; x < MAP_TILES_WIDTH; x++)
+        {
+            const s32 i = y * WMV_W + x;
+            char c = '.';
+            if (wmap_isTileUnknown(map, x, y)) c = '?';
+            else if (flags && (flags[i] & 0x20)) c = 'E';   // the exit (objective 0x04)
+            else if (wmv_treeUp[i]) c = 'T';
+            else if (wmv_terrain[i] & 0x40) c = '~';
+            else if (wmv_terrain[i] & 0xC) c = 'W';
+            else if (wmv_ground[i] || wmv_built[i]) c = '#';
+            fputc(c, f);
+        }
+        fputc('\n', f);
+    }
+    fclose(f);
+}
+
+// The terrain as it is (map knowledge, no units): . open, T tree, ~ water,
+// # rock or building, W wall, E exit
+static void wai_agFullMap(WarContext* context, const char* path)
+{
+    FILE* f = fopen(path, "w");
+    if (!f) return;
+    WarMap* map = context->map;
+    WarResource* levelInfo = wres_getOrCreateResource(context, map->levelInfoIndex);
+    WarResource* passable = wres_getOrCreateResource(context, levelInfo->levelInfo.passableIndex);
+    const u16* flags = passable && passable->type == WAR_RESOURCE_TYPE_LEVEL_PASSABLE ? passable->levelPassable.data : NULL;
+    for (s32 y = 0; y < MAP_TILES_HEIGHT; y++)
+    {
+        for (s32 x = 0; x < MAP_TILES_WIDTH; x++)
+        {
+            const s32 i = y * WMV_W + x;
+            char c = '.';
+            if (wmv_treeUp[i]) c = 'T';
+            else if (wmv_terrain[i] & 0x40) c = '~';
+            else if (wmv_terrain[i] & 0xC) c = 'W';
+            else if (wmv_ground[i] || wmv_built[i]) c = '#';
+            else if (flags && (flags[i] & 0x20)) c = 'E';
+            fputc(c, f);
+        }
+        fputc('\n', f);
+    }
+    fclose(f);
+}
+
+static void wai_agSelect(WarContext* context, const char* args)
+{
+    WarMap* map = context->map;
+    WarEntityIdListClear(&map->selectedEntities);
+    char* end;
+    for (const char* q = args; *q; q = end)
+    {
+        long id = strtol(q, &end, 10);
+        if (end == q) break;
+        WarEntity* e = we_findEntity(context, (WarEntityId)id);
+        if (e) WarEntityIdListAdd(&map->selectedEntities, e->id);
+    }
+}
+
+static void wai_agCommand(WarContext* context, const char* cmd)
+{
+    WarMap* map = context->map;
+    s32 a = 0, b = 0, c = 0;
+    if (!strncmp(cmd, "state ", 6)) wai_agState(context, cmd + 6);
+    else if (!strncmp(cmd, "map ", 4)) wai_agMap(context, cmd + 4);
+    else if (!strncmp(cmd, "sel ", 4)) wai_agSelect(context, cmd + 4);
+    else if (!strncmp(cmd, "fullmap ", 8)) wai_agFullMap(context, cmd + 8);
+    else if (!strncmp(cmd, "heroes ", 7))
+    {
+        // the mission's heroes, wherever they are (objective 0x04)
+        FILE* f = fopen(cmd + 7, "w");
+        WarEntityList* all = we_getEntitiesOfType(context, WAR_ENTITY_TYPE_UNIT);
+        for (s32 i = 0; f && i < all->count; i++)
+        {
+            WarUnitComponent* u = we_getUnitComponent(context, all->items[i]);
+            if (u && (u->type == WAR_UNIT_LOTHAR || u->type == WAR_UNIT_GARONA || u->type == WAR_UNIT_MEDIVH ||
+                      u->type == WAR_UNIT_WOUNDED) && wai_alive(context, all->items[i]))
+            {
+                vec2 t = wu_getUnitCenterTile(context, all->items[i]);
+                fprintf(f, "HERO id %u type %d owner %d at %d,%d hp %d/%d\n", (unsigned)all->items[i]->id, u->type,
+                        u->player, (s32)t.x, (s32)t.y, u->hp, u->maxhp);
+            }
+        }
+        if (f) fclose(f);
+    }
+    else if (!strncmp(cmd, "mines ", 6))
+    {
+        // where the gold is, as a player who knows the map
+        FILE* f = fopen(cmd + 6, "w");
+        WarEntityList* all = we_getEntitiesOfType(context, WAR_ENTITY_TYPE_UNIT);
+        for (s32 i = 0; f && i < all->count; i++)
+        {
+            WarUnitComponent* u = we_getUnitComponent(context, all->items[i]);
+            if (u && u->type == WAR_UNIT_GOLDMINE && wai_alive(context, all->items[i]))
+                fprintf(f, "MINE id %u at %d,%d gold %d\n", (unsigned)all->items[i]->id, u->tilex, u->tiley, u->amount);
+        }
+        if (f) fclose(f);
+    }
+    else if (sscanf(cmd, "move %d %d", &a, &b) == 2) wcmd_executeMoveCommand(context, wai_tileCenter(a, b));
+    else if (sscanf(cmd, "attackxy %d %d", &a, &b) == 2) wcmd_executeAttackCommand(context, NULL, wai_tileCenter(a, b));
+    else if (sscanf(cmd, "attack %d", &a) == 1)
+    {
+        WarEntity* t = we_findEntity(context, (WarEntityId)a);
+        if (t) wcmd_executeAttackCommand(context, t, wu_getUnitCenterPosition(context, t));
+    }
+    else if (sscanf(cmd, "harvestxy %d %d", &a, &b) == 2)
+    {
+        WarEntity* forest = we_getForestAtTile(context, a, b);
+        if (forest) wcmd_executeHarvestCommand(context, forest, vec2i(a, b));
+    }
+    else if (sscanf(cmd, "harvest %d", &a) == 1)
+    {
+        WarEntity* t = we_findEntity(context, (WarEntityId)a);
+        if (t) wcmd_executeHarvestCommand(context, t, wu_getUnitCenterTile(context, t));
+    }
+    else if (sscanf(cmd, "repair %d", &a) == 1)
+    {
+        WarEntity* t = we_findEntity(context, (WarEntityId)a);
+        if (t) wcmd_executeRepairCommand(context, t);
+    }
+    else if (!strcmp(cmd, "stop")) wcmd_executeStopCommand(context);
+    else if (sscanf(cmd, "heal %d", &a) == 1)
+    {
+        WarEntity* t = we_findEntity(context, (WarEntityId)a);
+        if (t) wcmd_executeHealingCommand(context, t, wu_getUnitCenterPosition(context, t));
+    }
+    else if (sscanf(cmd, "buildnear %d %d %d", &a, &b, &c) == 3)
+    {
+        // the nearest spot round (b, c) where the building fits, ring by
+        // ring, a tile left free round it for walking
+        WarEntity* worker = map->selectedEntities.count ? we_findEntity(context, map->selectedEntities.items[0]) : NULL;
+        const WarBuildingStats* stats = wu_getBuildingStats((WarUnitType)a);
+        const WarUnitData* data = wu_getUnitData((WarUnitType)a);
+        if (!worker || !stats || !data) { printf("agent: buildnear needs a selected worker and a building type\n"); return; }
+        for (s32 r = 0; r < 12; r++)
+            for (s32 y = c - r; y <= c + r; y++)
+                for (s32 x = b - r; x <= b + r; x++)
+                {
+                    if (MAX(ABS(x - b), ABS(y - c)) != r) continue;
+                    if (!we_checkTileToBuild(context, (WarUnitType)a, x, y)) continue;
+                    if (!we_checkRectToBuild(context, x - 1, y - 1, data->sizex + 2, data->sizey + 2)) continue;
+                    if (wcmd_tryPlaceBuilding(context, worker, wu_getOwningPlayer(context, worker), (WarUnitType)a, vec2i(x, y), stats))
+                        printf("agent: building %d at %d,%d\n", a, x, y);
+                    else printf("agent: build %d at %d,%d refused\n", a, x, y);
+                    return;
+                }
+        printf("agent: no spot for %d near %d,%d\n", a, b, c);
+    }
+    else if (sscanf(cmd, "build %d %d %d", &a, &b, &c) == 3)
+    {
+        WarEntity* worker = map->selectedEntities.count ? we_findEntity(context, map->selectedEntities.items[0]) : NULL;
+        const WarBuildingStats* stats = wu_getBuildingStats((WarUnitType)a);
+        if (!worker || !stats) { printf("agent: build needs a selected worker and a building type\n"); return; }
+        if (!we_checkTileToBuild(context, (WarUnitType)a, b, c)) { printf("agent: cannot build %d at %d,%d\n", a, b, c); return; }
+        if (!wcmd_tryPlaceBuilding(context, worker, wu_getOwningPlayer(context, worker), (WarUnitType)a, vec2i(b, c), stats))
+            printf("agent: build %d at %d,%d refused\n", a, b, c);
+    }
+    else if (sscanf(cmd, "train %d", &a) == 1 || sscanf(cmd, "cmd %d", &b) == 1)
+    {
+        // a train (by unit type) or any button command (by command type) of
+        // the selected building, as its button would
+        WarEntity* sel = map->selectedEntities.count ? we_findEntity(context, map->selectedEntities.items[0]) : NULL;
+        WarUnitComponent* su = sel ? we_getUnitComponent(context, sel) : NULL;
+        if (!su) { printf("agent: nothing selected\n"); return; }
+        WarUnitCommandType type = WAR_COMMAND_NONE;
+        if (!strncmp(cmd, "train", 5))
+        {
+            for (s32 k = WAR_COMMAND_TRAIN_FOOTMAN; k <= WAR_COMMAND_TRAIN_NECROLYTE; k++)
+            {
+                const WarUnitCommandMapping* m = wu_getCommandMapping((WarUnitCommandType)k);
+                if (m && m->mappedType == a) type = (WarUnitCommandType)k;
+            }
+            if (type == WAR_COMMAND_NONE) { printf("agent: no train command for type %d\n", a); return; }
+            wcmd_trainUnit(context, type, (WarUnitType)a, su->type);
+        }
+        else
+        {
+            WarUnitCommandData d = wu_getUnitCommandData(context, sel, (WarUnitCommandType)b);
+            if (!d.clickHandler) { printf("agent: no command %d\n", b); return; }
+            d.clickHandler(context, sel);
+        }
+        wcmd_executeCommand(context);
+        map->commandState.command.type = WAR_COMMAND_NONE;
+    }
+    else printf("agent: unknown command '%s'\n", cmd);
+}
+#endif
+
 void wai_debug(void* ctx, const char* cmd)
 {
     WarContext* context = (WarContext*)ctx;
     if (!wai || !wai->lv || !context->map) return;
+#ifndef FRANK_BOARD
+    if (!strncmp(cmd, "ag ", 3)) { wai_agCommand(context, cmd + 3); return; }
+#endif
     WarEntityList* list = we_getEntitiesOfType(context, WAR_ENTITY_TYPE_UNIT);
     if (!strncmp(cmd, "kill", 4))
     {

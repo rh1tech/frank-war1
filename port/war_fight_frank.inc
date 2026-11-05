@@ -457,6 +457,9 @@ void wft_unitTick(WarContext* context, WarEntity* e, WarStateBase* st)
         if (!wos_select(context, e, ((WarStateAttack*)st)->frankOrder, 1)) return;
         u->frankAtkOn = true;
     }
+    // (a walk that handed over to its attack this turn ran this tick's
+    // script: the attack's starts at the next, 0x2ECFC)
+    if (u->frankScriptTick == wrng_tick) return;
 #ifndef FRANK_BOARD
     {
         static s32 watch = -2;

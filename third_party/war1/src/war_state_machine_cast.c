@@ -212,6 +212,9 @@ void wst_frankCastTick(WarContext* context, WarEntity* entity, WarStateBase* sta
         wmv_settle(context, entity);
         return;
     }
+    // (a walk that handed over to the spell this turn ran this tick's
+    // script: the spell's starts at the next, 0x2ECFC)
+    if (unit->frankScriptTick == wrng_tick) return;
     if (wos_tick(context, entity, wst_frankCastAction) != WOR_CHANGED) return;
     if (wmv_takePendingOrder(context, entity)) return;
     WarOriginalUnit* original = wos_unit(context, entity);

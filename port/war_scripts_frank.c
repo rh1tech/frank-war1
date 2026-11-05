@@ -836,6 +836,15 @@ WarOrderResult wos_tick(WarContext* context, WarEntity* entity,
         if (unit->frankScriptTick == wrng_tick)
         {
             logError("original kernel: two scripts in tick %u for entity %u", wrng_tick, entity->id);
+#ifndef FRANK_BOARD
+            if (getenv("WAR_KERNELTRACE"))
+            {
+                extern int backtrace(void**, int);
+                extern void backtrace_symbols_fd(void* const*, int, int);
+                void* frames[24];
+                backtrace_symbols_fd(frames, backtrace(frames, 24), 2);
+            }
+#endif
             return WOR_ERROR;
         }
         unit->frankScriptTick = wrng_tick;

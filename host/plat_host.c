@@ -30,6 +30,7 @@
  * SPDX-License-Identifier: Zlib
  */
 #include <SDL3/SDL.h>
+#include <unistd.h>
 
 #include <ctype.h>
 #include <pthread.h>
@@ -86,6 +87,9 @@ static void at_exit(void) {
     if (hash_checks) printf("host: replay %d/%d state hashes matched\n", hash_checks - hash_errors, hash_checks);
 }
 
+static const char *agent_dir;   /* WAR_AGENT, see agent_stop */
+static unsigned long long agent_until = 2, agent_seq;
+
 bool plat_init(void) {
     windowed = getenv("WAR_WINDOW") && atoi(getenv("WAR_WINDOW"));
     const char *rp = getenv("WAR_RECORD");
@@ -97,6 +101,8 @@ bool plat_init(void) {
         war_fixedStep = true;
     }
     if (getenv("WAR_FIXED") && atoi(getenv("WAR_FIXED"))) war_fixedStep = true;
+    agent_dir = getenv("WAR_AGENT");
+    if (agent_dir) war_fixedStep = true;
     const char *sp = getenv("WAR_SCRIPT");
     if (sp && !(script = fopen(sp, "r"))) fprintf(stderr, "host: no script %s\n", sp);
     if (windowed) {
@@ -139,11 +145,34 @@ extern size_t wai_report(void *context, char *buf, size_t n);
 extern void wai_debug(void *context, const char *cmd);
 extern void *war_context;
 
+/* WAR_AGENT=dir: a player outside the game. At each stop the game writes
+ * dir/state.N.txt (and dir/map.N.txt) and waits for dir/cmd.N.txt, script
+ * lines ("0 ai ag ..."), of which "0 run F" sets the next stop F frames on. */
+
+static void agent_stop(void) {
+    char path[600], cmdline[700];
+    snprintf(path, sizeof path, "%s/state.%llu.txt", agent_dir, agent_seq);
+    snprintf(cmdline, sizeof cmdline, "ag state %s", path);
+    wai_debug(war_context, cmdline);
+    snprintf(path, sizeof path, "%s/map.%llu.txt", agent_dir, agent_seq);
+    snprintf(cmdline, sizeof cmdline, "ag map %s", path);
+    wai_debug(war_context, cmdline);
+    snprintf(path, sizeof path, "%s/cmd.%llu.txt", agent_dir, agent_seq);
+    FILE *ready;
+    char rp[600];
+    snprintf(rp, sizeof rp, "%s/ready", agent_dir);
+    if ((ready = fopen(rp, "w"))) { fprintf(ready, "%llu %llu\n", agent_seq, (unsigned long long)frame_no); fclose(ready); }
+    while (!(script = fopen(path, "r"))) usleep(20000);
+    agent_seq++;
+    agent_until = (unsigned long long)-1;   /* until the commands say how far */
+}
+
 static void run_script(const uint16_t *shown) {
     if (release_button) {
         rec_button(release_button, false, mx, my);
         release_button = 0;
     }
+    if (agent_dir && !script && frame_no >= agent_until) agent_stop();
     while (script) {
         if (pending_frame < 0) {
             if (!fgets(pending, sizeof(pending), script)) { fclose(script); script = NULL; break; }
@@ -209,6 +238,8 @@ static void run_script(const uint16_t *shown) {
             wai_debug(war_context, a);
         } else if (!strcmp(cmd, "quit")) {
             exit(0);
+        } else if (!strcmp(cmd, "run")) {
+            agent_until = frame_no + strtoull(a, NULL, 10);
         }
         pending_frame = -1;
     }
