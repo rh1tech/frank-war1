@@ -259,6 +259,19 @@ void wst_frankTrainTick(WarContext* context, WarEntity* entity, WarStateBase* st
     if (map->hurryUp) s->frankTicks -= 3;   // (the original's cheat: a quarter of the steps)
     if (--s->frankTicks > 0) return;
 
+    if (!wos_hasFreeRecord(context))
+    {
+        // the unit table is full: no unit, the price back, and the human is
+        // told (0x143CC: 0x2E740 fails, 0x20E64 refunds, "Cannot create more units")
+        WarPlayerInfo* owner = &map->players[unit->player];
+        if (!s->alreadyRefunded) we_increasePlayerResources(context, owner, s->goldCost, s->woodCost);
+        s->alreadyRefunded = true;
+        s->outputCommitted = true;
+        if (unit->player == 0) wmui_setFlashStatus(context, 1.5f, wstr_fromCString("CANNOT CREATE MORE UNITS"));
+        unit->buildPercent = 1;
+        wst_popState(context, entity, WAR_TRANSITION_CAUSE_COMPLETION, WAR_STATE_RESULT_SUCCESS);
+        return;
+    }
     unit->buildPercent = 1;
     WarEntity* made = we_createDude(context, CREATE_UNIT_ARGS_INIT(
         .type=s->unitToBuild,

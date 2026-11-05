@@ -282,6 +282,16 @@ WarOriginalUnit* wos_unit(WarContext* context, WarEntity* entity)
     return NULL;
 }
 
+// A free record in the original's unit table (0x2E7E4 finds none when all
+// WOR_UNIT_COUNT are taken, and the unit is not made).
+bool wos_hasFreeRecord(WarContext* context)
+{
+    WarEntityManager* manager = we_getEntityManager(context);
+    for (u16 slot = 0; slot < WOR_UNIT_COUNT; slot++)
+        if (manager->originalUnits[slot].flags & WOR_FREE) return true;
+    return false;
+}
+
 void wos_remove(WarContext* context, WarEntity* entity)
 {
     WarUnitComponent* unit = we_getUnitComponent(context, entity);

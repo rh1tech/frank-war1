@@ -2,6 +2,7 @@
 #include <stdlib.h>
 
 #include "war_commands.h"
+#include "war_map_ui.h"
 #include "war_alloc.h"
 #include "war_audio.h"
 #include "war_entities.h"
@@ -32,6 +33,15 @@ static bool wcmd_tryPlaceBuilding(WarContext* context, WarEntity* worker, WarPla
     {
         return false;
     }
+
+#ifdef WAR_FRANK
+    // the original's unit table full: nothing is placed (0x2E740 fails)
+    if (wai_drivesTicks(context) && !wos_hasFreeRecord(context))
+    {
+        wmui_setFlashStatus(context, 1.5f, wstr_fromCString("CANNOT CREATE MORE UNITS"));
+        return false;
+    }
+#endif
 
     if (!we_decreasePlayerResources(context, player, stats->goldCost, stats->woodCost))
     {
