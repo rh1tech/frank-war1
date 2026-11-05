@@ -181,6 +181,9 @@ struct _WarUnitComponent
     bool frankIdleOn;
     u32 frankScriptTick;  // guards against executing two scripts in one game tick
     s16 frankWorkX, frankWorkY;   // where its work is (the original's +0x3E: the mine's goal tile)
+    bool frankReturning;          // the original's +0x49 bit 8: it goes back there
+    WarEntityId frankWorkSource;  // the mine or forest there (+0x42)
+    bool frankWorkGold;
     bool frankAtkOn;      // its attack script runs (port/war_fight_frank.inc)
     bool frankAtkCheck;    // frank: its attack script reached its checkpoint this tick (the look round)
     bool frankScriptChanged; // an order selected a new script during this unit's turn (0x2ECFC)

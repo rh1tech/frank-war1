@@ -1308,6 +1308,40 @@ human catapult in Human 7 (slot 21) took its dead target again at 33688
 instead of the skeleton (slot 76). The list now skips inactive records,
 and Human 7 matches through 40,000 ticks.
 
+### Mine accounting, a worker's way back, and dying obstacles
+
+**Mining is accounted on the way in** (`0x1CFF4`). At the second entry
+checkpoint the worker takes a load of at most 100, or what is left. The
+mine loses that much, except that a computer's worker at a mine the human
+does not see (visibility bit 0x100 set) takes only 5 from it. A spent mine
+is removed at once (`0x2E474`), and its worker stays its 80 ticks. A load
+is always delivered as 100 (`0x1CF54`). The port used war1's `mine()` at
+exit: a full 100 every trip, and depletion 80 ticks late. Orc 10's
+computer mine ran dry early (split 27220); it now matches through 40,000
+ticks.
+
+**A worker remembers where its work is.** Entering a mine (`0x1CFF4`) or
+finishing a tree (`0x1CD50`), it saves its walk's goal at +0x3E and the
+mine or forest at +0x42, and sets bit 8 of +0x49 ("going back"). A gather
+command (`0x21184`) sets the byte afresh, clearing the bit. Release from a
+building (`0x2E6B8`) searches for its exit from home when carrying, from
+the saved goal when going back, and otherwise from its own tile. The exit
+handler (`0x1D1A0`) then orders a delivery if the worker is carrying. If
+not, a computer worker thinks (`0x2B154`); if that gives no order and the
+bit is set, the bit is cleared and the gather is ordered at once, to the
+saved mine or tree. The port took these from war1's delivery state, which
+loses them when the AI orders the delivery itself. A worker then came out
+on the hall's own side and started back a tick late (Orc 6, 9 and 12).
+
+**A record struck dead earlier in the tick is no obstacle** to a route
+(`0x21F48`: an inactive record of a mobile type passes). Human 10's troll
+(slot 85) planned straight through a unit killed earlier in the same
+tick; the port's walking test used native states and went round. Now an
+inactive record passes if it is of a mobile type. Otherwise the native
+move state, no blockage and the original's hold flag decide. Reading the
+record's current order instead broke Human 7: the record can still say
+order 3 for a unit whose walk has handed over, a sync gap to close.
+
 ### A move's own target, and what an idle soldier does
 
 The walk checkpoint (`0x223D8`) first looks round (`0x11004`), then

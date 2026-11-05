@@ -94,12 +94,18 @@ void wst_updateDeliverState(WarContext* context, WarEntity* entity, WarState* st
             s32 tx = hu->tilex, ty = hu->tiley;
             WarEntity* src = s->cycle && s->sourceKind == WAR_RESOURCE_GOLD ? we_findEntity(context, s->sourceId) : NULL;
             WarUnitComponent* su = src && wu_isUnit(src) ? we_getUnitComponent(context, src) : NULL;
-            if (su) { tx = unit->frankWorkX; ty = unit->frankWorkY; }
+            // (0x2E6B8: from the work it goes back to, else its own tile)
+            if (wai_drivesTicks(context) && unit->frankReturning) { tx = unit->frankWorkX; ty = unit->frankWorkY; }
+            else if (su) { tx = unit->frankWorkX; ty = unit->frankWorkY; }
             else if (s->cycle && s->sourceKind == WAR_RESOURCE_WOOD)
             {
                 vec2 t = wmap_mapToTileCoordinatesV(s->sourcePosition);
                 tx = (s32)t.x; ty = (s32)t.y;
             }
+#ifndef FRANK_BOARD
+            if (getenv("WAR_EXITDEBUG")) fprintf(stderr, "exit tick %u unit %u cycle %d kind %d src %u su %d work %d,%d corner %d,%d\n",
+                wrng_tick, (unsigned)entity->id, s->cycle, s->sourceKind, (unsigned)s->sourceId, su != NULL, unit->frankWorkX, unit->frankWorkY, tx, ty);
+#endif
             wu_setUnitCenterTile(context, entity, wmv_exitTile(context, townHall, tx, ty));
         }
 #else
@@ -117,13 +123,28 @@ void wst_updateDeliverState(WarContext* context, WarEntity* entity, WarState* st
 #endif
 
 #ifdef WAR_FRANK
-        if (wai_drivesTicks(context)) wos_select(context, entity, 2, 1);
-        // frank: out of the hall a computer's worker thinks again (0x1D1A0
-        // calls 0x2B154); the human's goes back to its work
-        if (s->cycle && wai_workerExit(context, entity))
+        if (wai_drivesTicks(context))
         {
-            TracyCZoneEnd(ctx);
-            return;
+            wos_select(context, entity, 2, 1);
+            // frank: out of the hall a computer's worker thinks again (0x1D1A0
+            // calls 0x2B154); with no order from that, one going back to its
+            // work is sent there at once (0x21184)
+            if (wai_workerExit(context, entity))
+            {
+                TracyCZoneEnd(ctx);
+                return;
+            }
+            WarEntity* source = unit->frankReturning ? we_findEntity(context, unit->frankWorkSource) : NULL;
+            if (source && !s->cycle)
+            {
+                WarStateBase* gather = unit->frankWorkGold
+                    ? (WarStateBase*)wst_createGatherGoldState(context, entity, source->id)
+                    : (WarStateBase*)wst_createGatherWoodState(context, entity, source->id,
+                          wmap_tileToMapCoordinatesV(vec2i(unit->frankWorkX, unit->frankWorkY), true));
+                wst_replaceState(context, entity, gather, WAR_TRANSITION_CAUSE_COMPLETION);
+                TracyCZoneEnd(ctx);
+                return;
+            }
         }
 #endif
         if (s->cycle)

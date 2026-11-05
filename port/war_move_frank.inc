@@ -326,24 +326,25 @@ static WarStateMove* wmv_activeMove(WarContext* context, WarEntity* e)
     return s && s->type == WAR_STATE_MOVE ? (WarStateMove*)s : NULL;
 }
 
-// 0x21F48: a unit walking (and not held up) is no obstacle to a route
+// 0x21F48: a unit walking (current order 3 or 12, not held up, not held)
+// is no obstacle to a route; nor is a record already dying or gone (mask
+// 0x207), a mobile one at least, such as one struck dead this tick. (The
+// walking test reads the native move: the record's current order can
+// still say 3 for a unit whose walk has handed over.)
 static bool wmv_walkingOn(WarContext* context, WarEntity* o)
 {
     WarUnitComponent* u = we_getUnitComponent(context, o);
-    const bool native = u && wmv_activeMove(context, o) && u->wmvBlocks == 0;
+    if (!u) return false;
+    WarOriginalUnit* r = wos_unit(context, o);
+    if (!r) return wmv_activeMove(context, o) && u->wmvBlocks == 0;
+    const bool orig = (r->flags & WOR_INACTIVE) ? r->type <= 31
+        : wmv_activeMove(context, o) && !u->wmvBlocks && !(r->flags & WOR_HELD);
 #ifndef FRANK_BOARD
-    WarOriginalUnit* r = u ? wos_unit(context, o) : NULL;
-    if (r && getenv("WAR_WALKDEBUG"))
-    {
-        bool orig;
-        if (r->flags & WOR_INACTIVE) orig = r->type <= 31;
-        else orig = (r->current == 3 || r->current == 12) && !u->wmvBlocks && !(r->flags & WOR_HELD);
-        if (orig != native)
-            fprintf(stderr, "walkdiff tick %u id %u type %d current %u flags %04x blocks %d native %d\n",
-                    wrng_tick, (unsigned)o->id, u->type, r->current, r->flags, u->wmvBlocks, native);
-    }
+    if (getenv("WAR_WALKDEBUG") && orig != (wmv_activeMove(context, o) && u->wmvBlocks == 0))
+        fprintf(stderr, "walkdiff tick %u id %u type %d current %u flags %04x blocks %d hp %d\n",
+                wrng_tick, (unsigned)o->id, u->type, r->current, r->flags, u->wmvBlocks, u->hp);
 #endif
-    return native;
+    return orig;
 }
 
 typedef struct

@@ -26,6 +26,11 @@ WarStateWood* wst_createGatherWoodState(WarContext* context, WarEntity* entity, 
     state->frankMoved = false;
 #endif
 
+    #ifdef WAR_FRANK
+    // (a gather command sets the work bits afresh, 0x21184)
+    we_getUnitComponent(context, entity)->frankReturning = false;
+#endif
+
     TracyCZoneEnd(ctx);
     return state;
 }

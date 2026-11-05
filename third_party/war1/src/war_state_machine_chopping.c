@@ -235,6 +235,12 @@ void wst_frankChopCheckpoint(WarContext* context, WarEntity* entity, WarStateBas
     if (getenv("WAR_TURNDEBUG")) fprintf(stderr, "chopped by %d tree %d,%d amount %d\n", (s32)entity->id, (s32)treeTile.x, (s32)treeTile.y, tree ? tree->amount : -1);
 #endif
     if (forest && tree) we_chopTree(context, forest, tree, TREE_MAX_WOOD);
+    // (0x1CD50: carrying, and the tree kept to come back to)
+    unit->frankWorkX = (s16)treeTile.x;
+    unit->frankWorkY = (s16)treeTile.y;
+    unit->frankReturning = true;
+    unit->frankWorkSource = forest ? forest->id : 0;
+    unit->frankWorkGold = false;
     unit->amount = UNIT_MAX_CARRY_WOOD;
     unit->resourceKind = WAR_RESOURCE_WOOD;
     const WarWorkerData* workerData = wu_getWorkerData(unit->type);

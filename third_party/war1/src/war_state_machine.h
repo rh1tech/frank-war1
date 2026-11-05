@@ -136,6 +136,7 @@ struct _WarStateMining
     f32 miningTime;
 #ifdef WAR_FRANK
     s32 frankTicks;   // the original's 80 ticks inside, counted by the AI's tick
+    bool frankLoaded; // a load taken on the way in (0x1CFF4)
 #endif
 };
 

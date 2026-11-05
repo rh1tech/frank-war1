@@ -39,7 +39,31 @@ void wst_enterMiningState(WarContext* context, WarEntity* entity, WarState* stat
 #ifdef WAR_FRANK
     s->miningTime = WMV_INSIDE_SECONDS;
     s->frankTicks = 80;
-    if (wai_drivesTicks(context)) wos_select(context, entity, 13, 80);
+    s->frankLoaded = false;
+    if (wai_drivesTicks(context))
+    {
+        wos_select(context, entity, 13, 80);
+        // 0x1CFF4: the load is taken on the way in, at most 100 or what is
+        // left; a computer's worker at a mine the human does not see takes
+        // only 5 of it from the mine. The mine is spent at once at zero.
+        WarEntity* goldmine = we_findEntity(context, (WarEntityId)s->goldmineId);
+        WarUnitComponent* gu = goldmine && wu_isUnit(goldmine) ? we_getUnitComponent(context, goldmine) : NULL;
+        if (gu && gu->amount > 0)
+        {
+            s32 take = MIN(gu->amount, UNIT_MAX_CARRY_GOLD);
+            WarOriginalUnit* record = wos_unit(context, goldmine);
+            WarResource* level = wres_getOrCreateResource(context, context->map->levelInfoIndex);
+            if (level->levelInfo.ai && level->levelInfo.ai->alliance[unit->player] == 1 &&
+                record && (record->visibility & 0x100))
+                take = MIN(take, 5);
+            s->frankLoaded = true;
+            // (the walk's goal kept to come back to, unless the mine is spent)
+            unit->frankReturning = gu->amount > take;
+            unit->frankWorkSource = goldmine->id;
+            unit->frankWorkGold = true;
+            mine(context, goldmine, take);
+        }
+    }
 #else
     s->miningTime = 2.0f;
 #endif
@@ -105,6 +129,22 @@ void wst_updateMiningState(WarContext* context, WarEntity* entity, WarState* sta
     // if the goldmine doesn't exists (it could ran out of gold, or other units attacking it), or it's collapsing or going to collapse, go idle
     // if the unit was already mining, and the gold mine ran out of gold, then another unit previouly got all the remaining gold
     // so, this unit get nothing
+#ifdef WAR_FRANK
+    // (a worker that took its load stays its 80 ticks, the mine spent or not)
+    if (wai_drivesTicks(context) && s->frankLoaded && (!goldmine ||
+        wst_isCollapsing(context, goldmine) || wst_isGoingToCollapse(context, goldmine)))
+    {
+        if (s->frankTicks > 0) { TracyCZoneEnd(ctx); return; }
+        unit->amount = UNIT_MAX_CARRY_GOLD;
+        unit->resourceKind = WAR_RESOURCE_GOLD;
+        vec2 tile = wu_getUnitCenterTile(context, entity);
+        wu_setUnitCenterTile(context, entity, wpath_findEmptyTile(&map->finder, (s32)tile.x, (s32)tile.y));
+        WarStateIdle* idleState = wst_createIdleState(context, entity, true);
+        wst_replaceState(context, entity, (WarStateBase*)idleState, WAR_TRANSITION_CAUSE_COMPLETION);
+        TracyCZoneEnd(ctx);
+        return;
+    }
+#endif
     if (!goldmine)
     {
         vec2 tile = wu_getUnitCenterTile(context, entity);
@@ -139,6 +179,11 @@ void wst_updateMiningState(WarContext* context, WarEntity* entity, WarState* sta
 
     if (s->miningTime < 0)
     {
+#ifdef WAR_FRANK
+        // (taken on the way in; a load is a delivery of 100, 0x1CF54)
+        if (wai_drivesTicks(context)) unit->amount = s->frankLoaded ? UNIT_MAX_CARRY_GOLD : unit->amount;
+        else
+#endif
         unit->amount += mine(context, goldmine, UNIT_MAX_CARRY_GOLD);
         if (unit->amount > 0)
         {

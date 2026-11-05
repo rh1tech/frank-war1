@@ -23,6 +23,8 @@ WarStateGold* wst_createGatherGoldState(WarContext* context, WarEntity* entity, 
     state->goldmineId = goldmineId;
 #ifdef WAR_FRANK
     state->frankEntered = false;
+    // (a gather command sets the work bits afresh, 0x21184)
+    we_getUnitComponent(context, entity)->frankReturning = false;
 #endif
 
     TracyCZoneEnd(ctx);
