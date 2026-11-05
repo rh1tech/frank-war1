@@ -104,7 +104,12 @@ const WarUnitData unitsData[] =
     { WAR_UNIT_LUMBERMILL_HUMANS,   317, WAR_PORTRAIT_LUMBERMILL_HUMANS,  3, 3, WSV_INIT("MILL")            },
     { WAR_UNIT_LUMBERMILL_ORCS,     318, WAR_PORTRAIT_LUMBERMILL_ORCS,    3, 3, WSV_INIT("MILL")            },
     { WAR_UNIT_STABLE,              319, WAR_PORTRAIT_STABLE,             3, 3, WSV_INIT("STABLES")         },
+#ifdef WAR_FRANK
+    // frank: 3 by 2 in the original (WAR.EXE 0x51ABC)
+    { WAR_UNIT_KENNEL,              320, WAR_PORTRAIT_KENNEL,             3, 2, WSV_INIT("KENNEL")          },
+#else
     { WAR_UNIT_KENNEL,              320, WAR_PORTRAIT_KENNEL,             3, 3, WSV_INIT("KENNEL")          },
+#endif
     { WAR_UNIT_BLACKSMITH_HUMANS,   321, WAR_PORTRAIT_BLACKSMITH_HUMANS,  2, 2, WSV_INIT("BLACKSMITH")      },
     { WAR_UNIT_BLACKSMITH_ORCS,     322, WAR_PORTRAIT_BLACKSMITH_ORCS,    2, 2, WSV_INIT("BLACKSMITH")      },
     { WAR_UNIT_STORMWIND,           323, WAR_PORTRAIT_STORMWIND,          4, 4, WSV_INIT("STORMWIND")       },
@@ -1517,6 +1522,10 @@ vec2 wu_getUnitPosition(WarContext* context, WarEntity* entity)
 
 vec2 wu_getUnitTile(WarContext* context, WarEntity* entity)
 {
+#ifdef WAR_FRANK
+    vec2 stepping;
+    if (wmv_steppingTile(context, entity, &stepping)) return stepping;
+#endif
     vec2 position = wu_getUnitPosition(context, entity);
     return wmap_mapToTileCoordinatesV(position);
 }
@@ -1534,6 +1543,10 @@ vec2 wu_getUnitCenterPosition(WarContext* context, WarEntity* entity)
 
 vec2 wu_getUnitCenterTile(WarContext* context, WarEntity* entity)
 {
+#ifdef WAR_FRANK
+    vec2 stepping;
+    if (wmv_steppingTile(context, entity, &stepping)) return stepping;
+#endif
     vec2 position = wu_getUnitCenterPosition(context, entity);
     return wmap_mapToTileCoordinatesV(position);
 }
@@ -1759,6 +1772,9 @@ bool wu_areEnemies(WarContext* context, WarEntity* entity1, WarEntity* entity2)
 	if (entity1->id == entity2->id) return false;
     if (unit1->player == unit2->player) return false;
 
+#ifdef WAR_FRANK
+    if (wai_drivesTicks(context)) return wor_areEnemies(unit1->player, unit2->player);
+#endif
     WarPlayerInfo* otherPlayer = &map->players[unit2->player];
     return !isNeutralPlayer(otherPlayer);
 }
@@ -3006,4 +3022,3 @@ WarUnitCommandData wu_getUnitCommandData(WarContext* context, WarEntity* entity,
 
     return data;
 }
-

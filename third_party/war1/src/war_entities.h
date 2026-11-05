@@ -13,6 +13,9 @@
 #include "war_state_machine.h"
 #include "war_units.h"
 #include "war_resources.h"
+#ifdef WAR_FRANK
+#include "war_order_adapter_frank.h"
+#endif
 
 #define isEntityOfType(entity, entityType) ((entity)->type == (entityType))
 
@@ -159,6 +162,27 @@ struct _WarUnitComponent
 
     // game-time of last attack sound played
     f64 lastAttackSoundGameTime;
+
+#ifdef WAR_FRANK
+    // frank: the original's walking (port/war_move_frank.inc)
+    u8 wmvPath[20];       // the route: directions, 0xFE after its end
+    u8 wmvPathIndex;      // its next step (20: none)
+    u8 wmvBlocks;         // hold-ups in this order
+    u8 wmvDir;            // the step's direction
+    bool wmvStepping;     // between tiles
+    bool wmvGiveUp;       // the 15th hold-up: stop at the checkpoint
+    s16 wmvTileX, wmvTileY;   // the tile it stands on (walks onto)
+    u8 frankDelay;        // the original's start delay, 0-7 ticks (0x2E7E4)
+    u16 frankOriginalSlot; // stable kernel record + 1; not a dense component index
+    u16 frankCorpseSlot; // visual corpse's retained record + 1
+    bool frankIdleOn;
+    u32 frankScriptTick;  // guards against executing two scripts in one game tick
+    s16 frankWorkX, frankWorkY;   // where its work is (the original's +0x3E: the mine's goal tile)
+    bool frankAtkOn;      // its attack script runs (port/war_fight_frank.inc)
+    bool frankAtkCheck;    // frank: its attack script reached its checkpoint this tick (the look round)
+    bool frankScriptChanged; // an order selected a new script during this unit's turn (0x2ECFC)
+    bool frankOrderQueued;   // a pending command awaits the current script's checkpoint
+#endif
 };
 
 #define WAR_UNIT_COMPONENT_INIT_CONST(...) {                  \
@@ -481,6 +505,12 @@ struct _WarEntityManager
     WarUnitMap     unitsByType;    // WarUnitType    -> WarEntityList*
     WarEntityIdMap entitiesById;   // WarEntityId    -> WarEntity*
 #ifdef WAR_FRANK
+    WarOriginalUnit originalUnits[WOR_UNIT_COUNT];
+    WarOriginalVision originalVision;
+    WarEntity* originalEntities[WOR_UNIT_COUNT];
+#ifndef FRANK_BOARD
+    u32 originalScriptTicks[WOR_ORDER_COUNT];
+#endif
     // frank: id -> slot in `entities`, exact (the map above loses keys when
     // others are removed); 0: no such entity, 0xFFFF: two live entities
     // share the id (after the u16 wraps), scan
@@ -604,6 +634,9 @@ void we_determineRuinTypes(WarContext* context, WarEntity* entity);
 // Trees
 bool we_hasTreeAtPosition(WarContext* context, WarEntity* forest, s32 x, s32 y);
 WarTree* we_getTreeAtTile(WarContext* context, WarEntity* forest, s32 x, s32 y);
+#ifdef WAR_FRANK
+WarEntity* we_getForestAtTile(WarContext* context, s32 x, s32 y);
+#endif
 void we_determineTreeTiles(WarContext* context, WarEntity* forest);
 void we_determineAllTreeTiles(WarContext* context);
 WarTree* we_findAccesibleTree(WarContext* context, WarEntity* forest, vec2 tile);

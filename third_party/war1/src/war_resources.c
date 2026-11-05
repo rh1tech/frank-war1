@@ -602,6 +602,105 @@ s32 wres_loadStartWalls(WarResource* resource, WarRawResource* rawResource, s32 
     return offset;
 }
 
+#ifdef WAR_FRANK
+// frank: the original's level loader (WAR.EXE 0x1E8A0). After the level's
+// header the units come in groups; each group is a list of alternatives
+// (offsets, ending in 0xFFFF; an empty list ends the groups) and the game
+// takes one of them at random: its units, roads and walls. war1 took the
+// first alternative of the first group. Done again on every start.
+void wres_frankPickStartUnits(WarContext* context, WarResource* resource, s32 index)
+{
+    if (resource->levelInfo.customMap || !context->warFile) return;
+    WarRawResource* raw = &context->warFile->resources[index];
+    if (!raw->data && !wfile_readResource(context->warFile, index)) return;
+    const u8* data = raw->data;
+    const s32 length = (s32)raw->length;
+
+    s32 offset = 0xE3;
+    while (offset + 4 <= length && readu32(data, offset) != 0xFFFFFFFF) offset++;
+    offset += 4;
+
+    WarLevelUnit* units = (WarLevelUnit*)wm_alloc(MAX_ENTITIES_COUNT * sizeof(WarLevelUnit));
+    WarLevelConstruct* roads = (WarLevelConstruct*)wm_alloc(MAX_CONSTRUCTS_COUNT * sizeof(WarLevelConstruct));
+    WarLevelConstruct* walls = (WarLevelConstruct*)wm_alloc(MAX_CONSTRUCTS_COUNT * sizeof(WarLevelConstruct));
+    if (!units || !roads || !walls)
+    {
+        if (units) wm_free(units);
+        if (roads) wm_free(roads);
+        if (walls) wm_free(walls);
+        return;
+    }
+    s32 nu = 0, nr = 0, nw = 0;
+    while (offset + 2 <= length)
+    {
+        s32 count = 0;
+        while (offset + 2 * count + 2 <= length && readu16(data, offset + 2 * count) != 0xFFFF) count++;
+        if (!count) break;
+        const s32 pick = wrng_next() % count;
+        s32 o = readu16(data, offset + 2 * pick);
+#ifndef FRANK_BOARD
+        if (getenv("WAR_MOVEDEBUG")) fprintf(stderr, "level group of %d: took %d (seed %08x)\n", count, pick, wrng_seed);
+#endif
+        offset += 2 * (count + 1);
+        // its units (0x1E734): 4 bytes each, then an amount (gold, in 256s)
+        // when a 0xFE follows; a 0xFF ends them
+        while (o + 4 <= length && readu8(data, o) != 0xFF && nu < MAX_ENTITIES_COUNT)
+        {
+            WarLevelUnit* e = &units[nu++];
+            memset(e, 0, sizeof(*e));
+            e->x = readu8(data, o) / 2;
+            e->y = readu8(data, o + 1) / 2;
+            e->type = wu_fromOriginalType(readu8(data, o + 2));
+            e->player = readu8(data, o + 3);
+            o += 4;
+            u16 amount = 0;   // (none: a mine's is random, we_createUnit)
+            if (o + 2 <= length && readu8(data, o) == 0xFE)
+            {
+                amount = (u16)(readu8(data, o + 1) << 8);
+                o += 2;
+            }
+            if (e->type == WAR_UNIT_GOLDMINE)
+            {
+                e->resourceKind = WAR_RESOURCE_GOLD;
+                e->amount = amount;
+            }
+#ifndef FRANK_BOARD
+            if (getenv("WAR_LEVELDEBUG")) fprintf(stderr, "level unit %d: type %d (orig %d) owner %d at %d,%d amount %u\n", nu - 1, e->type, readu8(data, o - 2 - (amount ? 2 : 0)), e->player, e->x, e->y, amount);
+#endif
+        }
+        o += 2;
+        // its roads, then its walls (0x1E4A4, 0x1E470): 5 bytes each, a
+        // 0xFF ends them
+        for (s32 pass = 0; pass < 2; pass++)
+        {
+            WarLevelConstruct* list = pass ? walls : roads;
+            s32* n = pass ? &nw : &nr;
+            while (o + 5 <= length && readu8(data, o) != 0xFF && *n < MAX_CONSTRUCTS_COUNT)
+            {
+                WarLevelConstruct* c = &list[(*n)++];
+                c->type = pass ? WAR_CONSTRUCT_WALL : WAR_CONSTRUCT_ROAD;
+                c->x1 = readu8(data, o) / 2;
+                c->y1 = readu8(data, o + 1) / 2;
+                c->x2 = readu8(data, o + 2) / 2;
+                c->y2 = readu8(data, o + 3) / 2;
+                c->player = readu8(data, o + 4);
+                o += 5;
+            }
+            o += 2;
+        }
+    }
+    if (resource->levelInfo.startEntities) wm_free(resource->levelInfo.startEntities);
+    if (resource->levelInfo.startRoads) wm_free(resource->levelInfo.startRoads);
+    if (resource->levelInfo.startWalls) wm_free(resource->levelInfo.startWalls);
+    resource->levelInfo.startEntities = (WarLevelUnit*)wm_shrink(units, MAX(nu, 1) * sizeof(WarLevelUnit));
+    resource->levelInfo.startEntitiesCount = nu;
+    resource->levelInfo.startRoads = (WarLevelConstruct*)wm_shrink(roads, MAX(nr, 1) * sizeof(WarLevelConstruct));
+    resource->levelInfo.startRoadsCount = nr;
+    resource->levelInfo.startWalls = (WarLevelConstruct*)wm_shrink(walls, MAX(nw, 1) * sizeof(WarLevelConstruct));
+    resource->levelInfo.startWallsCount = nw;
+}
+#endif
+
 s32 wres_loadCustomStartGoldmines(WarResource* resource, WarRawResource* rawResource, s32 offset)
 {
     resource->levelInfo.startGoldminesCount = 0;
@@ -758,6 +857,9 @@ void wres_loadLevelInfo(WarContext *context, DatabaseEntry *entry)
         if (ai)
         {
             ai->flags = readu16(rawResource.data, 0x8E);
+            for (s32 group = 0; group < MAX_UPGRADES_COUNT; group++)
+                for (s32 player = 0; player < 5; player++)
+                    ai->research[group][player] = readu8(rawResource.data, 4 + group * 5 + player);
             for (s32 i = 0; i < 5; i++)
             {
                 ai->alliance[i] = readu8(rawResource.data, 0x88 + i);

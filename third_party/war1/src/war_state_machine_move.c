@@ -17,6 +17,10 @@
 #define MOVE_BASE_RVO_RADIUS_PX            (MEGA_TILE_WIDTH * 0.45f)
 #define MOVE_RECOVERY_RVO_RADIUS_PX        (MEGA_TILE_WIDTH * 0.60f)
 
+#ifdef WAR_FRANK
+#include "../../../port/war_move_frank.inc"
+#endif
+
 static void resetMoveProgress(WarContext* context, WarEntity* entity, WarStateMove* state)
 {
     state->progress = (WarMoveProgress)
@@ -62,6 +66,14 @@ WarStateMove* wst_createMoveState(WarContext* context, WarEntity* entity, s32 po
     state->waypointsIndex = 0;
     state->waypointsCount = count;
     state->checkForAttacks = checkForAttacks;
+#ifdef WAR_FRANK
+    state->frankTarget = 0;
+    state->frankRange = 0;
+    state->frankDone = false;
+    state->frankEnter = 0;
+    state->frankNextOrder = 31;
+    state->frankEntered = false;
+#endif
 
     TracyCZoneEnd(ctx);
     return state;
@@ -83,6 +95,9 @@ void wst_enterMoveState(WarContext* context, WarEntity* entity, WarState* state)
     s->waypointsIndex = 0;
     s->rvoVelocity = VEC2_ZERO;
     resetMoveProgress(context, entity, s);
+#ifdef WAR_FRANK
+    wmv_enter(context, entity, s);
+#endif
 
     TracyCZoneEnd(ctx);
 }
@@ -429,6 +444,13 @@ void wst_updateMoveStates(WarContext* context)
             }
         }
     }
+
+#ifdef WAR_FRANK
+    // frank: the original's walking, tick by tick, in place of 3-7
+    wmv_update(context);
+    TracyCZoneEnd(ctx);
+    return;
+#endif
 
     // 3. Update preferred velocities for all units.
     for(s32 i = 0; i < MAX_STATES_PER_TYPE; i++)

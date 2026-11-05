@@ -30,6 +30,11 @@ WarStateCast* wst_createCastState(WarContext* context, WarEntity* entity, WarSpe
     state->spellType = spellType;
     state->targetEntityId = targetEntityId;
     state->targetPosition = targetPosition;
+#ifdef WAR_FRANK
+    state->frankPrepared = false;
+    state->frankRunning = false;
+    state->frankNextOrder = 2;
+#endif
 
     TracyCZoneEnd(ctx);
     return state;
@@ -63,11 +68,213 @@ bool wst_canInterruptCast(WarContext* context, WarEntity* entity, WarStateBase* 
     return false;
 }
 
+#ifdef WAR_FRANK
+// Spells keep command entry, script action and checkpoint completion
+// separate (0x21258, 0x14140, 0x27BCC).
+u8 wst_frankSpellOrder(WarSpellType type)
+{
+    switch (type)
+    {
+        case WAR_SPELL_HEALING: return 17;
+        case WAR_SPELL_INVISIBILITY: return 19;
+        case WAR_SPELL_RAISE_DEAD: return 20;
+        case WAR_SPELL_UNHOLY_ARMOR: return 21;
+        case WAR_SUMMON_WATER_ELEMENTAL: return 22;
+        case WAR_SUMMON_DAEMON: return 23;
+        case WAR_SUMMON_SPIDER: return 24;
+        case WAR_SUMMON_SCORPION: return 25;
+        case WAR_SPELL_POISON_CLOUD: return 27;
+        default: return 0;
+    }
+}
+
+static void wst_frankCastIdle(WarContext* context, WarEntity* entity)
+{
+    WarStateIdle* idle = wst_createIdleState(context, entity, false);
+    if (!idle || !wst_resetState(context, entity, (WarStateBase*)idle, WAR_TRANSITION_CAUSE_COMPLETION))
+    {
+        logError("original kernel: failed spell completion for entity %u", entity->id);
+        return;
+    }
+    wmv_settle(context, entity);
+}
+
+static void wst_frankPrepareCast(WarContext* context, WarEntity* entity, WarStateCast* state)
+{
+    WarOriginalUnit* original = wos_unit(context, entity);
+    if (!original) return;
+    const u8 order = wst_frankSpellOrder(state->spellType);
+    if (!order)
+    {
+        logError("original kernel: unsupported spell %d for entity %u", state->spellType, entity->id);
+        return;
+    }
+    const bool targeted = order == 17 || order == 19 || order == 21;
+    const bool pointed = order == 20 || order == 27;
+    if (!state->frankPrepared && (targeted || pointed))
+    {
+        WarEntity* target = targeted ? we_findEntity(context, state->targetEntityId) : NULL;
+        WarUnitComponent* other = target && wu_isUnit(target) ? we_getUnitComponent(context, target) : NULL;
+        if (targeted && (!other || (order != 17 && wu_isBuildingUnitType(other->type))))
+        {
+            wst_frankCastIdle(context, entity);
+            return;
+        }
+        WarUnitComponent* unit = we_getUnitComponent(context, entity);
+        unit->wmvPathIndex = 20;
+        unit->wmvBlocks = 0;
+        original->target = other ? other->frankOriginalSlot : 0;
+        vec2 tile = target ? wu_getUnitCenterTile(context, target) : wmap_mapToTileCoordinatesV(state->targetPosition);
+        if (order == 27)
+        {
+            tile = wmv_backOff(context, entity, (s32)tile.x, (s32)tile.y);
+            state->targetPosition = wmap_tileToMapCoordinatesV(tile, true);
+        }
+        original->goalX = (s16)tile.x;
+        original->goalY = (s16)tile.y;
+        if (target) state->targetPosition = wu_getUnitCenterPosition(context, target);
+        state->frankPrepared = true;
+        const u8 range = targeted ? 8 : order == 20 ? 5 : 9;
+        if (!(target ? wu_unitInRange(context, entity, target, range) : wu_tileInRange(context, entity, tile, range)))
+        {
+            WarStateMove* move = wst_createMoveState(context, entity, 2,
+                arrayArg(vec2, wu_getUnitCenterPosition(context, entity), state->targetPosition), false);
+            if (!move)
+            {
+                logError("original kernel: failed spell movement for entity %u", entity->id);
+                wst_frankCastIdle(context, entity);
+                return;
+            }
+            move->frankTarget = target ? target->id : 0;
+            move->frankRange = range;
+            move->frankNextOrder = order;
+            if (!wst_pushState(context, entity, (WarStateBase*)move, WAR_TRANSITION_CAUSE_COMPLETION))
+            {
+                logError("original kernel: rejected spell movement for entity %u", entity->id);
+                wst_frankCastIdle(context, entity);
+            }
+            return;
+        }
+    }
+    if (!state->frankRunning)
+    {
+        if (!wos_startPair(context, entity, order, targeted || pointed ? WOR_NONE : state->frankNextOrder)) return;
+        state->frankPrepared = true;
+        state->frankRunning = true;
+        we_getUnitComponent(context, entity)->frankScriptChanged = true;
+    }
+}
+
+static void wst_frankCastAction(WarContext* context, WarEntity* entity)
+{
+    WarOriginalUnit* original = wos_unit(context, entity);
+    if (!original) return;
+    if (original->current >= 22 && original->current <= 25)
+        wos_summon(context, entity, true);
+    else if (original->current == 20)
+        wos_resurrect(context, entity, true);
+    else if (original->current == 27)
+        wft_poison(context, entity, true);
+    else if (wos_targetSpell(context, entity, true) == WOR_CHANGED)
+    {
+        WarEntity* target = we_getEntityManager(context)->originalEntities[original->target - 1];
+        if (target)
+        {
+            vec2 position = wu_getUnitCenterPosition(context, target);
+            WarEntity* effect = we_createEntity(context, WAR_ENTITY_TYPE_ANIMATION, true);
+            if (effect)
+            {
+                we_addAnimationsComponent(context, effect);
+                wanim_createSpellAnimation(context, effect, position);
+                wa_createAudioWithPosition(context, CREATE_AUDIO_ARGS_INIT(
+                    .audioId=WAR_NORMAL_SPELL, .position=position, .hasPosition=true, .loop=false));
+            }
+        }
+    }
+    wos_queue(context, entity, 2, WOR_NONE);
+}
+
+void wst_frankCastTick(WarContext* context, WarEntity* entity, WarStateBase* state)
+{
+    WarStateCast* cast = (WarStateCast*)state;
+    WarUnitComponent* unit = we_getUnitComponent(context, entity);
+    if (unit->frankScriptChanged) return;
+    if (!cast->frankRunning)
+    {
+        wst_frankPrepareCast(context, entity, cast);
+        wmv_settle(context, entity);
+        return;
+    }
+    if (wos_tick(context, entity, wst_frankCastAction) != WOR_CHANGED) return;
+    if (wmv_takePendingOrder(context, entity)) return;
+    WarOriginalUnit* original = wos_unit(context, entity);
+    if (!original) return;
+    if (original->pending == 2)
+    {
+        wst_frankCastIdle(context, entity);
+        return;
+    }
+    if (original->current >= 22 && original->current <= 25)
+    {
+        if (wos_summon(context, entity, false) != WOR_CHANGED)
+            wst_frankCastIdle(context, entity);
+        else
+            wact_setAction(context, entity, WAR_ACTION_TYPE_ATTACK, false, 1.0f);
+        return;
+    }
+    if (original->current == 20 || original->current == 27)
+    {
+        const vec2 here = wu_getUnitCenterTile(context, entity);
+        wu_setUnitDirection(context, entity, (WarDirection)wor_facing(
+            (s16)(original->goalX - here.x), (s16)(original->goalY - here.y)));
+        if ((original->current == 20 ? wos_resurrect(context, entity, false)
+                                     : wft_poison(context, entity, false)) != WOR_CHANGED)
+            wst_frankCastIdle(context, entity);
+        else
+            wact_setAction(context, entity, WAR_ACTION_TYPE_ATTACK, false, 1.0f);
+        return;
+    }
+    WarEntityManager* manager = we_getEntityManager(context);
+    WarOriginalUnit* recipient = original->target ? &manager->originalUnits[original->target - 1] : NULL;
+    WarEntity* target = original->target ? manager->originalEntities[original->target - 1] : NULL;
+    if (!recipient || !target || (recipient->flags & (WOR_INACTIVE | WOR_INSIDE)) || recipient->invisibility)
+    {
+        wst_frankCastIdle(context, entity);
+        return;
+    }
+    if (!wu_unitInRange(context, entity, target, 8))
+    {
+        cast->frankPrepared = false;
+        cast->frankRunning = false;
+        wst_frankPrepareCast(context, entity, cast);
+        wmv_settle(context, entity);
+        return;
+    }
+    const vec2 here = wu_getUnitCenterTile(context, entity), there = wu_getUnitCenterTile(context, target);
+    wu_setUnitDirection(context, entity, (WarDirection)wor_facing(
+        (s16)(there.x - here.x), (s16)(there.y - here.y)));
+    if (wos_targetSpell(context, entity, false) != WOR_CHANGED)
+    {
+        wst_frankCastIdle(context, entity);
+        return;
+    }
+    wact_setAction(context, entity, WAR_ACTION_TYPE_ATTACK, false, 1.0f);
+}
+#endif
+
 void wst_updateCastState(WarContext* context, WarEntity* entity, WarState* state)
 {
     TracyCZoneN(ctx, "wst_updateCastState", true);
 
     WarStateCast* s = (WarStateCast*)state;
+#ifdef WAR_FRANK
+    if (wai_drivesTicks(context) && wst_frankSpellOrder(s->spellType))
+    {
+        wst_frankPrepareCast(context, entity, s);
+        TracyCZoneEnd(ctx);
+        return;
+    }
+#endif
 
     WarMap* map = context->map;
 

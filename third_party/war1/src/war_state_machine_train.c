@@ -53,6 +53,14 @@ WarStateTrain* wst_createTrainState(WarContext* context, WarEntity* entity, WarU
     state->outputCommitted = false;
     state->cancelled = false;
     state->alreadyRefunded = false;
+#ifdef WAR_FRANK
+    // the original's order 15 (0x143CC): taken on the think's tick, its
+    // first checkpoint 11 ticks on, then one every 9, two to each of the
+    // unit's steps, the unit made at the second after the last: 18 a step
+    // and 20 (war1's time here is 18 a step and 27)
+    state->frankTotal = MAX((s32)(buildTime / 0.03f + 0.5f) - 7, 1);
+    state->frankTicks = state->frankTotal;
+#endif
 
     TracyCZoneEnd(ctx);
     return state;
@@ -158,6 +166,15 @@ void wst_updateTrainState(WarContext* context, WarEntity* entity, WarState* stat
         return;
     }
 
+#ifdef WAR_FRANK
+    if (wai_drivesTicks(context))
+    {
+        // the AI's tick counts it down (wst_frankTrainTick)
+        unit->buildPercent = PERCENTF01((f32)(s->frankTotal - s->frankTicks), (f32)s->frankTotal);
+        TracyCZoneEnd(ctx);
+        return;
+    }
+#endif
     f32 trainSpeed = context->gameDeltaTime;
 
     if (map->hurryUp)
@@ -227,3 +244,36 @@ void wst_updateTrainStates(WarContext* context)
 
     TracyCZoneEnd(ctx);
 }
+
+#ifdef WAR_FRANK
+// frank: one tick of training, in the building's turn of the unit table;
+// the unit comes out on the first free tile round the building from its
+// top left corner (0x2E740).
+void wst_frankTrainTick(WarContext* context, WarEntity* entity, WarStateBase* st)
+{
+    if (!st || st->type != WAR_STATE_TRAIN) return;
+    WarStateTrain* s = (WarStateTrain*)st;
+    if (s->cancelled || s->outputCommitted || !s->transactionApplied) return;
+    WarUnitComponent* unit = we_getUnitComponent(context, entity);
+    WarMap* map = context->map;
+    if (map->hurryUp) s->frankTicks -= 3;   // (the original's cheat: a quarter of the steps)
+    if (--s->frankTicks > 0) return;
+
+    unit->buildPercent = 1;
+    WarEntity* made = we_createDude(context, CREATE_UNIT_ARGS_INIT(
+        .type=s->unitToBuild,
+        .x=0, .y=0,
+        .player=unit->player,
+        .isGoingToTrain=false
+    ));
+    wu_setUnitCenterTile(context, made, wmv_exitTile(context, entity, unit->tilex, unit->tiley));
+    we_setInitialIdleState(context, made);
+    s->outputCommitted = true;
+    wst_popState(context, entity, WAR_TRANSITION_CAUSE_COMPLETION, WAR_STATE_RESULT_SUCCESS);
+    if (unit->player == 0)
+    {
+        WarAudioId audioId = wu_isHumanUnit(context, made) ? WAR_HUMAN_READY : WAR_ORC_READY;
+        wa_createAudio(context, CREATE_AUDIO_ARGS_INIT(.audioId=audioId, .loop=false));
+    }
+}
+#endif

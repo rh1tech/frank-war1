@@ -354,6 +354,9 @@ void we_removeUnitComponent(WarContext* context, WarEntity* entity)
     if (!entity) return;
     u16 idx = entity->components[COMP_UNIT];
     if (idx == INVALID_COMP_INDEX) return;
+#ifdef WAR_FRANK
+    wos_remove(context, entity);
+#endif
 
     WarEntityManager* manager = we_getEntityManager(context);
     assert(manager);
@@ -1375,6 +1378,38 @@ WarEntity* we_createUnit(WarContext* context, const CreateUnitArgs* args)
         .resourceKind = resourceKind,
         .amount       = amount,
     ));
+#ifdef WAR_FRANK
+    if (!wu_isCorpseUnitType(type))
+    {
+        // frank: the original's draws when a unit is made (0x2E7E4): a
+        // facing for a unit (not for a summoned one), a gold amount for a
+        // mine (the level's own is set after), a start delay for all
+        WarUnitComponent* made = we_getUnitComponent(context, entity);
+        if (!wu_isBuildingUnitType(type) && !(wu_isSummonUnitType(type) && !wrng_levelLoading))
+            made->direction = (WarDirection)(wrng_next() & 7);
+        if (type == WAR_UNIT_GOLDMINE)
+        {
+            // a mine with no amount of its own gets 26000-34191, then
+            // either is rounded down to 100s (0x1E734)
+            const s32 r = wrng_next();
+            if (wrng_levelLoading)
+            {
+                if (!made->amount) made->amount = (r & 0x1FFF) + 0x6590;
+                made->amount -= made->amount % 100;
+            }
+        }
+        WarOriginalUnit* original = wos_unit(context, entity);
+        if (!wrng_levelLoading)
+        {
+            extern void wai_unitMade(WarContext* context, WarEntity* e);
+            wai_unitMade(context, entity);
+        }
+        made->frankDelay = (u8)(wrng_next() & 7);
+        made->frankScriptTick = UINT32_MAX;
+        if (original) original->wait += made->frankDelay;
+        wai_targetsDirty = true;
+    }
+#endif
 
     s32 spriteIndex = unitData->resourceIndex;
     if (spriteIndex == 0)
@@ -1488,6 +1523,10 @@ void we_setInitialIdleState(WarContext* context, WarEntity* entity)
 {
     WarStateIdle* idleState = wst_createIdleState(context, entity, wu_isDudeUnit(context, entity));
     wst_resetState(context, entity, (WarStateBase*)idleState, WAR_TRANSITION_CAUSE_INITIALIZATION);
+#ifdef WAR_FRANK
+    extern void wai_unitPlaced(WarContext* context, WarEntity* e);
+    wai_unitPlaced(context, entity);
+#endif
 }
 
 WarEntity* we_findEntity(WarContext* context, WarEntityId id)
@@ -1830,6 +1869,14 @@ void we_initEntityManager(WarContext* context, WarEntityManager* manager)
 
     // Zero the entire flat entity pool (id==0 marks every slot as empty)
     memset(manager->entities, 0, sizeof(manager->entities));
+#ifdef WAR_FRANK
+    wor_clearUnits(manager->originalUnits);
+    memset(&manager->originalVision, 0, sizeof(manager->originalVision));
+    memset(manager->originalEntities, 0, sizeof(manager->originalEntities));
+#ifndef FRANK_BOARD
+    memset(manager->originalScriptTicks, 0, sizeof(manager->originalScriptTicks));
+#endif
+#endif
     manager->entityCount  = 0;
     manager->nextEntityId = 0;
 #ifdef WAR_FRANK
@@ -3423,6 +3470,9 @@ void we_takeDamage(WarContext* context, WarEntity *entity, s32 minDamage, s32 rn
 
     if (unit->hp == 0)
     {
+#ifdef WAR_FRANK
+        wos_beginDeath(context, entity);
+#endif
         if (wu_isBuildingUnit(context, entity))
         {
             WarStateCollapse* collapseState = wst_createCollapseState(context, entity);

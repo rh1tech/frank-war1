@@ -128,6 +128,9 @@
 #include "war_log.h"
 #include "war.h"
 #include "war_game.h"
+#ifdef WAR_FRANK
+#include "war_rng_frank.h"
+#endif
 
 #ifdef WAR_FRANK
 // frank: the zones are the whole budget (PSRAM on the board); the platform's

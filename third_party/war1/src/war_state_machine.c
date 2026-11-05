@@ -12,7 +12,11 @@ WarStateDescriptor stateDescriptors[WAR_STATE_COUNT] =
     { WAR_STATE_MOVE,       wst_enterMoveState,      NULL, NULL, NULL, wst_exitMoveState,      NULL, WAR_INTERRUPT_ALL },
     { WAR_STATE_PATROL,     wst_enterPatrolState,    NULL, NULL, NULL, NULL,                   NULL, WAR_INTERRUPT_ALL },
     { WAR_STATE_FOLLOW,     NULL,                    NULL, NULL, NULL, NULL,                   NULL, WAR_INTERRUPT_ALL },
+#ifdef WAR_FRANK
+    { WAR_STATE_ATTACK,     wst_enterAttackState,     NULL, NULL, wst_resumeAttackState, NULL,   NULL, WAR_INTERRUPT_PLAYER_ORDER | WAR_INTERRUPT_AI_ORDER | WAR_INTERRUPT_STATUS | WAR_INTERRUPT_SCRIPT | WAR_INTERRUPT_LIFECYCLE },
+#else
     { WAR_STATE_ATTACK,     NULL,                    NULL, NULL, NULL, NULL,                   NULL, WAR_INTERRUPT_PLAYER_ORDER | WAR_INTERRUPT_AI_ORDER | WAR_INTERRUPT_STATUS | WAR_INTERRUPT_SCRIPT | WAR_INTERRUPT_LIFECYCLE },
+#endif
     { WAR_STATE_GOLD,       NULL,                    NULL, NULL, NULL, NULL,                   NULL, WAR_INTERRUPT_ALL },
     { WAR_STATE_MINING,     wst_enterMiningState,    NULL, NULL, NULL, wst_exitMiningState,    NULL, WAR_INTERRUPT_ALL },
     { WAR_STATE_WOOD,       NULL,                    NULL, NULL, NULL, NULL,                   NULL, WAR_INTERRUPT_ALL },
@@ -641,7 +645,15 @@ bool wst_submitTransition(WarContext* context, WarEntity* entity, WarTransitionR
 
     WarTransitionRequest* pending = &sm->pending;
 
-    if (wst_shouldReplacePending(pending, &request))
+    bool replacePending = wst_shouldReplacePending(pending, &request);
+#ifdef WAR_FRANK
+    // A later AI command replaces the queued tuple before its checkpoint (0x2E1F0, 0x2EFC4).
+    if (wai_drivesTicks(context) &&
+        pending->cause == WAR_TRANSITION_CAUSE_AI_ORDER && request.cause == WAR_TRANSITION_CAUSE_AI_ORDER &&
+        pending->operation == WAR_STATE_OP_RESET && request.operation == WAR_STATE_OP_RESET)
+        replacePending = true;
+#endif
+    if (replacePending)
     {
         WarTransitionRequest replaced = *pending;
         *pending = request;
@@ -780,6 +792,10 @@ WarStateBase* wst_peekAt(WarContext* context, WarEntity* entity, u8 index)
 
 bool wst_isNextUpdateTime(WarContext* context, WarState* state)
 {
+#ifdef WAR_FRANK
+    // a walking unit takes up new orders when its step ends
+    if (wmv_holdsOrders(context, state->entityId, state->type)) return false;
+#endif
     if (state->delay > 0)
     {
         state->nextUpdateGameTime = context->gameTime + state->delay;
@@ -1212,6 +1228,198 @@ static WarStateResumeReason wst_determineResumeReason(WarStateResult result)
     return WAR_STATE_RESUME_CHILD_FAILURE;
 }
 
+#ifdef WAR_FRANK
+// frank: one entity's pending transition (the loop below; and the original's
+// taking of a new order at once, port/war_move_frank.inc's wmv_settle)
+void wst_processPendingTransitionOf(WarContext* context, WarEntity* entity)
+{
+    if (!entity || entity->id == 0) return;
+    if (!we_isComponentEnabled(context, entity, COMP_STATE_MACHINE)) return;
+
+    WarStateMachineComponent* sm = we_getStateMachineComponent(context, entity);
+    assert(sm);
+
+    WarTransitionRequest* pending = &sm->pending;
+    if (pending->operation == WAR_STATE_OP_NONE)
+    {
+        return;
+    }
+    WarUnitComponent* unit = wu_isUnit(entity) ? we_getUnitComponent(context, entity) : NULL;
+    if (unit)
+    {
+        if (unit->frankOrderQueued && pending->cause == WAR_TRANSITION_CAUSE_AI_ORDER) return;
+        unit->frankOrderQueued = false;
+    }
+
+    WarTransitionRequest request = *pending;
+    *pending = (WarTransitionRequest)
+    {
+        .stateRef = WAR_STATE_REF_INVALID,
+        .cancellationTargetRef = WAR_STATE_REF_INVALID
+    };
+
+    if (sm->depth > WAR_STATE_STACK_DEPTH)
+    {
+        logError("Invalid state stack depth %d for entity %d", sm->depth, entity->id);
+        sm->depth = WAR_STATE_STACK_DEPTH;
+    }
+
+    WarStateBase* candidate = wst_deref(context, request.stateRef);
+
+    if (!candidate || candidate->entityId != entity->id)
+    {
+        if (wst_operationHasState(request.operation))
+        {
+            wst_freeUnownedTransitionRefs(context, &request);
+            return;
+        }
+    }
+
+    wst_resolveCommittedBuildCancellation(context, sm, &request);
+
+    if (!wst_commitCancellation(context, entity, sm, &request))
+    {
+        wst_freeUnownedTransitionRefs(context, &request);
+        return;
+    }
+
+    switch (request.operation)
+    {
+        case WAR_STATE_OP_PUSH:
+        {
+            if (!wst_validateState(context, entity, candidate))
+            {
+                wst_releaseStateRef(context, request.stateRef);
+                return;
+            }
+
+            WarStateRef topRef = sm->stack[sm->depth - 1];
+            WarStateBase* top = wst_deref(context, topRef);
+            if (top)
+            {
+                wst_pauseState(context, entity, top, WAR_STATE_PAUSE_CHILD_PUSHED);
+            }
+
+            if (sm->depth < WAR_STATE_STACK_DEPTH)
+            {
+                sm->stack[sm->depth] = request.stateRef;
+                sm->depth++;
+            }
+            else
+            {
+                // Preserve the historical overflow behavior: a PUSH on a
+                // full stack safely replaces only the active top state.
+                assert(sm->depth == WAR_STATE_STACK_DEPTH);
+                WarStateRef newTopRef = sm->stack[sm->depth - 1];
+                WarStateBase* newTop = wst_deref(context, newTopRef);
+                if (newTop)
+                {
+                    wst_exitState(context, entity, newTop, WAR_STATE_EXIT_REPLACED);
+                }
+                sm->stack[sm->depth - 1] = request.stateRef;
+            }
+
+            wst_enterState(context, entity, candidate);
+            break;
+        }
+        case WAR_STATE_OP_POP:
+        {
+            if (sm->depth > 0)
+            {
+                WarStateRef topRef = sm->stack[sm->depth - 1];
+                WarStateBase* top = wst_deref(context, topRef);
+                if (top)
+                {
+                    WarStateExitReason exitReason = wst_determineExitReason(request.result);
+                    wst_exitState(context, entity, top, exitReason);
+                }
+                sm->depth--;
+                sm->stack[sm->depth] = WAR_STATE_REF_INVALID;
+            }
+
+            if (sm->depth > 0)
+            {
+                WarStateRef newTopRef = sm->stack[sm->depth - 1];
+                WarStateBase* newTop = wst_deref(context, newTopRef);
+                if (newTop)
+                {
+                    WarStateResumeReason resumeReason = wst_determineResumeReason(request.result);
+                    wst_resumeState(context, entity, newTop, resumeReason);
+                }
+            }
+            else
+            {
+                WarStateRef idleRef = wst_setDefaultIdleState(context, entity, sm);
+                if (WAR_STATE_REF_IS_VALID(idleRef))
+                {
+                    WarStateBase* idle = wst_deref(context, idleRef);
+                    if (idle)
+                    {
+                        wst_enterState(context, entity, idle);
+                    }
+                }
+            }
+
+            break;
+        }
+        case WAR_STATE_OP_REPLACE:
+        {
+            if (sm->depth > 0)
+            {
+                WarStateRef topRef = sm->stack[sm->depth - 1];
+                WarStateBase* top = wst_deref(context, topRef);
+                if (top)
+                {
+                    wst_exitState(context, entity, top, WAR_STATE_EXIT_REPLACED);
+                }
+                sm->stack[sm->depth - 1] = request.stateRef;
+            }
+            else
+            {
+                // REPLACE on an empty stack installs the candidate.
+                sm->stack[0] = request.stateRef;
+                sm->depth = 1;
+            }
+
+            WarStateRef newTopRef = sm->stack[sm->depth - 1];
+            WarStateBase* newTop = wst_deref(context, newTopRef);
+            if (newTop)
+            {
+                wst_enterState(context, entity, newTop);
+            }
+            break;
+        }
+        case WAR_STATE_OP_RESET:
+        {
+            for (s32 d = (s32)sm->depth - 1; d >= 0; d--)
+            {
+                WarStateBase* s = wst_deref(context, sm->stack[d]);
+                if (s)
+                {
+                    WarStateExitReason exitReason = s->type == WAR_STATE_DEATH ? WAR_STATE_EXIT_ENTITY_DIED : WAR_STATE_EXIT_RESET_BY_COMMAND;
+                    wst_exitState(context, entity, s, exitReason);
+                }
+                sm->stack[d] = WAR_STATE_REF_INVALID;
+            }
+            sm->stack[0] = request.stateRef;
+            sm->depth = 1;
+
+            WarStateRef newTopRef = sm->stack[sm->depth - 1];
+            WarStateBase* newTop = wst_deref(context, newTopRef);
+            if (newTop)
+            {
+                wst_enterState(context, entity, newTop);
+            }
+            break;
+        }
+        default:
+            wst_freeUnownedTransitionRefs(context, &request);
+            break;
+    }
+    wst_freeUnownedStateRef(context, request.cancellationTargetRef);
+}
+#endif
+
 void wst_processPendingTransitions(WarContext* context)
 {
     TracyCZoneN(ctx, "wst_processPendingTransitions", true);
@@ -1223,6 +1431,9 @@ void wst_processPendingTransitions(WarContext* context)
     {
         WarEntity* entity = &manager->entities[i];
         if (entity->id == 0) continue;
+#ifdef WAR_FRANK
+        wst_processPendingTransitionOf(context, entity);
+#else
         if (!we_isComponentEnabled(context, entity, COMP_STATE_MACHINE)) continue;
 
         WarStateMachineComponent* sm = we_getStateMachineComponent(context, entity);
@@ -1400,6 +1611,7 @@ void wst_processPendingTransitions(WarContext* context)
                 break;
         }
         wst_freeUnownedStateRef(context, request.cancellationTargetRef);
+    #endif
     }
 
     TracyCZoneEnd(ctx);

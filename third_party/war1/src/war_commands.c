@@ -256,7 +256,11 @@ void wcmd_executeHarvestCommand(WarContext* context, WarEntity* targetEntity, ve
                     // find the closest town hall to deliver the gold
                     WarRace race = wu_getUnitRace(context, entity);
                     WarUnitType townHallType = wu_getTownHallOfRace(race);
+#ifdef WAR_FRANK
+                    WarEntity* townHall = wai_homeHall(context, entity);
+#else
                     WarEntity* townHall = we_findClosestUnitOfType(context, entity, townHallType);
+#endif
                     if (townHall)
                     {
                         WarStateDeliver* deliverState = wst_createDeliverState(context, entity, townHall->id);
@@ -331,7 +335,11 @@ void wcmd_executeDeliverCommand(WarContext* context, WarEntity* targetEntity)
             {
                 WarRace race = wu_getUnitRace(context, entity);
                 WarUnitType townHallType = wu_getTownHallOfRace(race);
+#ifdef WAR_FRANK
+                townHall = wai_homeHall(context, entity);
+#else
                 townHall = we_findClosestUnitOfType(context, entity, townHallType);
+#endif
                 assert(townHall);
             }
 
@@ -431,6 +439,19 @@ void wcmd_executeSummonCommand(WarContext* context, WarUnitCommandType summonTyp
         if (wu_isConjurerOrWarlockUnit(context, entity) &&
             wst_canSubmitTransition(context, entity, WAR_INTERRUPT_PLAYER_ORDER))
         {
+#ifdef WAR_FRANK
+            if (wai_drivesTicks(context))
+            {
+                // Player summons queue the spell followed by idle, and act
+                // at the spell script's action rather than here (0x21258).
+                const WarUnitCommandMapping* mapping = wu_getCommandMapping(summonType);
+                WarStateCast* cast = wst_createCastState(context, entity, mapping->mappedType, 0,
+                    wu_getUnitCenterPosition(context, entity));
+                if (!cast || !wst_resetState(context, entity, (WarStateBase*)cast, WAR_TRANSITION_CAUSE_PLAYER_ORDER))
+                    logError("original kernel: failed summon command for entity %u", entity->id);
+                continue;
+            }
+#endif
             WarUnitComponent* unit = we_getUnitComponent(context, entity);
 
             // when the unit summon another unit, it is not invisible anymore

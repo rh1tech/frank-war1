@@ -31,6 +31,9 @@ WarStateCollapse* wst_createCollapseState(WarContext* context, WarEntity* entity
 void wst_enterCollapseState(WarContext* context, WarEntity* entity, WarState* state)
 {
     TracyCZoneN(ctx, "wst_enterCollapseState", true);
+#ifdef WAR_FRANK
+    wos_beginDeath(context, entity);
+#endif
 
     WarMap* map = context->map;
     assert(map);

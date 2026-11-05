@@ -1092,6 +1092,9 @@ void wact_updateAction(WarContext* context, WarEntity* entity)
     }
 
     WarUnitActionStep step = actionDef->steps.items[action->stepIndex];
+#ifdef WAR_FRANK
+    f64 frankLastEnd = 0;   // the wait just over: the next one counts from it, not from this frame
+#endif
     if (step.type == WAR_ACTION_STEP_WAIT)
     {
         if (context->gameTime < action->waitEndGameTime)
@@ -1099,6 +1102,9 @@ void wact_updateAction(WarContext* context, WarEntity* entity)
             return;
         }
 
+#ifdef WAR_FRANK
+        frankLastEnd = action->waitEndGameTime;
+#endif
         action->waitEndGameTime = 0;
 
         action->stepIndex++;
@@ -1198,7 +1204,8 @@ void wact_updateAction(WarContext* context, WarEntity* entity)
     {
         // the original's ticks, 30 ms at normal speed; its speed upgrades
         // are already in the script
-        action->waitEndGameTime = context->gameTime + (f32)step.param * 0.03f;
+        const f64 from = frankLastEnd > 0 && context->gameTime - frankLastEnd < 0.1 ? frankLastEnd : context->gameTime;
+        action->waitEndGameTime = from + (f32)step.param * 0.03f;
         return;
     }
 #endif

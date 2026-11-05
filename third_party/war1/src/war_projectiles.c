@@ -52,6 +52,11 @@ void wproj_doProjectileTargetDamage(WarContext* context, WarEntity* entity)
     WarEntity* sourceEntity = we_findEntity(context, projectile->sourceEntityId);
     WarEntity* targetEntity = we_findEntity(context, projectile->targetEntityId);
 
+#ifdef WAR_FRANK
+    // frank: a unit's missile strikes in port/war_fight_frank.inc, on the
+    // original's tick
+    if (wai_drivesTicks(context) && targetEntity && wu_isUnit(targetEntity)) return;
+#endif
     // check if the attacker and the victim exists because it could be eliminated by other unit
     if (sourceEntity && targetEntity)
     {
@@ -87,6 +92,9 @@ void wproj_doProjectileSplashDamage(WarContext* context, WarEntity* entity, s32 
         for (s32 i = 0; i < nearUnits->count; i++)
         {
             WarEntity* targetEntity = nearUnits->items[i];
+#ifdef WAR_FRANK
+            if (wai_drivesTicks(context)) continue; // Unit splash is applied on the original missile tick.
+#endif
             if (targetEntity && wu_canAttack(context, sourceEntity, targetEntity))
             {
                 we_meleeAttack(context, sourceEntity, targetEntity);

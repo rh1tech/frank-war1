@@ -200,6 +200,7 @@ static void initPathFinder(WarMap* map, WarResource* levelPassable)
 {
 #ifdef WAR_FRANK
     wpath_initPathFinderAt(&map->finder, levelPassable->levelPassable.data);
+    wmv_setTerrain(levelPassable->levelPassable.data);
 #else
     map->finder = wpath_initPathFinder(levelPassable->levelPassable.data);
 #endif
@@ -472,9 +473,22 @@ static void initPlayersInfo(WarMap* map, WarResource* levelInfo)
 
 static void createStartingEntities(WarContext* context, WarResource* levelInfo)
 {
+#ifdef WAR_FRANK
+    wrng_levelLoading = true;
+#endif
     for (s32 i = 0; i < (s32)levelInfo->levelInfo.startEntitiesCount; i++)
     {
         WarLevelUnit startUnit = levelInfo->levelInfo.startEntities[i];
+#ifdef WAR_FRANK
+        // frank: the original makes no unit where it does not fit (0x13990)
+        if (!wmv_placeFree(context, startUnit.type, startUnit.x, startUnit.y))
+        {
+#ifndef FRANK_BOARD
+            if (getenv("WAR_MOVEDEBUG")) fprintf(stderr, "level unit type %d at %d,%d does not fit\n", startUnit.type, startUnit.x, startUnit.y);
+#endif
+            continue;
+        }
+#endif
         WarEntity* startEntity = we_createUnit(context, CREATE_UNIT_ARGS_INIT(
             .type=startUnit.type,
             .x=startUnit.x,
@@ -486,6 +500,9 @@ static void createStartingEntities(WarContext* context, WarResource* levelInfo)
         ));
         we_setInitialIdleState(context, startEntity);
     }
+#ifdef WAR_FRANK
+    wrng_levelLoading = false;
+#endif
 }
 
 void wmap_addEntityToSelection(WarContext* context, WarEntityId id)
@@ -1225,6 +1242,16 @@ void wmap_enterMap(WarContext* context)
 
     WarResource* levelPassable = wres_getOrCreateResource(context, levelInfo->levelInfo.passableIndex);
     assert(levelPassable && levelPassable->type == WAR_RESOURCE_TYPE_LEVEL_PASSABLE);
+
+#ifdef WAR_FRANK
+    {
+        // frank: the original's random numbers from the level's start, and
+        // its random choice of the level's unit groups
+        extern void wres_frankPickStartUnits(WarContext* context, WarResource* resource, s32 index);
+        wrng_levelSeed((u32)SDL_rand(0x7FFFFFFF));
+        wres_frankPickStartUnits(context, levelInfo, levelInfoIndex);
+    }
+#endif
 
     map->playing = true;
     map->custom = levelInfo->levelInfo.customMap;
@@ -2679,6 +2706,7 @@ static void updateMagic(WarContext* context)
             assert(unit);
 
 #ifdef WAR_FRANK
+            if (wai_drivesTicks(context)) continue;
             // frank: the original's rates (WAR.EXE 0x2D3D0): casters gain a
             // point every 60 ticks (a computer player's) or 40 (the human's),
             // up to 255; summoned units lose one every 45, then 5 hit points
@@ -2842,7 +2870,11 @@ static void updateSpells(WarContext* context)
         WarUnitComponent* unit = we_getUnitComponent(context, entity);
         assert(unit);
 
-        if (unit->invisible)
+        if (unit->invisible
+#ifdef WAR_FRANK
+            && !wai_drivesTicks(context)
+#endif
+        )
         {
             unit->invisibilityTime -= context->gameDeltaTime;
             if (unit->invisibilityTime <= 0)
@@ -2852,7 +2884,11 @@ static void updateSpells(WarContext* context)
             }
         }
 
-        if (unit->invulnerable)
+        if (unit->invulnerable
+#ifdef WAR_FRANK
+            && !wai_drivesTicks(context)
+#endif
+        )
         {
             unit->invulnerabilityTime -= context->gameDeltaTime;
             if (unit->invulnerabilityTime <= 0)
@@ -3163,6 +3199,11 @@ void updateObjectives(WarContext* context)
     if (map->result == WAR_LEVEL_RESULT_NONE)
     {
         map->result = checkObjectives(context);
+#if defined(WAR_FRANK) && !defined(FRANK_BOARD)
+        if (getenv("WAR_AILOG") && map->result != WAR_LEVEL_RESULT_NONE)
+            logInfo("campaign result: %s at tick %u",
+                    map->result == WAR_LEVEL_RESULT_WIN ? "win" : "lose", wrng_tick);
+#endif
         TracyCZoneEnd(ctx);
         return;
     }
@@ -4050,4 +4091,3 @@ void wmap_renderMap(WarContext *context)
 
     TracyCZoneEnd(ctx);
 }
-

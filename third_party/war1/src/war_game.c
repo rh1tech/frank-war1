@@ -801,6 +801,8 @@ bool wg_loadDataFile(WarContext* context)
     }
 #ifdef WAR_FRANK
     skipDecompress[212] = false;   // the original's unit scripts (port/war_scripts_frank.c)
+    for (s32 index = 199; index <= 207; index += 4)
+        skipDecompress[index] = false; // terrain transitions (0x2BA0C)
 #endif
 
     context->warFile = wfile_loadWarFile(context, wsv_fromCString(DATAWAR_FILE_PATH), skipDecompress);

@@ -46,6 +46,11 @@ void wst_enterIdleState(WarContext* context, WarEntity* entity, WarStateBase* st
         vec2 unitSize = wu_getUnitSize(context, entity);
         wpath_setStaticEntity(&map->finder, (s32)tile.x, (s32)tile.y, (s32)unitSize.x, (s32)unitSize.y, entity->id);
         wact_setAction(context, entity, WAR_ACTION_TYPE_IDLE, true, 1.0f);
+#ifdef WAR_FRANK
+        WarUnitComponent* unit = we_getUnitComponent(context, entity);
+        if (wai_drivesTicks(context) && !unit->frankIdleOn && !wu_isCorpseUnitType(unit->type))
+            wos_select(context, entity, unit->player == 4 ? 29 : 2, 1);
+#endif
     }
 
     TracyCZoneEnd(ctx);
@@ -166,4 +171,3 @@ void wst_updateIdleStates(WarContext* context)
 
     TracyCZoneEnd(ctx);
 }
-

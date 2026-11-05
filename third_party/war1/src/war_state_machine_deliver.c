@@ -22,6 +22,9 @@ WarStateDeliver* wst_createDeliverState(WarContext* context, WarEntity* entity, 
 
     state->townHallId = townHallId;
     state->insideBuilding = false;
+#ifdef WAR_FRANK
+    state->frankEntered = false;
+#endif
     state->cycle = false;
     state->sourceKind = WAR_RESOURCE_NONE;
     state->sourceId = 0;
@@ -34,6 +37,13 @@ WarStateDeliver* wst_createDeliverState(WarContext* context, WarEntity* entity, 
 void wst_updateDeliverState(WarContext* context, WarEntity* entity, WarState* state)
 {
     TracyCZoneN(ctx, "wst_updateDeliverState", true);
+#ifdef WAR_FRANK
+    if (wai_drivesTicks(context) && !wos_atWorkCheckpoint(entity))
+    {
+        TracyCZoneEnd(ctx);
+        return;
+    }
+#endif
 
     WarStateDeliver* s = (WarStateDeliver*)state;
 
@@ -60,6 +70,14 @@ void wst_updateDeliverState(WarContext* context, WarEntity* entity, WarState* st
 
     if (!wu_unitInRange(context, entity, townHall, stats->range))
     {
+#ifdef WAR_FRANK
+        if (wai_drivesTicks(context))
+        {
+            wmv_settle(context, entity);
+            TracyCZoneEnd(ctx);
+            return;
+        }
+#endif
         vec2 targetPosition = wu_unitPointOnTarget(context, entity, townHall);
         WarStateFollow* followState = wst_createFollowState(context, entity, townHall->id, targetPosition, stats->range * MEGA_TILE_WIDTH);
         wst_pushState(context, entity, (WarStateBase*)followState, WAR_TRANSITION_CAUSE_COMPLETION);
@@ -69,15 +87,42 @@ void wst_updateDeliverState(WarContext* context, WarEntity* entity, WarState* st
 
     if (s->insideBuilding)
     {
+#ifdef WAR_FRANK
+        {
+            // frank: out on the side towards where it works (0x2E554)
+            WarUnitComponent* hu = we_getUnitComponent(context, townHall);
+            s32 tx = hu->tilex, ty = hu->tiley;
+            WarEntity* src = s->cycle && s->sourceKind == WAR_RESOURCE_GOLD ? we_findEntity(context, s->sourceId) : NULL;
+            WarUnitComponent* su = src && wu_isUnit(src) ? we_getUnitComponent(context, src) : NULL;
+            if (su) { tx = unit->frankWorkX; ty = unit->frankWorkY; }
+            else if (s->cycle && s->sourceKind == WAR_RESOURCE_WOOD)
+            {
+                vec2 t = wmap_mapToTileCoordinatesV(s->sourcePosition);
+                tx = (s32)t.x; ty = (s32)t.y;
+            }
+            wu_setUnitCenterTile(context, entity, wmv_exitTile(context, townHall, tx, ty));
+        }
+#else
         // find a valid spawn position for the unit
         vec2 tile = wu_getUnitCenterTile(context, townHall);
         vec2 spawnTile = wpath_findEmptyTile(&map->finder, (s32)tile.x, (s32)tile.y);
         wu_setUnitCenterTile(context, entity, spawnTile);
+#endif
 
         const WarUnitData* unitData = wu_getUnitData(unit->type);
         we_removeSpriteComponent(context, entity);
         we_addSpriteComponentFromResource(context, entity, imageResourceRef(unitData->resourceIndex));
 
+#ifdef WAR_FRANK
+        if (wai_drivesTicks(context)) wos_select(context, entity, 2, 1);
+        // frank: out of the hall a computer's worker thinks again (0x1D1A0
+        // calls 0x2B154); the human's goes back to its work
+        if (s->cycle && wai_workerExit(context, entity))
+        {
+            TracyCZoneEnd(ctx);
+            return;
+        }
+#endif
         if (s->cycle)
         {
             if (s->sourceKind == WAR_RESOURCE_GOLD)
@@ -105,6 +150,16 @@ void wst_updateDeliverState(WarContext* context, WarEntity* entity, WarState* st
         return;
     }
 
+#ifdef WAR_FRANK
+    // frank: the original's worker steps into the hall first
+    if (!s->frankEntered)
+    {
+        s->frankEntered = true;
+        wmv_enterBuilding(context, entity, townHall);
+        TracyCZoneEnd(ctx);
+        return;
+    }
+#endif
     if (unit->resourceKind == WAR_RESOURCE_GOLD)
     {
         WarPlayerInfo* player = wu_getOwningPlayer(context, entity);
@@ -130,7 +185,14 @@ void wst_updateDeliverState(WarContext* context, WarEntity* entity, WarState* st
     wmap_removeEntityFromSelection(context, entity->id);
 
     // simulate the time inside the townhall
+#ifdef WAR_FRANK
+    state->delay = WMV_INSIDE_SECONDS;
+    s->frankTicks = 80;
+    if (wai_drivesTicks(context)) state->delay = 1000.0f;   // (the AI's tick lets it out)
+    if (wai_drivesTicks(context)) wos_select(context, entity, 13, 80);
+#else
     state->delay = wmap_getMapScaledTime(context, 1.0f);
+#endif
 
     TracyCZoneEnd(ctx);
 }
@@ -161,3 +223,34 @@ void wst_updateDeliverStates(WarContext* context)
 
     TracyCZoneEnd(ctx);
 }
+
+#ifdef WAR_FRANK
+// frank: a worker's 80 ticks inside a mine or a hall, in its turn of the
+// unit table; it comes out on the tick (the original's order 13, 0x1D1A0).
+void wst_frankInsideTick(WarContext* context, WarEntity* entity, WarStateBase* st)
+{
+    if (!st) return;
+    if (st->type == WAR_STATE_MINING)
+    {
+        WarStateMining* s = (WarStateMining*)st;
+        if (wos_tick(context, entity, NULL) == WOR_CHANGED)
+        {
+            s->frankTicks = 0;
+            wos_workHandler(context, entity, st);
+            wmv_settle(context, entity);   // (the next order at once: the walk to the hall)
+        }
+    }
+    else if (st->type == WAR_STATE_DELIVER)
+    {
+        WarStateDeliver* s = (WarStateDeliver*)st;
+        if (s->insideBuilding && wos_tick(context, entity, NULL) == WOR_CHANGED)
+        {
+            s->frankTicks = 0;
+            st->delay = 0;
+            st->nextUpdateGameTime = 0;
+            wos_workHandler(context, entity, st);
+            wmv_settle(context, entity);
+        }
+    }
+}
+#endif

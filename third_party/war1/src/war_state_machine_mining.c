@@ -36,7 +36,13 @@ void wst_enterMiningState(WarContext* context, WarEntity* entity, WarState* stat
     WarUnitComponent* unit = we_getUnitComponent(context, entity);
     assert(unit);
 
+#ifdef WAR_FRANK
+    s->miningTime = WMV_INSIDE_SECONDS;
+    s->frankTicks = 80;
+    if (wai_drivesTicks(context)) wos_select(context, entity, 13, 80);
+#else
     s->miningTime = 2.0f;
+#endif
 
     we_removeSpriteComponent(context, entity);
     wact_resetAction(context, entity, unit->actionType);
@@ -80,6 +86,13 @@ void wst_exitMiningState(WarContext* context, WarEntity* entity, WarState* state
 void wst_updateMiningState(WarContext* context, WarEntity* entity, WarState* state)
 {
     TracyCZoneN(ctx, "wst_updateMiningState", true);
+#ifdef WAR_FRANK
+    if (wai_drivesTicks(context) && !wos_atWorkCheckpoint(entity))
+    {
+        TracyCZoneEnd(ctx);
+        return;
+    }
+#endif
 
     WarStateMining* s = (WarStateMining*)state;
 
@@ -117,6 +130,11 @@ void wst_updateMiningState(WarContext* context, WarEntity* entity, WarState* sta
         return;
     }
 
+#ifdef WAR_FRANK
+    // the AI's tick counts the 80 ticks (wst_frankInsideTick)
+    if (wai_drivesTicks(context)) s->miningTime = s->frankTicks > 0 ? 1.0f : -1.0f;
+    else
+#endif
     s->miningTime -= context->gameDeltaTime;
 
     if (s->miningTime < 0)
@@ -127,19 +145,43 @@ void wst_updateMiningState(WarContext* context, WarEntity* entity, WarState* sta
             unit->resourceKind = WAR_RESOURCE_GOLD;
         }
 
+#ifdef WAR_FRANK
+        {
+            // frank: out on the side towards the hall it carries the gold to
+            // (0x2E554)
+#ifdef WAR_FRANK
+            WarEntity* hall = wai_homeHall(context, entity);
+#else
+            WarEntity* hall = we_findClosestUnitOfType(context, entity, wu_getTownHallOfRace(wu_getUnitRace(context, entity)));
+#endif
+            WarUnitComponent* hu = hall ? we_getUnitComponent(context, hall) : NULL;
+            WarUnitComponent* gu = we_getUnitComponent(context, goldmine);
+            s32 tx = hu ? hu->tilex : gu->tilex, ty = hu ? hu->tiley : gu->tiley;
+            if (!(unit->amount > 0)) { tx = gu->tilex; ty = gu->tiley; }
+            wu_setUnitCenterTile(context, entity, wmv_exitTile(context, goldmine, tx, ty));
+        }
+#else
         // find a valid spawn position for the unit
         vec2 tile = wu_getUnitCenterTile(context, goldmine);
         vec2 spawnTile = wpath_findEmptyTile(&map->finder, (s32)tile.x, (s32)tile.y);
         wu_setUnitCenterTile(context, entity, spawnTile);
+#endif
 
         // set the carrying gold sprites
         const WarWorkerData* workerData = wu_getWorkerData(unit->type);
         we_addSpriteComponentFromResource(context, entity, imageResourceRef(workerData->carryingGoldResource));
+#ifdef WAR_FRANK
+        if (wai_drivesTicks(context)) wos_select(context, entity, 2, 1);
+#endif
 
         // find the closest town hall to deliver the gold
         WarRace race = wu_getUnitRace(context, entity);
         WarUnitType townHallType = wu_getTownHallOfRace(race);
+#ifdef WAR_FRANK
+        WarEntity* townHall = wai_homeHall(context, entity);
+#else
         WarEntity* townHall = we_findClosestUnitOfType(context, entity, townHallType);
+#endif
 
         // if the town hall doesn't exists (it could be under attack and get destroyed), go idle
         if (!townHall)

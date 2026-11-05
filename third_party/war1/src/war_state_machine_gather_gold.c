@@ -21,6 +21,9 @@ WarStateGold* wst_createGatherGoldState(WarContext* context, WarEntity* entity, 
     }
 
     state->goldmineId = goldmineId;
+#ifdef WAR_FRANK
+    state->frankEntered = false;
+#endif
 
     TracyCZoneEnd(ctx);
     return state;
@@ -29,6 +32,13 @@ WarStateGold* wst_createGatherGoldState(WarContext* context, WarEntity* entity, 
 void wst_updateGatherGoldState(WarContext* context, WarEntity* entity, WarState* state)
 {
     TracyCZoneN(ctx, "wst_updateGatherGoldState", true);
+#ifdef WAR_FRANK
+    if (wai_drivesTicks(context) && !wos_atWorkCheckpoint(entity))
+    {
+        TracyCZoneEnd(ctx);
+        return;
+    }
+#endif
 
     WarStateGold* s = (WarStateGold*)state;
 
@@ -53,12 +63,36 @@ void wst_updateGatherGoldState(WarContext* context, WarEntity* entity, WarState*
     // if the goldmine is not in range, go to it
     if (!wu_unitInRange(context, entity, goldmine, stats->range))
     {
+#ifdef WAR_FRANK
+        if (wai_drivesTicks(context))
+        {
+            wmv_settle(context, entity);
+            TracyCZoneEnd(ctx);
+            return;
+        }
+#endif
         WarStateFollow* followState = wst_createFollowState(context, entity, goldmine->id, VEC2_ZERO, stats->range * MEGA_TILE_WIDTH);
         wst_pushState(context, entity, (WarStateBase*)followState, WAR_TRANSITION_CAUSE_COMPLETION);
         TracyCZoneEnd(ctx);
         return;
     }
 
+#ifdef WAR_FRANK
+    // frank: the original's worker steps into the mine first
+    if (!s->frankEntered)
+    {
+        s->frankEntered = true;
+        {
+            // (0x1CE5B: the walk's goal, kept to come back to)
+            vec2 goal = wmv_buildingGoal(context, entity, goldmine);
+            unit->frankWorkX = (s16)goal.x;
+            unit->frankWorkY = (s16)goal.y;
+        }
+        wmv_enterBuilding(context, entity, goldmine);
+        TracyCZoneEnd(ctx);
+        return;
+    }
+#endif
     // the unit arrive to the goldmine, go mining
     WarStateMining* miningState = wst_createMiningState(context, entity, goldmine->id);
     wst_replaceState(context, entity, (WarStateBase*)miningState, WAR_TRANSITION_CAUSE_COMPLETION);

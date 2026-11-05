@@ -27,6 +27,9 @@ WarStateChopping* wst_createChoppingState(WarContext* context, WarEntity* entity
 
     state->forestId = forestId;
     state->position = position;
+#ifdef WAR_FRANK
+    state->frankChops = 0;
+#endif
 
     TracyCZoneEnd(ctx);
     return state;
@@ -56,6 +59,13 @@ void wst_enterChoppingState(WarContext* context, WarEntity* entity, WarState* st
 void wst_updateChoppingState(WarContext* context, WarEntity* entity, WarState* state)
 {
     TracyCZoneN(ctx, "wst_updateChoppingState", true);
+#ifdef WAR_FRANK
+    if (wai_drivesTicks(context))
+    {
+        TracyCZoneEnd(ctx);
+        return;
+    }
+#endif
 
     WarStateChopping* s = (WarStateChopping*)state;
 
@@ -86,6 +96,10 @@ void wst_updateChoppingState(WarContext* context, WarEntity* entity, WarState* s
     }
 
     WarUnitAction* action = &unit->actions[unit->actionType];
+#ifdef WAR_FRANK
+    // frank: the AI's tick counts the strokes (wst_frankChopTick)
+    if (wai_drivesTicks(context)) action->lastActionStep = WAR_ACTION_STEP_NONE;
+#endif
     if (action->lastActionStep == WAR_ACTION_STEP_ATTACK)
     {
         unit->amount += we_chopTree(context, forest, tree, 2);
@@ -115,7 +129,11 @@ void wst_updateChoppingState(WarContext* context, WarEntity* entity, WarState* s
             // find the closest town hall to deliver the gold
             WarRace race = wu_getUnitRace(context, entity);
             WarUnitType townHallType = wu_getTownHallOfRace(race);
+#ifdef WAR_FRANK
+            WarEntity* townHall = wai_homeHall(context, entity);
+#else
             WarEntity* townHall = we_findClosestUnitOfType(context, entity, townHallType);
+#endif
 
             // if the town hall doesn't exists (it could be under attack and get destroyed), go idle
             if (!townHall)
@@ -168,3 +186,75 @@ void wst_updateChoppingStates(WarContext* context)
 
     TracyCZoneEnd(ctx);
 }
+
+#ifdef WAR_FRANK
+// frank: the original's harvest order (0x1CD50) at each checkpoint of the
+// worker's work script: 50 strokes counted, and at the next checkpoint the
+// tree is down and the load (100) goes home.
+void wst_frankChopTick(WarContext* context, WarEntity* entity, WarStateBase* st)
+{
+    WarUnitComponent* unit = we_getUnitComponent(context, entity);
+    if (!unit) return;
+    if (!st || st->type != WAR_STATE_CHOPPING)
+    {
+        if (!st || st->type != WAR_STATE_ATTACK) unit->frankAtkOn = false;
+        return;
+    }
+    if (!unit->frankAtkOn)
+    {
+        if (!wos_select(context, entity, 10, 1)) return;
+        unit->frankAtkOn = true;
+    }
+    if (wos_tick(context, entity, NULL) != WOR_CHANGED) return;
+    if (wmv_takePendingOrder(context, entity)) return;
+    wst_frankChopCheckpoint(context, entity, st);
+}
+
+void wst_frankChopCheckpoint(WarContext* context, WarEntity* entity, WarStateBase* st)
+{
+    WarUnitComponent* unit = we_getUnitComponent(context, entity);
+    WarStateChopping* s = (WarStateChopping*)st;
+    WarEntity* forest = we_findEntity(context, s->forestId);
+    vec2 treeTile = wmap_mapToTileCoordinatesV(s->position);
+    WarTree* tree = forest ? we_getTreeAtTile(context, forest, (s32)treeTile.x, (s32)treeTile.y) : NULL;
+    if (!tree || !wmv_standingTree(context, (s32)treeTile.x, (s32)treeTile.y))
+    {
+        vec2 here = wu_getUnitCenterTile(context, entity);
+        s32 x, y;
+        if (wmv_treeAround(context, (s32)here.x, (s32)here.y, &x, &y))
+            wst_replaceState(context, entity, (WarStateBase*)wst_createGatherWoodState(
+                context, entity, s->forestId, wmap_tileToMapCoordinatesV(vec2i(x, y), true)), WAR_TRANSITION_CAUSE_COMPLETION);
+        else
+            wst_replaceState(context, entity, (WarStateBase*)wst_createIdleState(context, entity, false), WAR_TRANSITION_CAUSE_COMPLETION);
+        wmv_settle(context, entity);
+        return;
+    }
+    if (s->frankChops < 50) { s->frankChops++; return; }
+    // done: the tree is down, the wood goes home
+#ifndef FRANK_BOARD
+    if (getenv("WAR_TURNDEBUG")) fprintf(stderr, "chopped by %d tree %d,%d amount %d\n", (s32)entity->id, (s32)treeTile.x, (s32)treeTile.y, tree ? tree->amount : -1);
+#endif
+    if (forest && tree) we_chopTree(context, forest, tree, TREE_MAX_WOOD);
+    unit->amount = UNIT_MAX_CARRY_WOOD;
+    unit->resourceKind = WAR_RESOURCE_WOOD;
+    const WarWorkerData* workerData = wu_getWorkerData(unit->type);
+    we_removeSpriteComponent(context, entity);
+    we_addSpriteComponentFromResource(context, entity, imageResourceRef(workerData->carryingWoodResource));
+    WarEntity* townHall = wai_homeHall(context, entity);
+#ifndef FRANK_BOARD
+    if (getenv("WAR_TURNDEBUG")) fprintf(stderr, "deliver %d to %d\n", (s32)entity->id, townHall ? (s32)townHall->id : -1);
+#endif
+    if (!townHall)
+    {
+        wst_replaceState(context, entity, (WarStateBase*)wst_createIdleState(context, entity, true), WAR_TRANSITION_CAUSE_COMPLETION);
+        return;
+    }
+    WarStateDeliver* deliverState = wst_createDeliverState(context, entity, townHall->id);
+    deliverState->cycle = true;
+    deliverState->sourceKind = WAR_RESOURCE_WOOD;
+    deliverState->sourceId = s->forestId;
+    deliverState->sourcePosition = s->position;
+    wst_replaceState(context, entity, (WarStateBase*)deliverState, WAR_TRANSITION_CAUSE_COMPLETION);
+    wmv_settle(context, entity);
+}
+#endif

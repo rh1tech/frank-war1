@@ -10,7 +10,7 @@
 // One AI tick of the original at normal speed (33.3 ticks a second); the
 // AI here runs every WAI_STEP ticks of game time.
 #define WAI_TICK_SECONDS (1.0f / 33.333f)
-#define WAI_STEP 3
+#define WAI_STEP 1
 
 enum
 {
@@ -34,7 +34,8 @@ typedef struct
     s32 still;             // ticks without moving
     s8 thinkWait;          // AI steps to its next think while idle
     WarEntityId attacker;  // the last unit to attack it (the original's +0x3A)
-    f32 retargetAt;        // game time of its next look round while attacking
+    u8 job;                // a worker's job bits (the original's role 1 gold, 2 build)
+    u8 placing;            // made, its role taken: 1 not yet placed, 2 its first order next tick
 } WarAIUnit;
 
 typedef struct
@@ -45,16 +46,7 @@ typedef struct
     WarEntityId id;        // 0: destroyed (a placeholder to rebuild)
 } WarAIPlan;
 
-typedef struct
-{
-    WarUnitType type;
-    u8 player;
-    s16 x, y;
-    WarEntityId id;        // the unit holding it; 0: free for a new one
-} WarAIPost;
-
 #define WAI_PLAN_MAX 64
-#define WAI_POST_MAX 96
 
 typedef struct
 {
@@ -62,6 +54,7 @@ typedef struct
     u64 rng;
     f64 nextStep;
     bool started;          // the level's own units have been given their roles
+    u32 ticks;             // AI ticks run
     s32 reaim;             // ticks to the next re-aim
     s32 wave;              // ticks to the next wave (< 0: none)
     s32 targetX, targetY;  // attack target, tiles (-1: none yet)
@@ -70,11 +63,11 @@ typedef struct
     WarAIUnit units[MAX_ENTITIES_COUNT];
     WarAIPlan plan[WAI_PLAN_MAX];
     s32 planCount;
-    WarAIPost posts[WAI_POST_MAX];
-    s32 postCount;
+    bool postAlert[MAX_PLAYERS_COUNT];
     u16 routes[WAR_AI_ROUTE_WORDS_MAX];
     s32 routeCount;
     s32 homeX[MAX_PLAYERS_COUNT], homeY[MAX_PLAYERS_COUNT];
+    s16 wood[MAX_PLAYERS_COUNT][4];   // the wood search's rectangle (0x50E0C/0x50E20), -1: no more
     s32 casters[MAX_PLAYERS_COUNT], workers[MAX_PLAYERS_COUNT], farms[MAX_PLAYERS_COUNT];
     s32 builders[MAX_PLAYERS_COUNT], goldWorkers[MAX_PLAYERS_COUNT];
     bool hasMill, hasSmith;   // owned by any computer player
@@ -86,7 +79,9 @@ typedef struct
 } WarAIState;
 
 static WarAIState* wai;
+static bool wai_making;        // a unit is being made (wai_unitMade): its orders wait
 static s32 wai_self;          // the player whose unit is thinking
+static WarEntity* wai_currentUnit;
 
 // Host test mode: the AI also plays the human (player 0), paying for what
 // it trains, to play the campaign AI vs AI.
@@ -97,7 +92,9 @@ bool wai_autoHumanFree;   // ... and, like the computer, trains for free
 
 static s32 wai_rand(s32 n)
 {
-    return SDL_rand_r(&wai->rng, n);
+    // the original's own random numbers (0x19478): every AI choice draws
+    // from them, in the game's order (a remainder or the low bits)
+    return wrng_next() % n;
 }
 
 static bool wai_isComputer(WarContext* context, s32 player)
@@ -119,23 +116,14 @@ bool wai_ownsIdle(WarContext* context, WarEntity* entity)
     WarUnitComponent* u = we_getUnitComponent(context, entity);
     if (!u || !wai || !wai->lv) return false;
     // the human's units too: their idle behaviour is the original's as well
-    return u->player == 0 || wai_isComputer(context, u->player);
+    return u->player == 0 || u->player == 4 || wai_isComputer(context, u->player);
 }
 
 static WarAIUnit* wai_unitInfo(WarContext* context, WarEntity* entity);
 
-// war1's attack code reports each blow (we_meleeAttack, arrows included)
-void wai_noteAttacker(WarContext* context, WarEntity* target, WarEntity* attacker)
-{
-    if (!wai || !wai->lv || !target || !attacker) return;
-    WarAIUnit* info = wai_unitInfo(context, target);
-    if (info && info->id == target->id) info->attacker = attacker->id;
-}
-
 static bool wai_isEnemy(s32 self, s32 other)
 {
-    if (self != 0) return other == 0;
-    return other > 0 && other < MAX_PLAYERS_COUNT && wai->lv->alliance[other] == 1;
+    return wor_areEnemies((u8)self, (u8)other);
 }
 
 static WarAIUnit* wai_unitInfo(WarContext* context, WarEntity* entity)
@@ -147,9 +135,46 @@ static WarAIUnit* wai_unitInfo(WarContext* context, WarEntity* entity)
     return &wai->units[slot];
 }
 
+bool wai_hasRetainedAttacker(WarContext* context, WarEntity* entity)
+{
+    if (!wai || !entity) return false;
+    WarAIUnit* info = wai_unitInfo(context, entity);
+    return info && info->id == entity->id && info->attacker != 0;
+}
+
 static bool wai_alive(WarContext* context, WarEntity* entity)
 {
-    return entity && wu_isUnit(entity) && !wst_isDead(context, entity) && !wst_isCollapsing(context, entity);
+    if (!entity || !wu_isUnit(entity)) return false;
+    // (death and collapse come by a reset of the stack: the active state)
+    WarStateBase* st = wst_getActiveState(context, entity);
+    return !st || (st->type != WAR_STATE_DEATH && st->type != WAR_STATE_COLLAPSE);
+}
+
+static bool wai_combatActive(WarContext* context, WarEntity* entity)
+{
+    if (!wai_alive(context, entity)) return false;
+    WarUnitComponent* unit = we_getUnitComponent(context, entity);
+    return unit && !wu_isCorpseUnitType(unit->type) &&
+        !wst_isGoingToDie(context, entity) && !wst_isGoingToCollapse(context, entity);
+}
+
+// A blow remembers the first hostile attacker until that attacker becomes
+// inactive, even when the blow misses or armour prevents damage (0x10CE0, 0x10650).
+void wai_noteAttacker(WarContext* context, WarEntity* target, WarEntity* attacker)
+{
+    if (!wai || !wai->lv || !wai_combatActive(context, target) || !attacker) return;
+    WarUnitComponent* tu = we_getUnitComponent(context, target);
+    WarUnitComponent* au = wu_isUnit(attacker) ? we_getUnitComponent(context, attacker) : NULL;
+    if (!au || tu->player >= 4 || au->player >= 4 || (tu->player == 0) == (au->player == 0)) return;
+    WarAIUnit* info = wai_unitInfo(context, target);
+    if (!info || info->id != target->id) return;
+    WarEntity* previous = info->attacker ? we_findEntity(context, info->attacker) : NULL;
+    if (!wai_combatActive(context, previous))
+    {
+        info->attacker = attacker->id;
+        WarOriginalUnit* original = wos_unit(context, target);
+        if (original) original->attacker = au->frankOriginalSlot;
+    }
 }
 
 // war1 has no stats (speed, damage) for a few placed-only types: leave
@@ -181,7 +206,7 @@ static s32 wai_tileDistance(s32 x0, s32 y0, s32 x1, s32 y1)
 // war1 keeps tilex/tiley for buildings only: a unit's tile from its position
 static void wai_tile(WarContext* context, WarEntity* e, s32* x, s32* y)
 {
-    vec2 t = wmap_mapToTileCoordinatesV(wu_getUnitCenterPosition(context, e));
+    vec2 t = wu_getUnitCenterTile(context, e);   // (a walking unit: the tile it walks onto)
     *x = (s32)t.x;
     *y = (s32)t.y;
 }
@@ -228,18 +253,19 @@ typedef struct
 
 static WarAITarget wai_targets[MAX_ENTITIES_COUNT];
 static s32 wai_targetCount;
+bool wai_targetsDirty = true;
+static u32 wai_tickNo;   // ticks since the level began (research logs)   // a unit moved, came or went since the list was made
 
-// The step's candidates, in the entity pool's slot order (the original
-// walks its unit table in slot order, and its choice depends on that
-// order); gathered once a step.
-static void wai_gatherTargets(WarContext* context)
+// Target ties retain the first original unit slot, not the native entity
+// pool slot, which audio and presentation allocations also reuse (0x2A0DC).
+static void wai_gatherTargetsNow(WarContext* context)
 {
     wai_targetCount = 0;
     WarEntityManager* manager = we_getEntityManager(context);
-    for (s32 i = 1; i < MAX_ENTITIES_COUNT && wai_targetCount < MAX_ENTITIES_COUNT; i++)
+    for (u16 slot = 0; slot < WOR_UNIT_COUNT; slot++)
     {
-        WarEntity* e = &manager->entities[i];
-        if (!e->id || !wai_alive(context, e)) continue;
+        WarEntity* e = manager->originalEntities[slot];
+        if (!e || !e->id || !wai_alive(context, e)) continue;
         WarUnitComponent* u = we_getUnitComponent(context, e);
         if (!u || u->player >= MAX_PLAYERS_COUNT || u->invisible || u->type >= WAR_UNIT_HUMAN_CORPSE) continue;
         // workers inside a mine or a hall are out of reach
@@ -250,6 +276,15 @@ static void wai_gatherTargets(WarContext* context)
         if (t.building) { t.x = (s16)u->tilex; t.y = (s16)u->tiley; t.w = (s16)u->sizex; t.h = (s16)u->sizey; }
         wai_targets[wai_targetCount++] = t;
     }
+}
+
+// The candidates as the unit table is now (the original's scans read it
+// live): made again only when something moved, came or went.
+static void wai_gatherTargets(WarContext* context)
+{
+    if (!wai_targetsDirty) return;
+    wai_targetsDirty = false;
+    wai_gatherTargetsNow(context);
 }
 
 // The original's distance (0x13270): Chebyshev, to the nearest tile of a
@@ -265,6 +300,7 @@ static s32 wai_targetDistance(const WarAITarget* t, s32 x, s32 y)
 // building held so far, and one within `range` beats one held outside it.
 static WarEntity* wai_findTargetEx(WarContext* context, s32 x, s32 y, s32 radius, s32 range)
 {
+    wai_gatherTargets(context);
     NOT_USED(context);
     const WarAITarget* best = NULL;
     s32 bestPriority = 0, bestDistance = 0xFFFF;
@@ -294,25 +330,79 @@ static WarEntity* wai_findTarget(WarContext* context, s32 x, s32 y, s32 radius)
 static bool wai_order(WarContext* context, WarEntity* entity, WarStateBase* state)
 {
     if (!state) return false;
-    return wst_resetState(context, entity, state, WAR_TRANSITION_CAUSE_AI_ORDER);
+    if (!wst_resetState(context, entity, state, WAR_TRANSITION_CAUSE_AI_ORDER)) return false;
+    WarStateBase* current = wst_getActiveState(context, entity);
+    if (entity != wai_currentUnit && current &&
+        (current->type == WAR_STATE_IDLE || current->type == WAR_STATE_MOVE ||
+         current->type == WAR_STATE_ATTACK || current->type == WAR_STATE_CHOPPING ||
+         current->type == WAR_STATE_CAST))
+    {
+        WarUnitComponent* unit = we_getUnitComponent(context, entity);
+        if (unit) { unit->frankOrderQueued = true; return true; }
+    }
+    wmv_settle(context, entity);   // (the original takes the order at once)
+    return true;
 }
 
-// The original's "attack" to a place (0x21020: orders 3 then 6): a plain
-// walk (its move order looks for nobody on the way, 0x551A4), then, idle at
-// the place, the unit's think finds its targets.
+// The original's attack to a place retains order 6 after the move;
+// its empty-target checkpoint, not the move handler, selects idle (0x21020, 0x2EFEC).
 static bool wai_attackMove(WarContext* context, WarEntity* entity, s32 x, s32 y)
 {
     if (!wst_canSubmitTransition(context, entity, WAR_INTERRUPT_AI_ORDER)) return false;
-    vec2 from = wu_getUnitCenterPosition(context, entity);
-    return wai_order(context, entity, (WarStateBase*)wst_createMoveState(context, entity, 2, arrayArg(vec2, from, wai_tileCenter(x, y)), false));
+    WarStateAttack* at = wst_createAttackState(context, entity, 0, wai_tileCenter(x, y));
+    if (at) at->frankOrder = 6;
+    return wai_order(context, entity, (WarStateBase*)at);
 }
 
-static bool wai_attack(WarContext* context, WarEntity* entity, WarEntity* target)
+bool wai_attackTerrain(WarContext* context, WarEntity* entity, s32 x, s32 y)
 {
+    if (!wmv_hasTerrain(x, y, 0xC))
+        return wai_order(context, entity, (WarStateBase*)wst_createIdleState(context, entity, false));
+    WarStateAttack* attack = wst_createAttackState(context, entity, 0, wai_tileCenter(x, y));
+    if (!attack)
+    {
+        logError("original kernel: failed terrain-attack command for entity %u", entity->id);
+        return false;
+    }
+    attack->frankOrder = 7;
+    WarOriginalUnit* original = wos_unit(context, entity);
+    if (original)
+    {
+        original->target = 0;
+        original->goalX = (s16)x;
+        original->goalY = (s16)y;
+    }
+    return wai_order(context, entity, (WarStateBase*)attack);
+}
+
+#ifndef FRANK_BOARD
+#define wai_attack(c, e, t) wai_attackAt(c, e, t, __func__)
+#else
+#define wai_attack(c, e, t) wai_attackAt(c, e, t, NULL)
+#endif
+static bool wai_attackAt(WarContext* context, WarEntity* entity, WarEntity* target, const char* who)
+{
+#ifndef FRANK_BOARD
+    {
+        static s32 watch = -2;
+        if (watch == -2) watch = getenv("WAR_ATKDEBUG") ? atoi(getenv("WAR_ATKDEBUG")) : -1;
+        if ((s32)entity->id == watch) fprintf(stderr, "attack order tick %u by %s at %d\n", wrng_tick, who, target ? (s32)target->id : -1);
+    }
+#else
+    NOT_USED(who);
+#endif
     if (!wst_canSubmitTransition(context, entity, WAR_INTERRUPT_AI_ORDER)) return false;
     if (!wu_canAttack(context, entity, target)) return false;
-    return wai_order(context, entity, (WarStateBase*)wst_createAttackState(
-        context, entity, target->id, wu_getUnitCenterPosition(context, target)));
+    WarStateAttack* at = wst_createAttackState(context, entity, target->id, wu_getUnitCenterPosition(context, target));
+    if (at)
+    {
+        WarUnitComponent* u = we_getUnitComponent(context, entity);
+        WarAIUnit* info = wai_unitInfo(context, entity);
+        const bool computer = wai_isComputer(context, u->player) && (u->player != 0 || wai_autoHuman);
+        at->frankOrder = computer ? 6 : 8;
+        at->frankPursue = computer || (info && info->attacker && !wai_isCasterType(u->type) && wai_attackRange(u->type) <= 1);
+    }
+    return wai_order(context, entity, (WarStateBase*)at);
 }
 
 static WarEntity* wai_townHall(WarContext* context, s32 player)
@@ -325,10 +415,35 @@ static WarEntity* wai_townHall(WarContext* context, s32 player)
         {
             WarEntity* e = list->items[i];
             WarUnitComponent* u = wai_alive(context, e) ? we_getUnitComponent(context, e) : NULL;
-            if (u && u->player == player && !u->building) return e;
+            if (!u || u->player != player) continue;
+            WarStateBase* st = wst_getActiveState(context, e);
+            if (!st || st->type != WAR_STATE_BUILD) return e;   // (war1's building flag is also set while it trains)
         }
     }
     return NULL;
+}
+
+// the hall a worker carries its load to: the nearest of its owner's halls and
+// keeps (war1 took the nearest town hall of the race, anyone's)
+WarEntity* wai_homeHall(WarContext* context, WarEntity* worker)
+{
+    WarUnitComponent* wu = we_getUnitComponent(context, worker);
+    if (!wu) return NULL;
+    WarEntityManager* manager = we_getEntityManager(context);
+    WarEntity* best = NULL;
+    s32 bestDst = INT32_MAX;
+    for (s32 i = 1; i < MAX_ENTITIES_COUNT; i++)
+    {
+        WarEntity* e = &manager->entities[i];
+        if (!e->id || e->type != WAR_ENTITY_TYPE_UNIT || !wai_alive(context, e)) continue;
+        WarUnitComponent* u = we_getUnitComponent(context, e);
+        if (!u || !wai_isHallType(u->type) || u->player != wu->player) continue;
+        WarStateBase* st = wst_getActiveState(context, e);
+        if (st && st->type == WAR_STATE_BUILD) continue;   // (not while it's being built)
+        const s32 d = wu_unitDistanceInTiles(context, worker, e);
+        if (d < bestDst) { best = e; bestDst = d; }
+    }
+    return best;
 }
 
 static WarRace wai_race(WarContext* context, s32 player)
@@ -342,10 +457,11 @@ static void wai_reaimFor(WarContext* context, s32 self, s32* tx, s32* ty)
 {
     // 4x4 zones of 16x16 tiles, scored by the enemy's presence
     s32 score[16] = {0};
-    WarEntityList* units = we_getEntitiesOfType(context, WAR_ENTITY_TYPE_UNIT);
-    for (s32 i = 0; i < units->count; i++)
+    WarEntityManager* slots = we_getEntityManager(context);   // (slot order, as the original)
+    for (s32 i = 1; i < MAX_ENTITIES_COUNT; i++)
     {
-        WarEntity* e = units->items[i];
+        WarEntity* e = &slots->entities[i];
+        if (!e->id || !wu_isUnit(e)) continue;
         if (!wai_alive(context, e)) continue;
         WarUnitComponent* u = we_getUnitComponent(context, e);
         if (!u || !wai_isEnemy(self, u->player) || u->type >= WAR_UNIT_HUMAN_CORPSE) continue;
@@ -368,7 +484,12 @@ static void wai_reaimFor(WarContext* context, s32 self, s32* tx, s32* ty)
 
 static void wai_reaim(WarContext* context)
 {
-    wai_reaimFor(context, 1, &wai->targetX, &wai->targetY);
+    s16 x, y;
+    if (wos_attackZone(context, &x, &y))
+    {
+        wai->targetX = x;
+        wai->targetY = y;
+    }
     if (wai_autoHuman) wai_reaimFor(context, 0, &wai->targetX0, &wai->targetY0);
 }
 
@@ -382,21 +503,22 @@ static bool wai_target(s32 player, s32* x, s32* y)
 // All of a player's mobile units (not workers or heroes) attack.
 static void wai_launchWave(WarContext* context)
 {
-    WarEntityList* units = we_getEntitiesOfType(context, WAR_ENTITY_TYPE_UNIT);
-    for (s32 i = 0; i < units->count; i++)
+    WarEntityManager* manager = we_getEntityManager(context);
+    for (s32 i = 1; i < MAX_ENTITIES_COUNT; i++)   // (slot order)
     {
-        WarEntity* e = units->items[i];
-        if (!wai_alive(context, e)) continue;
+        WarEntity* e = &manager->entities[i];
+        if (!e->id || !wu_isUnit(e) || !wai_alive(context, e)) continue;
         WarUnitComponent* u = we_getUnitComponent(context, e);
-        if (!u || !wai_isComputer(context, u->player) || wai->quota[u->player] <= 0) continue;
-        if (wai_isBuildingType(u->type) || wai_isWorkerType(u->type) || wai_isHeroType(u->type) || !wai_hasStats(u->type)) continue;
+        // (0x29A44: any unit but a hero, workers too, in slot order)
+        if (!u || u->player >= MAX_PLAYERS_COUNT || (wai->quota[u->player] & 0xFFFF) == 0) continue;
+        if (wai_isBuildingType(u->type) || wai_isHeroType(u->type) || u->type == WAR_UNIT_MEDIVH || !wai_hasStats(u->type)) continue;
         WarAIUnit* info = wai_unitInfo(context, e);
         if (!info || info->id != e->id) continue;
         if (info->waiting && info->route >= 0 && wai->routes[info->route] > 0)
             wai->routes[info->route]--;
         info->role = WAI_ROLE_ATTACK;
         info->waiting = 0;
-        wai->quota[u->player]--;
+        wai->quota[u->player] = (wai->quota[u->player] - 1) & 0xFFFF;
     }
     for (s32 p = 0; p < MAX_PLAYERS_COUNT; p++) wai->quota[p] = 0;
 }
@@ -705,35 +827,60 @@ static bool wai_mineGold(WarContext* context, WarEntity* worker, WarUnitComponen
 // The nearest tree with wood that can be reached, from the forests' own
 // lists: the computer does not care about the fog (war1's own search only
 // takes explored trees, and flood-fills the whole map for a computer worker).
-static bool wai_chopWood(WarContext* context, WarEntity* worker, WarUnitComponent* u)
+// 0x2AFEC: the first standing tree on the edge of the player's rectangle,
+// clockwise from its top left corner; with none, the rectangle grows by a
+// tile each way, and stays grown for the next search (it starts at the
+// hall's corner). Reachable or not, as the original.
+static bool wai_isTree(WarContext* context, s32 x, s32 y, WarEntity** forestOut)
 {
-    s32 hx = wai->homeX[u->player], hy = wai->homeY[u->player];
-    s32 wx, wy;
-    wai_tile(context, worker, &wx, &wy);
-    WarEntity* bestForest = NULL;
-    WarTree* bestTree = NULL;
-    s32 bestCost = INT32_MAX;
+    if (!wmv_standingTree(context, x, y)) return false;
     WarEntityList* forests = we_getEntitiesOfType(context, WAR_ENTITY_TYPE_FOREST);
     for (s32 i = 0; i < forests->count; i++)
     {
-        WarEntity* forest = forests->items[i];
-        WarForestComponent* fc = forest ? we_getForestComponent(context, forest) : NULL;
-        if (!fc) continue;
-        for (s32 k = 0; k < fc->trees.count; k++)
+        WarTree* t = we_getTreeAtTile(context, forests->items[i], x, y);
+        if (t && t->amount > 0) { *forestOut = forests->items[i]; return true; }
+    }
+    return false;
+}
+
+static bool wai_chopWood(WarContext* context, WarEntity* worker, WarUnitComponent* u)
+{
+    static const s8 dx[4] = { 1, 0, -1, 0 }, dy[4] = { 0, 1, 0, -1 };
+    s16* r = wai->wood[u->player];
+    if (r[0] == -1) return false;
+    for (;;)
+    {
+        s32 x = r[0], y = r[1];
+        for (s32 d = 0; d < 4; d++)
         {
-            WarTree* tree = &fc->trees.items[k];
-            if (tree->amount <= 0) continue;
-            s32 cost = 2 * wai_tileDistance(hx, hy, tree->tilex, tree->tiley) + wai_tileDistance(wx, wy, tree->tilex, tree->tiley);
-            if (cost >= bestCost) continue;
-            if (!wpath_isTileAccesible(&context->map->finder, tree->tilex, tree->tiley)) continue;
-            bestCost = cost;
-            bestForest = forest;
-            bestTree = tree;
+            const s32 len = (d & 1) ? r[3] - r[1] + 1 : r[2] - r[0] + 1;
+            for (s32 k = 0; k < len; k++)
+            {
+                WarEntity* forest = NULL;
+                if (wai_isTree(context, x, y, &forest))
+                {
+#ifndef FRANK_BOARD
+                    if (getenv("WAR_WORKERDEBUG")) fprintf(stderr, "  wood at %d,%d (rect %d,%d-%d,%d)\n", x, y, r[0], r[1], r[2], r[3]);
+#endif
+                    return wai_order(context, worker, (WarStateBase*)wst_createGatherWoodState(
+                        context, worker, forest->id, wai_tileCenter(x, y)));
+                }
+                x += dx[d];
+                y += dy[d];
+            }
+            x -= dx[d];
+            y -= dy[d];
+        }
+        if (r[0] > 0) r[0]--;
+        if (r[1] > 0) r[1]--;
+        if (r[2] < MAP_TILES_WIDTH - 1) r[2]++;
+        if (r[3] < MAP_TILES_HEIGHT - 1) r[3]++;
+        if (r[0] == 0 && r[1] == 0 && r[2] == MAP_TILES_WIDTH - 1 && r[3] == MAP_TILES_HEIGHT - 1)
+        {
+            r[0] = -1;
+            return false;
         }
     }
-    if (!bestTree) return false;
-    return wai_order(context, worker, (WarStateBase*)wst_createGatherWoodState(
-        context, worker, bestForest->id, wai_tileCenter(bestTree->tilex, bestTree->tiley)));
 }
 
 static void wai_leaveHallSite(WarContext* context, WarEntity* e, WarUnitComponent* u);
@@ -742,32 +889,46 @@ static void wai_leaveHallSite(WarContext* context, WarEntity* e, WarUnitComponen
 // builders < 2/3 of the other workers, town-plan work; else gold while the
 // miners are fewer than the other workers (or when attacked); else wood;
 // else step off a lost hall's spot.
+static void wai_countPlayers(WarContext* context);
 static void wai_workerThink(WarContext* context, WarEntity* worker, WarUnitComponent* u, WarAIUnit* info)
 {
     s32 player = u->player;
+    // (the counts as the unit table is now: a worker made earlier in this
+    // tick counts, as the original's count goes up when it is made)
+    wai_countPlayers(context);
+    // (0x2B154: the worker leaves the job it had, its role bit, before choosing)
+    if (info->job & 2) wai->builders[player]--;
+    else if (info->job & 1) wai->goldWorkers[player]--;
+    info->job = 0;
     if (wu_isCarryingResources(context, worker))
     {
         WarEntity* hall = wai_townHall(context, player);
         if (hall && wai_order(context, worker, (WarStateBase*)wst_createDeliverState(context, worker, hall->id)))
             return;
         // no hall to deliver to: only town-plan work
-        if (wai_townPlanWork(context, worker, player)) wai->builders[player]++;
+        if (wai_townPlanWork(context, worker, player)) { wai->builders[player]++; info->job = 2; }
         return;
     }
     s32 target = 2 * (wai->workers[player] - 1) / 3;
+#ifndef FRANK_BOARD
+    if (getenv("WAR_WORKERDEBUG")) fprintf(stderr, "worker %d think t %.3f workers %d builders %d gold %d target %d\n", (s32)worker->id, context->gameTime, wai->workers[player], wai->builders[player], wai->goldWorkers[player], target);
+#endif
     if (player == 0 && wai->builders[player] < target && wai_humanBuild(context, worker, player))
     {
         wai->builders[player]++;
+        info->job = 2;
         return;
     }
     if (wai->builders[player] < target && wai_townPlanWork(context, worker, player))
     {
         wai->builders[player]++;
+        info->job = 2;
         return;
     }
     if ((info->attacker || wai->goldWorkers[player] < wai->workers[player] - 1) && wai_mineGold(context, worker, u))
     {
         wai->goldWorkers[player]++;
+        info->job = 1;
         return;
     }
     if (info->attacker) return;
@@ -788,16 +949,19 @@ static void wai_routeAdvance(WarContext* context, WarEntity* e, WarUnitComponent
     if (next + 2 >= wai->routeCount || wai->routes[next] == 0xFFFF)
     {
         info->role = WAI_ROLE_ATTACK;
-        if (wai->targetX >= 0) wai_attackMove(context, e, wai->targetX, wai->targetY);
+        info->route = -1;
         return;
     }
     if ((next + 3 >= wai->routeCount || wai->routes[next + 3] == 0xFFFF) &&
         u->type >= WAR_UNIT_CONJURER && u->type <= WAR_UNIT_MEDIVH)
     {
         info->role = 0;
+        info->route = -1;
         return;
     }
     info->route = (s16)next;
+    info->postX = (s16)wai->routes[next + 1];
+    info->postY = (s16)wai->routes[next + 2];
     wai_attackMove(context, e, wai->routes[next + 1], wai->routes[next + 2]);
 }
 
@@ -806,7 +970,11 @@ static void wai_routeAdvance(WarContext* context, WarEntity* e, WarUnitComponent
 static void wai_routeStep(WarContext* context, WarEntity* e, WarUnitComponent* u, WarAIUnit* info)
 {
     s16 r = info->route;
-    if (r < 0 || r + 2 >= wai->routeCount) { info->role = WAI_ROLE_ATTACK; return; }
+    if (r < 0 || r + 2 >= wai->routeCount)
+    {
+        logError("original kernel: invalid route %d for entity %u", r, e->id);
+        return;
+    }
     s32 wx = wai->routes[r + 1], wy = wai->routes[r + 2];
     s32 ux, uy;
     wai_tile(context, e, &ux, &uy);
@@ -827,17 +995,20 @@ static void wai_routeStep(WarContext* context, WarEntity* e, WarUnitComponent* u
     if (wai->routes[r] < wai->groupSize) return;
 
     // the group is complete: everyone waiting here moves on
-    WarEntityList* units = we_getEntitiesOfType(context, WAR_ENTITY_TYPE_UNIT);
-    for (s32 i = 0; i < units->count; i++)
+    WarEntityManager* slots = we_getEntityManager(context);   // (slot order, as the original)
+    for (u16 slot = 0; slot < WOR_UNIT_COUNT; slot++)
     {
-        WarEntity* other = units->items[i];
+        WarEntity* other = slots->originalEntities[slot];
+        if (!other || !other->id || !wu_isUnit(other)) continue;
         if (!wai_alive(context, other)) continue;
         WarAIUnit* oi = wai_unitInfo(context, other);
-        if (!oi || oi->id != other->id || oi->role != WAI_ROLE_ROUTE || oi->route != r || !oi->waiting) continue;
-        if (wai->routes[r] > 0) wai->routes[r]--;
+        if (!oi || oi->id != other->id || oi->role != WAI_ROLE_ROUTE ||
+            oi->route != r || (oi->gather && !oi->waiting)) continue;
+        wai->routes[r]--;
         wai_routeAdvance(context, other, we_getUnitComponent(context, other), oi);
     }
-    if (++wai->groupsLaunched >= MAX(wai->lv->groupEvery[0], 1))
+    wai->groupsLaunched = (u16)(wai->groupsLaunched + 1);
+    if (wai->groupsLaunched == wai->lv->groupEvery[0])
     {
         wai->groupsLaunched = 0;
         if (wai->groupSize < wai->lv->groupMax[0]) wai->groupSize++;
@@ -868,28 +1039,63 @@ static void wai_alertFriends(WarContext* context, WarEntity* e, WarUnitComponent
     }
 }
 
+// Two draws offset the attacker's facing, then normal command clipping applies (0x107A0, 0x22554).
+static bool wai_flee(WarContext* context, WarEntity* entity, WarAIUnit* info)
+{
+    WarEntity* attacker = we_findEntity(context, info->attacker);
+    WarUnitComponent* other = attacker && wu_isUnit(attacker) ? we_getUnitComponent(context, attacker) : NULL;
+    if (!other)
+    {
+        logError("original kernel: missing flee attacker for entity %u", entity->id);
+        return false;
+    }
+    static const s8 dx[8] = { 0, 1, 1, 1, 0, -1, -1, -1 }, dy[8] = { -1, -1, 0, 1, 1, 1, 0, -1 };
+    const s32 direction = (s32)other->direction & 7;
+    s32 x, y;
+    wai_tile(context, entity, &x, &y);
+    const s32 fx = x + dx[direction] * 4 + wai_rand(8) - 2;
+    const s32 fy = y + dy[direction] * 4 + wai_rand(8) - 2;
+    const vec2 goal = wmv_backOff(context, entity, CLAMP(fx, 0, MAP_TILES_WIDTH - 1),
+                                CLAMP(fy, 0, MAP_TILES_HEIGHT - 1));
+    WarStateMove* move = wst_createMoveState(context, entity, 2,
+        arrayArg(vec2, wai_tileCenter(x, y), wmap_tileToMapCoordinatesV(goal, true)), false);
+    if (!move)
+    {
+        logError("original kernel: failed flee movement for entity %u", entity->id);
+        return false;
+    }
+    const bool accepted = wai_order(context, entity, (WarStateBase*)move);
+    info->attacker = 0;
+    WarOriginalUnit* original = wos_unit(context, entity);
+    if (original) original->attacker = 0;
+    if (!accepted) logError("original kernel: rejected flee movement for entity %u", entity->id);
+    return accepted;
+}
+
+static bool wai_checkShotMana(WarContext* context, WarEntity* entity, WarAIUnit* info)
+{
+    const WarOrderResult mana = wos_shotMana(context, entity, false);
+    if (mana == WOR_ERROR) return false;
+    if (mana == WOR_CHANGED) return true;
+    if (info->attacker) wai_flee(context, entity, info);
+    else wai_order(context, entity, (WarStateBase*)wst_createIdleState(context, entity, false));
+    return false;
+}
+
 // The original's answer to an attacker (0x10D34), the first thing a think
 // does. true: the think is done.
 static bool wai_answerAttacker(WarContext* context, WarEntity* e, WarUnitComponent* u, WarAIUnit* info, bool computer)
 {
     if (!info->attacker) return false;
     WarEntity* a = we_findEntity(context, info->attacker);
-    if (!a || !wai_alive(context, a)) { info->attacker = 0; return false; }
+    if (!wai_combatActive(context, a)) { info->attacker = 0; return false; }
     if (wai->lv->alliance[u->player] == 2) { info->attacker = 0; return false; }
     if (wai_isBuildingType(u->type)) { info->attacker = 0; return false; }
     if (u->type == WAR_UNIT_WOUNDED) return false;
     if (u->type == WAR_UNIT_GRIZELDA || u->type == WAR_UNIT_GARONA || wai_isWorkerType(u->type))
     {
         if (computer && wai_isWorkerType(u->type)) return false;   // its think runs the economy
-        // (approximate: the original picks a tile away from the attacker
-        // with a random offset, 0x107A0)
-        s32 ux, uy, ax, ay;
-        wai_tile(context, e, &ux, &uy);
-        wai_tile(context, a, &ax, &ay);
-        s32 fx = CLAMP(ux + 4 * SIGN(ux - ax), 0, MAP_TILES_WIDTH - 1), fy = CLAMP(uy + 4 * SIGN(uy - ay), 0, MAP_TILES_HEIGHT - 1);
-        info->attacker = 0;
-        if (wst_canSubmitTransition(context, e, WAR_INTERRUPT_AI_ORDER))
-            wai_order(context, e, (WarStateBase*)wst_createMoveState(context, e, 2, arrayArg(vec2, wai_tileCenter(ux, uy), wai_tileCenter(fx, fy)), false));
+        wai_flee(context, e, info);
         return true;
     }
     if (we_getAttackTarget(context, e) == a) return false;
@@ -904,8 +1110,41 @@ static bool wai_answerAttacker(WarContext* context, WarEntity* e, WarUnitCompone
 // range only if nearer than the best so far; the current target and the
 // last attacker first, then the square in row order; a building gives way
 // to the attacker.
+// Visibility is snapshotted before the unit table runs (0x2D740).
+static bool wai_seenByHuman(WarContext* context, WarEntity* entity)
+{
+    WarOriginalUnit* original = wos_unit(context, entity);
+    return original && !(original->visibility & 0x100);
+}
+
+bool wai_validateCombatTarget(WarContext* context, WarEntity* entity)
+{
+    WarAIUnit* info = wai_unitInfo(context, entity);
+    if (!info || info->id != entity->id) return false;
+    WarStateAttack* attack = (WarStateAttack*)wst_findStateInStack(context, entity, WAR_STATE_ATTACK);
+    WarStateMove* move = (WarStateMove*)wst_findStateInStack(context, entity, WAR_STATE_MOVE);
+    WarEntityId target = attack ? attack->targetEntityId : 0;
+    const bool valid = wos_validateTarget(context, entity, &target, &info->attacker);
+    if (attack) attack->targetEntityId = target;
+    if (move && attack)
+    {
+        if (move->frankTarget && !target)
+        {
+            WarOriginalUnit* original = wos_unit(context, entity);
+            if (!original) return false;
+            move->waypoints[move->waypointsIndex + 1] = wai_tileCenter(original->goalX, original->goalY);
+            move->frankRange = 0;
+        }
+        move->frankTarget = target;
+    }
+    return valid;
+}
+
 static WarEntity* wai_acquire(WarContext* context, WarEntity* e, WarUnitComponent* u, WarAIUnit* info, bool acceptOutOfRange, WarEntity* current)
 {
+    wai_validateCombatTarget(context, e);
+    current = we_getAttackTarget(context, e);
+    wai_gatherTargets(context);
     s32 cx, cy;
     wai_tile(context, e, &cx, &cy);
     const s32 range = wai_attackRange(u->type);
@@ -915,8 +1154,12 @@ static WarEntity* wai_acquire(WarContext* context, WarEntity* e, WarUnitComponen
     s32 bestScore = -1, bestDistance = 0xFFFF;
     WarEntity* attacker = info->attacker ? we_findEntity(context, info->attacker) : NULL;
 
+    // (0x10834: the human's units take only what the human sees, mask
+    // 0x100 of the per-tick visibility, 0x2D740; the computer sees all)
+    const bool needSeen = u->player == 0;
 #define WAI_SCORE(t) do { \
         if (!wai_isEnemy(u->player, (t)->player)) break; \
+        if (needSeen && !wai_seenByHuman(context, (t)->e)) break; \
         s32 d_ = wai_targetDistance((t), cx, cy); \
         if (d_ < minRange) break; \
         if (d_ > range && (!acceptOutOfRange || d_ > bestDistance)) break; \
@@ -966,21 +1209,116 @@ static bool wai_humanAcquire(WarContext* context, WarEntity* e, WarUnitComponent
 }
 
 // While attacking a unit, the original's attack order (0x1143C via 0x2EFEC)
-// looks again for the best target within range, the current one scored
+// looks again for the best target, allowing out-of-range candidates, the current one scored
 // first (0x10908 without out-of-range targets), every unit, both sides.
 static bool wai_retarget(WarContext* context, WarEntity* e, WarUnitComponent* u, WarAIUnit* info)
 {
-    if (!wai_hasStats(u->type) || wai_isWorkerType(u->type) || wai_isHeroType(u->type)) return false;
+    // once a blow cycle: the attack order runs at its script's checkpoint
+    const bool checkpoint = u->frankAtkCheck;
+    u->frankAtkCheck = false;
+    if (!checkpoint) return false;
+    if (!wai_hasStats(u->type)) return false;
     WarStateBase* st = wst_getActiveState(context, e);
     if (!st || st->type != WAR_STATE_ATTACK) return false;
+    WarStateAttack* at = (WarStateAttack*)st;
+    if (at->frankOrder == 7)
+    {
+        if (wai_answerAttacker(context, e, u, info, false)) return true;
+        const vec2 tile = wmap_mapToTileCoordinatesV(at->targetPosition);
+        if (!wu_tileInRange(context, e, tile, 1))
+            return wai_attackTerrain(context, e, (s32)tile.x, (s32)tile.y);
+        if (!wmv_hasTerrain((s32)tile.x, (s32)tile.y, 0xC))
+            return wai_order(context, e, (WarStateBase*)wst_createIdleState(context, e, false));
+        if (!wai_checkShotMana(context, e, info)) return true;
+        const vec2 position = wu_getUnitCenterTile(context, e);
+        wu_setUnitDirection(context, e, (WarDirection)wor_facing(
+            (s16)(tile.x - position.x), (s16)(tile.y - position.y)));
+        wact_setAction(context, e, WAR_ACTION_TYPE_ATTACK, false, 1.0f);
+        return false;
+    }
     WarEntity* current = we_getAttackTarget(context, e);
     if (!current || !wu_isUnit(current)) return false;
-    // once a blow cycle: the attack order runs at its script's checkpoint
-    if (context->gameTime < info->retargetAt) return false;
-    info->retargetAt = context->gameTime + (f32)MAX(wact_getActionDuration(context, e, WAR_ACTION_TYPE_ATTACK), 1) * 0.03f;
+    if (at->frankOrder != 5 && wai_humanAcquire(context, e, u, info, true)) return true;
+    const bool inRange = wu_unitInRange(context, e, current, wai_attackRange(u->type));
+    if (!inRange && (at->frankOrder != 8 || (!wai_isCasterType(u->type) && wai_attackRange(u->type) <= 1)))
+    {
+        if (at->frankOrder == 5)
+            return wai_order(context, e, (WarStateBase*)wst_createAttackState(context, e, current->id,
+                wu_getUnitCenterPosition(context, current)));
+        return wai_attack(context, e, current);
+    }
     if (u->player == 0 && !wai_autoHuman && info->attacker == current->id)
         wai_alertFriends(context, e, u, current);   // (0x1143C)
-    return wai_humanAcquire(context, e, u, info, false);
+    if (at->frankOrder != 5 && (u->type == WAR_UNIT_CATAPULT_HUMANS || u->type == WAR_UNIT_CATAPULT_ORCS))
+    {
+        WarOrderResult safety = wos_checkCatapult(context, e, current);
+        if (safety == WOR_ERROR) return true;
+        if (safety == WOR_CHANGED)
+            return wai_order(context, e, (WarStateBase*)wst_createIdleState(context, e, false));
+    }
+    if (!inRange)
+    {
+        if (info->attacker && wmv_attackStep(context, e, current)) return true;
+        return wai_order(context, e, (WarStateBase*)wst_createIdleState(context, e, false));
+    }
+    if (!wai_checkShotMana(context, e, info)) return true;
+    // Face logical target tiles only at the checkpoint, not an interpolated
+    // sprite edge on every rendering frame (0x1143C, 0x1DFE0).
+    const vec2 here = wu_getUnitCenterTile(context, e);
+    WarUnitComponent* other = we_getUnitComponent(context, current);
+    const vec2 there = wu_isBuildingUnitType(other->type) ? vec2i(other->tilex, other->tiley)
+        : wu_getUnitCenterTile(context, current);
+    wpath_setStaticEntity(&context->map->finder, (s32)here.x, (s32)here.y, u->sizex, u->sizey, e->id);
+    wu_setUnitDirection(context, e, (WarDirection)wor_facing(
+        (s16)(there.x - here.x), (s16)(there.y - here.y)));
+    wact_setAction(context, e, WAR_ACTION_TYPE_ATTACK, false, 1.0f);
+    return false;
+}
+
+// 0x11004, at each checkpoint of a walk: a computer unit on an attack-move
+// (not a worker; casters only answer an attacker) looks for the best target
+// (0x10908) and goes for it; a human unit answers its attacker; on a plain
+// walk the attacker is forgotten. True when the unit took a new order.
+bool wai_moveAcquire(WarContext* context, WarEntity* e, bool attackMove)
+{
+    if (!wai || !wai->lv) return false;
+    WarUnitComponent* u = we_getUnitComponent(context, e);
+    if (!u || !wai_hasStats(u->type)) return false;
+    WarAIUnit* info = wai_unitInfo(context, e);
+    if (!info || info->id != e->id) return false;
+    const bool worker = wai_isWorkerType(u->type);
+    if (!worker && !attackMove)
+    {
+        info->attacker = 0;
+        return false;
+    }
+    if (wai_isComputer(context, u->player) && !(u->player == 0 && !wai_autoHuman))
+    {
+        if (worker) return false;
+        if (u->type >= WAR_UNIT_CONJURER && u->type <= WAR_UNIT_NECROLYTE)
+            return wai_answerAttacker(context, e, u, info, true);
+        WarEntity* current = we_getAttackTarget(context, e);
+        WarEntity* target = wai_acquire(context, e, u, info, true, current);   // (out of range too, if nearer)
+        if (!target || target == current) return false;
+        wai_self = u->player;
+        return wai_attack(context, e, target);
+    }
+    return wai_answerAttacker(context, e, u, info, false);
+}
+
+// Home defence compares the hall's HP to the caller type's base HP,
+// not the hall's maximum; an undamaged hall can request defence (0x2A258).
+static WarEntity* wai_homeTarget(WarContext* context, WarEntity* e, WarUnitComponent* u)
+{
+    WarEntity* hall = wai_townHall(context, u->player);
+    if (!hall) return NULL;
+    WarUnitComponent* hu = we_getUnitComponent(context, hall);
+    if (hu->hp == wu_getUnitStats(u->type)->hp) return NULL;
+    s32 ux, uy;
+    wai_tile(context, e, &ux, &uy);
+    const s32 hx = hu->tilex + 1, hy = hu->tiley + 1;
+    if (wai_tileDistance(ux, uy, hx, hy) > 30) return NULL;
+    return wai_findTargetEx(context, hx, hy, 10, 1);
 }
 
 static void wai_soldierThink(WarContext* context, WarEntity* e, WarUnitComponent* u, WarAIUnit* info)
@@ -992,32 +1330,16 @@ static void wai_soldierThink(WarContext* context, WarEntity* e, WarUnitComponent
     s32 ux, uy;
     wai_tile(context, e, &ux, &uy);
     WarEntity* target = wai_findTargetEx(context, ux, uy, radius, wai_attackRange(u->type));
-    if (target)
-    {
-        // (the attack order's first tick, 0x2EFEC: the best within range,
-        // this target scored first, before any blow)
-        WarEntity* better = wai_acquire(context, e, u, info, false, target);
-        if (better) target = better;
-    }
+    // (0x2AC44: an attack-move at it, 0x21020; out of range the walk's
+    // first checkpoint looks again, wai_moveAcquire)
     if (target && wai_attack(context, e, target))
     {
         if (info->role == WAI_ROLE_GUARD) info->role = WAI_ROLE_ATTACK;
         return;
     }
 
-    // a damaged town hall: units near home turn on enemies close to it
-    WarEntity* hall = wai_townHall(context, u->player);
-    if (hall)
-    {
-        WarUnitComponent* hu = we_getUnitComponent(context, hall);
-        // (0x2A258: the hall's tile + 1, 1; within 30 of it; 10 around it)
-        s32 hx = hu ? hu->tilex + 1 : 0, hy = hu ? hu->tiley + 1 : 0;
-        if (hu && hu->hp < hu->maxhp && wai_tileDistance(ux, uy, hx, hy) <= 30)
-        {
-            target = wai_findTargetEx(context, hx, hy, 10, 1);
-            if (target && wai_attack(context, e, target)) return;
-        }
-    }
+    target = wai_homeTarget(context, e, u);
+    if (target && wai_attack(context, e, target)) return;
 
     switch (info->role)
     {
@@ -1029,7 +1351,6 @@ static void wai_soldierThink(WarContext* context, WarEntity* e, WarUnitComponent
             break;
         }
         case WAI_ROLE_ROUTE:
-            wai_routeStep(context, e, u, info);
             break;
         case WAI_ROLE_GUARD:
         case WAI_ROLE_POST:
@@ -1047,7 +1368,10 @@ static bool wai_cast(WarContext* context, WarEntity* e, WarSpellType spell, WarE
 {
     const WarSpellStats* stats = wu_getSpellStats(spell);
     WarUnitComponent* u = we_getUnitComponent(context, e);
-    if (!stats || u->mana < stats->manaCost || !wst_canSubmitTransition(context, e, WAR_INTERRUPT_AI_ORDER))
+    const s32 cost = spell == WAR_SPELL_HEALING ? 1 :
+        spell == WAR_SPELL_INVISIBILITY || spell == WAR_SPELL_UNHOLY_ARMOR ? 125 :
+        spell == WAR_SPELL_RAISE_DEAD ? 70 : spell == WAR_SPELL_POISON_CLOUD ? 50 : stats ? stats->manaCost : 0;
+    if (!stats || u->mana < cost || !wst_canSubmitTransition(context, e, WAR_INTERRUPT_AI_ORDER))
         return false;
     return wai_order(context, e, (WarStateBase*)wst_createCastState(
         context, e, spell, target ? target->id : 0, target ? wu_getUnitCenterPosition(context, target) : position));
@@ -1064,10 +1388,11 @@ static bool wai_spellKnown(WarContext* context, s32 group)
 
 static WarEntity* wai_woundedFriend(WarContext* context, WarUnitComponent* caster, s32 cx, s32 cy, s32 radius)
 {
-    WarEntityList* units = we_getEntitiesOfType(context, WAR_ENTITY_TYPE_UNIT);
-    for (s32 i = 0; i < units->count; i++)
+    WarEntityManager* slots = we_getEntityManager(context);   // (slot order, as the original)
+    for (s32 i = 1; i < MAX_ENTITIES_COUNT; i++)
     {
-        WarEntity* e = units->items[i];
+        WarEntity* e = &slots->entities[i];
+        if (!e->id || !wu_isUnit(e)) continue;
         if (!wai_alive(context, e)) continue;
         WarUnitComponent* u = we_getUnitComponent(context, e);
         if (!u || u->player != caster->player || wai_isBuildingType(u->type) || u->hp >= u->maxhp) continue;
@@ -1090,8 +1415,11 @@ static void wai_leaveHallSite(WarContext* context, WarEntity* e, WarUnitComponen
         s32 ux, uy;
         wai_tile(context, e, &ux, &uy);
         if (ux < plan->x || ux > plan->x + 2 || uy < plan->y || uy > plan->y + 2) return;
-        // (approximate: the original picks a free tile next to it, 0x29C9C)
-        wai_attackMove(context, e, plan->x + 1, MIN(plan->y + 4, MAP_TILES_HEIGHT - 1));
+        // 0x29C9C: 4 tiles from the site's corner + 1, a random way of 8
+        static const s8 dx[8] = { 0, 1, 1, 1, 0, -1, -1, -1 }, dy[8] = { -1, -1, 0, 1, 1, 1, 0, -1 };
+        const s32 d = wai_rand(8);
+        wai_attackMove(context, e, CLAMP(plan->x + dx[d] * 4 + 1, 0, MAP_TILES_WIDTH - 1),
+                       CLAMP(plan->y + dy[d] * 4 + 1, 0, MAP_TILES_HEIGHT - 1));
         return;
     }
 }
@@ -1131,66 +1459,64 @@ static WarEntity* wai_scanBox(WarContext* context, WarEntity* caster, s32 x, s32
 static bool wai_pickWounded(WarContext* context, WarEntity* caster, WarEntity* e, WarUnitComponent* u, s32* score)
 {
     WarUnitComponent* cu = we_getUnitComponent(context, caster);
-    if (wai_isEnemy(cu->player, u->player) || u->player != cu->player) return false;
-    if (wai_isBuildingType(u->type) || u->hp >= u->maxhp) return false;
-    *score = u->maxhp - u->hp;   // the largest loss
-    return true;
+    if (wai_isEnemy(cu->player, u->player) || wai_isBuildingType(u->type)) return false;
+    WarOriginalUnit* original = wos_unit(context, e);
+    if (!original || (original->flags & WOR_INACTIVE)) return false;
+    const s32 baseHealth = wu_getUnitStats(u->type)->hp;
+    *score = baseHealth - u->hp;
+    return *score > 0;
 }
 
-static bool wai_pickWalkingFriend(WarContext* context, WarEntity* caster, WarEntity* e, WarUnitComponent* u, s32* score)
+// 0x2A57C: invisibility for a knight or an archer of a friendly side on
+// the move, above half health
+static bool wai_pickInvisible(WarContext* context, WarEntity* caster, WarEntity* e, WarUnitComponent* u, s32* score)
 {
     WarUnitComponent* cu = we_getUnitComponent(context, caster);
     NOT_USED(score);
-    // (0x2A57C / 0x2A714: a friendly unit on the move, its health above
-    // half; the exact health test is approximate)
-    return u->player == cu->player && !wai_isBuildingType(u->type) && wst_isMoving(context, e) && u->hp * 2 > u->maxhp;
+    if (wai_isEnemy(cu->player, u->player) || u->invisible) return false;
+    if (u->type != WAR_UNIT_KNIGHT && u->type != WAR_UNIT_ARCHER) return false;
+    WarOriginalUnit* original = wos_unit(context, e);
+    return original && !(original->flags & WOR_INACTIVE) && original->current == 3 &&
+        u->hp > wu_getUnitStats(u->type)->hp / 2;
 }
 
-static bool wai_pickCorpse(WarContext* context, WarEntity* caster, WarEntity* e, WarUnitComponent* u, s32* score)
-{
-    NOT_USED(context); NOT_USED(caster); NOT_USED(e); NOT_USED(score);
-    return u->type == WAR_UNIT_HUMAN_CORPSE || u->type == WAR_UNIT_ORC_CORPSE;
-}
-
-static bool wai_pickHostile(WarContext* context, WarEntity* caster, WarEntity* e, WarUnitComponent* u, s32* score)
+// 0x2A714: unholy armour for a friendly unit under attack, at half health
+// or less, not a building, a daemon or a catapult, and not armoured yet
+static bool wai_pickArmour(WarContext* context, WarEntity* caster, WarEntity* e, WarUnitComponent* u, s32* score)
 {
     WarUnitComponent* cu = we_getUnitComponent(context, caster);
-    NOT_USED(context); NOT_USED(e); NOT_USED(score);
-    return wai_isEnemy(cu->player, u->player) && u->type < WAR_UNIT_HUMAN_CORPSE;
+    NOT_USED(score);
+    if (wai_isEnemy(cu->player, u->player) || wai_isBuildingType(u->type) || u->invulnerable) return false;
+    if (u->type == WAR_UNIT_DAEMON || u->type == WAR_UNIT_CATAPULT_ORCS) return false;
+    WarOriginalUnit* original = wos_unit(context, e);
+    if (!original || (original->flags & WOR_INACTIVE)) return false;
+    WarAIUnit* info = wai_unitInfo(context, e);
+    if (!info || info->id != e->id || !info->attacker) return false;
+    return u->hp <= wu_getUnitStats(u->type)->hp / 2;
 }
 
-// The original's summoning (0x27AB0): up to four times while the mana
-// lasts, a unit next to the caster (war1's cast state does not summon).
-static bool wai_summon(WarContext* context, WarEntity* e, WarUnitComponent* u, WarSpellType spell)
+static bool wai_raiseDead(WarContext* context, WarEntity* caster)
 {
-    const WarSpellStats* stats = wu_getSpellStats(spell);
-    const WarSpellMapping* mapping = wu_getSpellMapping(spell);
-    if (!stats || !mapping || u->mana < stats->manaCost) return false;
-    WarMap* map = context->map;
-    bool any = false;
-    for (s32 i = 0; i < 4 && u->mana >= stats->manaCost; i++)
+    if (!wos_unit(context, caster)) return false;
+    WarOriginalRuntime runtime = { .units = we_getEntityManager(context)->originalUnits };
+    const u16 corpse = wor_findCorpse(&runtime, we_getUnitComponent(context, caster)->frankOriginalSlot - 1);
+    if (!corpse) return false;
+    const WarOriginalUnit* target = &runtime.units[corpse - 1];
+    return wai_cast(context, caster, WAR_SPELL_RAISE_DEAD, NULL, wai_tileCenter(target->tileX, target->tileY));
+}
+
+// The AI queues the spell alone; creation waits for its script action (0x2A9E4).
+static bool wai_summon(WarContext* context, WarEntity* e, WarSpellType spell)
+{
+    if (!wst_canSubmitTransition(context, e, WAR_INTERRUPT_AI_ORDER)) return false;
+    WarStateCast* cast = wst_createCastState(context, e, spell, 0, wu_getUnitCenterPosition(context, e));
+    if (!cast)
     {
-        vec2 tile = wu_getUnitCenterTile(context, e);
-        vec2 spawn = wpath_findEmptyTile(&map->finder, (s32)tile.x, (s32)tile.y);
-        WarEntity* s2 = we_createUnit(context, CREATE_UNIT_ARGS_INIT(
-            .type = mapping->mappedType, .x = (s32)spawn.x, .y = (s32)spawn.y, .player = u->player,
-            .resourceKind = WAR_RESOURCE_NONE, .amount = 0, .addToMap = true));
-        if (!s2) break;
-        we_setInitialIdleState(context, s2);
-        vec2 size = wu_getUnitSize(context, s2);
-        wpath_setStaticEntity(&map->finder, (s32)spawn.x, (s32)spawn.y, (s32)size.x, (s32)size.y, s2->id);
-        WarEntity* anim = we_createEntity(context, WAR_ENTITY_TYPE_ANIMATION, true);
-        we_addAnimationsComponent(context, anim);
-        wanim_createSpellAnimation(context, anim, wmap_tileToMapCoordinatesV(spawn, true));
-        u->mana -= stats->manaCost;
-        any = true;
+        logError("original kernel: failed summoning state for entity %u", e->id);
+        return false;
     }
-    if (any)
-    {
-        u->invisible = false;
-        u->invisibilityTime = 0;
-    }
-    return any;
+    cast->frankNextOrder = WOR_NONE;
+    return wai_order(context, e, (WarStateBase*)cast);
 }
 
 // The original's area spells (0x2A864): within 25 tiles of the re-aim
@@ -1198,16 +1524,10 @@ static bool wai_summon(WarContext* context, WarEntity* e, WarUnitComponent* u, W
 // tiles off at random either way.
 static bool wai_castArea(WarContext* context, WarEntity* e, WarUnitComponent* u, WarSpellType spell)
 {
-    s32 tx, ty, ux, uy;
+    s32 tx, ty;
     if (!wai_target(u->player, &tx, &ty)) return false;
-    wai_tile(context, e, &ux, &uy);
-    if (wai_tileDistance(ux, uy, tx, ty) > 25) return false;
-    WarEntity* t = wai_scanBox(context, e, tx, ty, 11, wai_pickHostile, false);
-    if (!t) return false;
-    s32 x, y;
-    wai_tile(context, t, &x, &y);
-    x = CLAMP(x + wai_rand(5) - 2, 0, MAP_TILES_WIDTH - 1);
-    y = CLAMP(y + wai_rand(5) - 2, 0, MAP_TILES_HEIGHT - 1);
+    s16 x, y;
+    if (!wos_areaTarget(context, e, (s16)tx, (s16)ty, &x, &y)) return false;
     return wai_cast(context, e, spell, NULL, wai_tileCenter(x, y));
 }
 
@@ -1226,8 +1546,18 @@ static void wai_casterThink(WarContext* context, WarEntity* e, WarUnitComponent*
         {
             if (wai_spellKnown(context, 8) && mana >= 125)
             {
-                WarEntity* f = wai_scanBox(context, e, ux, uy, 21, wai_pickWalkingFriend, false);
-                if (f && wai_cast(context, e, WAR_SPELL_INVISIBILITY, f, here)) return;
+                s32 tx, ty;
+                WarEntity* f = wai_target(u->player, &tx, &ty) ? wai_scanBox(context, e, ux, uy, 21, wai_pickInvisible, false) : NULL;
+                if (f)
+                {
+                    // The recipient's plain move is submitted before the spell (0x2A57C).
+                    vec2 goal = wmv_backOff(context, f, tx, ty);
+                    if (!wai_order(context, f, (WarStateBase*)wst_createMoveState(context, f, 2,
+                        arrayArg(vec2, wu_getUnitCenterPosition(context, f),
+                                 wmap_tileToMapCoordinatesV(goal, true)), false))) return;
+                    wai_cast(context, e, WAR_SPELL_INVISIBILITY, f, here);
+                    return;
+                }
             }
             if (wai_spellKnown(context, 6) && mana >= 3)
             {
@@ -1239,50 +1569,44 @@ static void wai_casterThink(WarContext* context, WarEntity* e, WarUnitComponent*
         case WAR_UNIT_CONJURER:
             if (mana >= 255)
             {
-                if (wai_spellKnown(context, 5)) { wai_summon(context, e, u, WAR_SUMMON_WATER_ELEMENTAL); return; }
-                if (wai_spellKnown(context, 3)) { wai_summon(context, e, u, WAR_SUMMON_SCORPION); return; }
+                if (wai_spellKnown(context, 5)) { wai_summon(context, e, WAR_SUMMON_WATER_ELEMENTAL); return; }
+                if (wai_spellKnown(context, 3)) { wai_summon(context, e, WAR_SUMMON_SCORPION); return; }
             }
             if (wai_spellKnown(context, 4) && mana >= 150 && wai_castArea(context, e, u, WAR_SPELL_RAIN_OF_FIRE)) return;
             break;
         case WAR_UNIT_NECROLYTE:
             if (wai_spellKnown(context, 8) && mana >= 125)
             {
-                WarEntity* f = wai_scanBox(context, e, ux, uy, 21, wai_pickWalkingFriend, false);
+                WarEntity* f = wai_scanBox(context, e, ux, uy, 21, wai_pickArmour, false);
                 if (f && wai_cast(context, e, WAR_SPELL_UNHOLY_ARMOR, f, here)) return;
             }
             if (wai_spellKnown(context, 6) && mana >= 70)
             {
-                WarEntity* c = wai_scanBox(context, e, ux, uy, 21, wai_pickCorpse, false);
-                if (c && wai_cast(context, e, WAR_SPELL_RAISE_DEAD, NULL, wu_getUnitCenterPosition(context, c))) return;
+                if (wai_raiseDead(context, e)) return;
             }
             break;
         case WAR_UNIT_WARLOCK:
             if (mana >= 255)
             {
-                if (wai_spellKnown(context, 5)) { wai_summon(context, e, u, WAR_SUMMON_DAEMON); return; }
-                if (wai_spellKnown(context, 3)) { wai_summon(context, e, u, WAR_SUMMON_SPIDER); return; }
+                if (wai_spellKnown(context, 5)) { wai_summon(context, e, WAR_SUMMON_DAEMON); return; }
+                if (wai_spellKnown(context, 3)) { wai_summon(context, e, WAR_SUMMON_SPIDER); return; }
             }
             if (wai_spellKnown(context, 4) && mana >= 50 && wai_castArea(context, e, u, WAR_SPELL_POISON_CLOUD)) return;
             break;
         default:   // Medivh
-            if (mana >= 255) { wai_summon(context, e, u, WAR_SUMMON_DAEMON); return; }
-            if (mana >= 60) { wai_summon(context, e, u, WAR_SUMMON_SPIDER); return; }
+        {
+            // (0x2ABA7: only while the human can see him, the original's
+            // per-tick visibility bit 0x100 at +0x0E, 0x2D740)
+            if (!wai_seenByHuman(context, e)) return;
+        }
+            if (mana >= 255) { wai_summon(context, e, WAR_SUMMON_DAEMON); return; }
+            if (mana >= 60) { wai_summon(context, e, WAR_SUMMON_SPIDER); return; }
             wai_soldierThink(context, e, u, info);
             return;
     }
 
-    // home defence, as a soldier's
-    WarEntity* hall = wai_townHall(context, u->player);
-    if (hall)
-    {
-        WarUnitComponent* hu = we_getUnitComponent(context, hall);
-        s32 hx = hu ? hu->tilex + 1 : 0, hy = hu ? hu->tiley + 1 : 0;
-        if (hu && hu->hp < hu->maxhp && wai_tileDistance(ux, uy, hx, hy) <= 30)
-        {
-            WarEntity* target = wai_findTargetEx(context, hx, hy, 10, 1);
-            if (target && wai_attack(context, e, target)) return;
-        }
-    }
+    WarEntity* target = wai_homeTarget(context, e, u);
+    if (target && wai_attack(context, e, target)) return;
     if (info->role == WAI_ROLE_ATTACK || info->role == WAI_ROLE_ROUTE)
     {
         wai_leaveHallSite(context, e, u);
@@ -1296,44 +1620,46 @@ static void wai_casterThink(WarContext* context, WarEntity* e, WarUnitComponent*
 
 static bool wai_takeOverPost(WarContext* context, WarEntity* e, WarUnitComponent* u, WarAIUnit* info)
 {
-    if (wai_rand(4) == 0) return false;   // 3 times in 4
-    for (s32 i = 0; i < wai->postCount; i++)
-    {
-        WarAIPost* post = &wai->posts[i];
-        if (post->player != u->player || post->type != u->type) continue;
-        WarEntity* holder = post->id ? we_findEntity(context, post->id) : NULL;
-        if (holder && wai_alive(context, holder)) continue;
-        post->id = e->id;
-        info->role = WAI_ROLE_POST;
-        info->postX = post->x;
-        info->postY = post->y;
-        return true;
-    }
-    return false;
+    if (wos_takePost(context, e, &wai->postAlert[u->player]) != WOR_CHANGED) return false;
+    WarOriginalUnit* original = wos_unit(context, e);
+    original->flags |= 0x400;
+    info->role = WAI_ROLE_POST;
+    info->postX = original->postX;
+    info->postY = original->postY;
+    return true;
 }
 
-static void wai_pickRoute(WarContext* context, WarAIUnit* info)
+void wai_noteBuildingDeath(WarContext* context, u8 owner, bool keep)
 {
-    NOT_USED(context);
+    if (!wai_isComputerPlayer(context, owner)) return;
+    if (keep)
+        for (s32 player = 1; player < 4; player++) wai->postAlert[player] = true;
+    else
+        wai->postAlert[owner] = true;
+}
+
+// 0x29D48: a route by weight (r <= the weight takes it), and at once an
+// attack-move to its first waypoint
+static void wai_pickRoute(WarContext* context, WarEntity* e, WarAIUnit* info)
+{
     info->role = WAI_ROLE_ATTACK;
-    if (wai->routeCount < 2 || wai->routes[0] == 0xFFFF) return;
     s32 r = wai_rand(100);
     for (s32 k = 0; k + 1 < wai->routeCount && wai->routes[k] != 0xFFFF; k += 2)
     {
         s32 weight = wai->routes[k];
-        if (r < weight || wai->routes[k + 2] == 0xFFFF)
+        if (r > weight) { r -= weight; continue; }
+        s32 idx = wai->routes[k + 1];
+        if (idx + 2 < wai->routeCount && wai->routes[idx] != 0xFFFF)
         {
-            s32 idx = wai->routes[k + 1];
-            if (idx + 2 < wai->routeCount && wai->routes[idx] != 0xFFFF)
-            {
-                info->role = WAI_ROLE_ROUTE;
-                info->route = (s16)idx;
-                info->gather = 1;
-                info->waiting = 0;
-            }
-            return;
+            info->role = WAI_ROLE_ROUTE;
+            info->route = (s16)idx;
+            info->gather = 1;
+            info->waiting = 0;
+            info->postX = (s16)wai->routes[idx + 1];
+            info->postY = (s16)wai->routes[idx + 2];
+            if (!wai_making) wai_attackMove(context, e, wai->routes[idx + 1], wai->routes[idx + 2]);
         }
-        r -= weight;
+        return;
     }
 }
 
@@ -1341,24 +1667,17 @@ static void wai_pickRoute(WarContext* context, WarAIUnit* info)
 // script's cadence), and on the first tick it is idle again; production
 // countdowns and all of a unit's decisions go by thinks.
 #define WAI_THINK_TICKS 9
+static bool wai_checkpoint;
 static bool wai_thinkDue(WarContext* context, WarEntity* e, WarAIUnit* info)
 {
-    if (!wst_isIdle(context, e))
-    {
-        info->thinkWait = 0;
-        return false;
-    }
-    if (info->thinkWait > 0)
-    {
-        info->thinkWait--;
-        return false;
-    }
-    info->thinkWait = WAI_THINK_TICKS / WAI_STEP - 1;
-    return true;
+    NOT_USED(context); NOT_USED(e); NOT_USED(info);
+    return wai_checkpoint;
 }
 
 static void wai_assignRole(WarContext* context, WarEntity* e, WarUnitComponent* u, WarAIUnit* info, bool levelStart)
 {
+    WarOriginalUnit* original = u->frankOriginalSlot
+        ? &we_getEntityManager(context)->originalUnits[u->frankOriginalSlot - 1] : NULL;
     memset(info, 0, sizeof(*info));
     info->id = e->id;
     info->route = -1;
@@ -1369,19 +1688,39 @@ static void wai_assignRole(WarContext* context, WarEntity* e, WarUnitComponent* 
 
     if (wai_isBuildingType(u->type))
     {
+        if (original && (u->type == WAR_UNIT_STORMWIND || u->type == WAR_UNIT_BLACKROCK))
+            original->flags &= (u16)~0x400;
         info->timer = 0;   // the first think loads the interval
         if (wai_isHallType(u->type))
         {
             wai->homeX[u->player] = u->tilex + u->sizex / 2;
             wai->homeY[u->player] = u->tiley + u->sizey / 2;
+            // (0x29DE8: the wood search starts again at the hall's corner)
+            wai->wood[u->player][0] = wai->wood[u->player][2] = (s16)u->tilex;
+            wai->wood[u->player][1] = wai->wood[u->player][3] = (s16)u->tiley;
         }
         return;
     }
-    if (wai_isWorkerType(u->type) || wai_isHeroType(u->type)) return;
+    if (wai_isWorkerType(u->type))
+    {
+        if (original) original->flags &= (u16)~0x400;
+        return;
+    }
+    if (wai_isHeroType(u->type)) return;
 
     if (wai_isMonsterType(u->type))
     {
         info->role = levelStart ? WAI_ROLE_GUARD : WAI_ROLE_ATTACK;
+        return;
+    }
+    if (u->type == WAR_UNIT_CATAPULT_HUMANS || u->type == WAR_UNIT_CATAPULT_ORCS)
+    {
+        // 0x29DE8: catapults take a route, even the level's own, except on
+        // the last level of each side, where they stay home
+        const s32 level = context->map->levelInfoIndex;
+        if (level == WAR_CAMPAIGN_HUMANS_12 || level == WAR_CAMPAIGN_ORCS_12) return;
+        if (original) original->flags &= (u16)~0x400;
+        wai_pickRoute(context, e, info);
         return;
     }
     if (wai->lv->flags & 0x01)
@@ -1393,13 +1732,58 @@ static void wai_assignRole(WarContext* context, WarEntity* e, WarUnitComponent* 
     {
         // the level's own soldiers hold their posts
         info->role = WAI_ROLE_POST;
-        if (wai->postCount < WAI_POST_MAX)
-            wai->posts[wai->postCount++] = (WarAIPost){ u->type, u->player, (s16)ux, (s16)uy, e->id };
         return;
     }
     if (wai_takeOverPost(context, e, u, info)) return;
     if (u->player == 0) return;   // autoplay: kept home until its wave
-    wai_pickRoute(context, info);
+    wai_pickRoute(context, e, info);
+}
+
+// A unit is made in play (0x2E7E4 calls 0x29DE8 between its facing draw
+// and its start delay): a computer's unit takes its role then, so the role's
+// draws come before the other units' turns this tick.
+void wai_unitMade(WarContext* context, WarEntity* e)
+{
+    if (!wai || !wai->lv || !e || !wu_isUnit(e)) return;
+    WarUnitComponent* u = we_getUnitComponent(context, e);
+    if (!u || u->player >= MAX_PLAYERS_COUNT || !wai_isComputer(context, u->player)) return;
+    WarAIUnit* info = wai_unitInfo(context, e);
+    if (!info) return;
+    wai_self = u->player;
+    wai_making = true;
+    wai_assignRole(context, e, u, info, false);
+    wai_making = false;
+    info->placing = 1;
+}
+
+// ... and once the maker has placed it and given it its first state: its
+// spot, and the walk to its route's first waypoint
+void wai_unitPlaced(WarContext* context, WarEntity* e)
+{
+    if (!wai || !wai->lv || !e || !wu_isUnit(e)) return;
+    WarAIUnit* info = wai_unitInfo(context, e);
+    if (!info || info->id != e->id || !info->placing) return;
+    info->placing = 0;
+    if (info->role != WAI_ROLE_POST && info->role != WAI_ROLE_ROUTE)
+    {
+        s32 ux, uy;
+        wai_tile(context, e, &ux, &uy);
+        info->postX = (s16)ux;
+        info->postY = (s16)uy;
+    }
+    // (the original's order at creation is taken on the unit's next tick)
+    if (info->role == WAI_ROLE_ROUTE && info->route >= 0 && info->route + 2 < wai->routeCount) info->placing = 2;
+}
+
+static bool wai_firstOrder(WarContext* context, WarEntity* e, bool checkpoint)
+{
+    WarAIUnit* info = wai_unitInfo(context, e);
+    if (!info || info->id != e->id || info->placing != 2) return false;
+    if (!checkpoint) return false;
+    info->placing = 0;
+    if (info->role == WAI_ROLE_ROUTE && info->route >= 0 && info->route + 2 < wai->routeCount)
+        return wai_attackMove(context, e, wai->routes[info->route + 1], wai->routes[info->route + 2]);
+    return false;
 }
 
 // ------------------------------------------------------------------ the AI
@@ -1430,23 +1814,30 @@ void wai_initAIPlayers(WarContext* context)
     wai->targetX = wai->targetY = -1;
     wai->targetX0 = wai->targetY0 = -1;
     wai->wave0 = 1500;
-    wai->groupSize = MAX(wai->lv->groupSize[0], 1);
+    wai->groupSize = wai->lv->groupSize[0];
 #ifdef WAR_MEMDEBUG
     printf("ai: group %d/%d/%d (p1 %d/%d/%d)\n", wai->lv->groupSize[0], wai->lv->groupEvery[0], wai->lv->groupMax[0], wai->lv->groupSize[1], wai->lv->groupEvery[1], wai->lv->groupMax[1]);
 #endif
     wai->routeCount = wai->lv->routeWordsCount;
     memcpy(wai->routes, wai->lv->routeWords, (size_t)wai->routeCount * sizeof(u16));
+#ifndef FRANK_BOARD
+    if (getenv("WAR_ROUTEDEBUG"))
+    {
+        fprintf(stderr, "routes %d:", wai->routeCount);
+        for (s32 k = 0; k < wai->routeCount; k++) fprintf(stderr, " %d", (s16)wai->routes[k]);
+        fprintf(stderr, "\n");
+    }
+#endif
     for (s32 p = 0; p < MAX_PLAYERS_COUNT; p++)
     {
         wai->homeX[p] = levelInfo->levelInfo.startX;
         wai->homeY[p] = levelInfo->levelInfo.startY;
-        // the computer's research: what the level gives it, up to level 2
-        if (p > 0 && wai_isComputer(context, p))
+        // The header stores starting research, not human upgrade limits (0x195AC).
         {
             WarPlayerInfo* pi = &map->players[p];
             for (s32 g = 0; g < MAX_UPGRADES_COUNT; g++)
             {
-                pi->upgrades[g].level = pi->upgrades[g].allowed;
+                pi->upgrades[g].level = wai->lv->research[g][p];
                 pi->upgrades[g].allowed = 2;
             }
         }
@@ -1471,8 +1862,13 @@ static void wai_countPlayers(WarContext* context)
         else if (wai_isWorkerType(u->type))
         {
             wai->workers[p]++;
-            if (wst_isRepairing(context, e) || wst_isRepairing2(context, e)) wai->builders[p]++;
-            else if (wst_isGatheringGold(context, e) || wst_isMining(context, e)) wai->goldWorkers[p]++;
+            // the role bits of the living (the original drops a dead one's, 0x29F98)
+            WarAIUnit* wi = wai_unitInfo(context, e);
+            if (wi && wi->id == e->id)
+            {
+                if (wi->job & 2) wai->builders[p]++;
+                else if (wi->job & 1) wai->goldWorkers[p]++;
+            }
         }
         else if (!u->building)
         {
@@ -1490,23 +1886,28 @@ static void wai_countPlayers(WarContext* context)
 static void wai_rescue(WarContext* context)
 {
     if (!wai->lv || wai->lv->alliance[4] != 2) return;
-    WarEntityList* units = we_getEntitiesOfType(context, WAR_ENTITY_TYPE_UNIT);
-    for (s32 i = 0; i < units->count; i++)
+    WarEntityManager* slots = we_getEntityManager(context);   // (slot order, as the original)
+    for (s32 i = 1; i < MAX_ENTITIES_COUNT; i++)
     {
-        WarEntity* n = units->items[i];
+        WarEntity* n = &slots->entities[i];
+        if (!n->id || !wu_isUnit(n)) continue;
         if (!wai_alive(context, n)) continue;
         WarUnitComponent* nu = we_getUnitComponent(context, n);
         if (!nu || nu->player != 4 || wai_isBuildingType(nu->type) || !wai_hasStats(nu->type)) continue;
-        for (s32 j = 0; j < units->count; j++)
+        WarAIUnit* ninfo = wai_unitInfo(context, n);
+        if (!ninfo || ninfo->id != n->id) continue;   // (not set up yet: its 5 hit points come first)
+        for (s32 j = 1; j < MAX_ENTITIES_COUNT; j++)
         {
-            WarEntity* h = units->items[j];
+            WarEntity* h = &slots->entities[j];
+            if (!h->id || !wu_isUnit(h)) continue;
             if (!wai_alive(context, h)) continue;
             WarUnitComponent* hu = we_getUnitComponent(context, h);
             if (!hu || hu->player != 0 || wai_isBuildingType(hu->type)) continue;
             s32 nx, ny, hx, hy;
             wai_tile(context, n, &nx, &ny);
             wai_tile(context, h, &hx, &hy);
-            if (wai_tileDistance(nx, ny, hx, hy) > 1) continue;
+            // (0x14084: or healed above 5 hit points)
+            if (nu->hp <= 5 && wai_tileDistance(nx, ny, hx, hy) > 1) continue;
 #ifdef WAR_MEMDEBUG
             printf("ai: rescued unit type %d\n", nu->type);
 #endif
@@ -1566,9 +1967,165 @@ static void wai_humanWave(WarContext* context)
     wai->waves0++;
 }
 
+// One unit's think, in its turn of the unit table (the original's idle
+// order 0x14030 calls its think 0x10EE8 at its script's checkpoint).
+static void wai_unitThink(WarContext* context, WarEntity* e, bool levelStart)
+{
+    if (!wai_alive(context, e)) return;
+    WarUnitComponent* u = we_getUnitComponent(context, e);
+    if (!u || u->player >= MAX_PLAYERS_COUNT) return;
+    if (u->player == 0 && !wai_autoHuman)
+    {
+        // the human's own units: the original's think for a human unit
+        WarAIUnit* hinfo = wai_unitInfo(context, e);
+        if (!hinfo) return;
+        if (hinfo->id != e->id) { memset(hinfo, 0, sizeof(*hinfo)); hinfo->id = e->id; hinfo->route = -1; }
+        wai_self = 0;
+        if (wai_retarget(context, e, u, hinfo)) return;
+        if (wai_isBuildingType(u->type) || !wai_hasStats(u->type) || !wai_thinkDue(context, e, hinfo)) return;
+        wai_self = 0;
+        if (wai_answerAttacker(context, e, u, hinfo, false)) return;
+        if (wai_isWorkerType(u->type) || u->type == WAR_UNIT_WOUNDED || u->type == WAR_UNIT_GRIZELDA || u->type == WAR_UNIT_GARONA) return;
+        if (u->invisible) return; // Idle acquisition is suppressed, not the route tail (0x10EE8).
+        wai_humanAcquire(context, e, u, hinfo, false);   // (0x10EE8: 0x10908 in range only)
+        return;
+    }
+    if (u->player == 4 && !wai_isBuildingType(u->type))
+    {
+        // 0x2E7E4: a unit of the neutral side waits to be rescued (its
+        // order 29), with 5 hit points
+        WarAIUnit* ninfo = wai_unitInfo(context, e);
+        if (ninfo && ninfo->id != e->id)
+        {
+            memset(ninfo, 0, sizeof(*ninfo));
+            ninfo->id = e->id;
+            ninfo->route = -1;
+            u->hp = MIN(u->hp, 5);
+        }
+        return;
+    }
+    if (!wai_isComputer(context, u->player)) return;
+    wai_self = u->player;
+    WarAIUnit* info = wai_unitInfo(context, e);
+    if (!info) return;
+    if (info->id != e->id)
+    {
+        wai_assignRole(context, e, u, info, levelStart);
+        if (levelStart && wai_isBuildingType(u->type) && wai->planCount < WAI_PLAN_MAX)
+            wai->plan[wai->planCount++] = (WarAIPlan){ u->type, u->player, (s16)u->tilex, (s16)u->tiley, e->id };
+    }
+
+    if (!wai_isBuildingType(u->type) && wai_retarget(context, e, u, info)) return;
+    if (wai_isBuildingType(u->type))
+    {
+        if (u->building || !wai_thinkDue(context, e, info)) return;
+        // the original's countdown (think 0x10EE8): 1 produces, 0 loads
+        // the level's interval, anything else counts down
+        if (info->timer == 1)
+        {
+            info->timer = 0;
+            wai_produce(context, e, u);
+        }
+        else if (info->timer == 0)
+            info->timer = wai->lv->interval[u->type - WAR_UNIT_FARM_HUMANS];
+        else
+            info->timer--;
+        return;
+    }
+    if (!wai_hasStats(u->type)) return;
+    // war1's units do not push past each other: notice the jammed ones
+    // (about 9 s without moving while trying to)
+    // (the original's walking gives up by itself, war_move_frank.inc)
+    bool moving = !wai_drivesTicks(context) && wst_isMoving(context, e);
+    if (moving)
+    {
+        s32 ux, uy;
+        wai_tile(context, e, &ux, &uy);
+        if (ux == info->lastX && uy == info->lastY) info->still += WAI_STEP;
+        else { info->still = 0; info->lastX = (s16)ux; info->lastY = (s16)uy; }
+    }
+    else if (info->role != WAI_ROLE_ROUTE || !info->waiting)
+    {
+        info->still = 0;
+    }
+    if (moving && info->still >= 300)
+    {
+        info->still = 0;
+        if (info->role == WAI_ROLE_ROUTE && !info->waiting)
+        {
+            info->still = 300;  // counts as arrived at its waypoint
+            wai_routeStep(context, e, u, info);
+            info->still = 0;
+            return;
+        }
+        if (wai_isWorkerType(u->type))
+        {
+            // the other job
+            bool wasGold = wst_isGatheringGold(context, e);
+            if (wasGold ? wai_chopWood(context, e, u) : wai_mineGold(context, e, u)) return;
+        }
+        if (wst_canSubmitTransition(context, e, WAR_INTERRUPT_AI_ORDER))
+            wai_order(context, e, (WarStateBase*)wst_createIdleState(context, e, false));
+        return;
+    }
+    if (!wai_thinkDue(context, e, info) || !wai_hasStats(u->type)) return;
+    if (wai_answerAttacker(context, e, u, info, true)) return;
+    if (wai_isHeroType(u->type)) return;
+    if (wai_isWorkerType(u->type)) wai_workerThink(context, e, u, info);
+    else if (wai_isCasterType(u->type)) wai_casterThink(context, e, u, info);
+    else if (!u->invisible) wai_soldierThink(context, e, u, info);
+}
+
+// The idle script's checkpoint (every 9 ticks, the first one a tick after
+// the unit turns idle, or its start delay after it is made, 0x2E7E4).
+static bool wai_idleCheckpoint(WarContext* context, WarEntity* e, WarUnitComponent* u, WarStateBase* st)
+{
+    if (st && st->type != WAR_STATE_IDLE)
+    {
+        u->frankIdleOn = false;
+        return false;
+    }
+    if (wu_isCorpseUnitType(u->type)) return false;
+    if (!u->frankIdleOn && !wos_select(context, e, u->player == 4 ? 29 : 2, 1)) return false;
+    // (just made, its first state not set yet: the start delay runs too)
+    return wos_tick(context, e, NULL) == WOR_CHANGED;
+}
+
+// 0x13FF0: an idle unit with no new order turns a step now and then: left
+// one time in 256, right three
+static void wai_idleTurn(WarContext* context, WarEntity* e, WarUnitComponent* u)
+{
+    if (wai_isBuildingType(u->type) || u->type == WAR_UNIT_CATAPULT_HUMANS || u->type == WAR_UNIT_CATAPULT_ORCS ||
+        wu_isCorpseUnitType(u->type)) return;
+    if (u->player == 4 && (u->type == WAR_UNIT_WOUNDED || u->type == WAR_UNIT_LOTHAR)) return;
+    WarAIUnit* info = wai_unitInfo(context, e);
+    if (info && info->id == e->id && info->role == WAI_ROLE_ROUTE && info->route >= 0) return;
+#ifndef FRANK_BOARD
+    if (getenv("WAR_TURNDEBUG")) fprintf(stderr, "turn tick %u unit %d type %d player %d\n", wai_tickNo, (s32)e->id, u->type, u->player);
+#endif
+    const s32 r = wrng_next() & 0xFF;
+    if (r == 0) u->direction = (WarDirection)((u->direction + 7) & 7);
+    else if (r <= 3) u->direction = (WarDirection)((u->direction + 1) & 7);
+}
+
+static void wai_workTick(WarContext* context, WarEntity* entity, WarStateBase* state)
+{
+    if (wos_tick(context, entity, NULL) != WOR_CHANGED) return;
+    if (wmv_takePendingOrder(context, entity)) return;
+    wos_workHandler(context, entity, state);
+    wst_processPendingTransitionOf(context, entity);
+    WarStateBase* current = wst_getActiveState(context, entity);
+    if (current && current->type == WAR_STATE_CHOPPING)
+    {
+        we_getUnitComponent(context, entity)->frankAtkOn = true;
+        wst_frankChopCheckpoint(context, entity, current);
+    }
+}
+
 static void wai_step(WarContext* context, bool levelStart)
 {
     WarMap* map = context->map;
+    wos_refreshVisibility(context);
 
     // the clock
     wai->reaim -= WAI_STEP;
@@ -1582,8 +2139,11 @@ static void wai_step(WarContext* context, bool levelStart)
         wai->wave -= WAI_STEP;
         if (wai->wave <= 0)
         {
+            // 0x29AF8: a timed wave adds one to player 1's quota (16 bits:
+            // an all-out's 0xFFFF goes round to 0), then the launch
             u16 f = wai->lv->flags;
             wai->wave = (f & 0x84) ? 350 : (f & 0x40) ? 6000 : -1;
+            if (f & 0xC4) wai->quota[1] = (wai->quota[1] + 1) & 0xFFFF;
             wai_launchWave(context);
         }
     }
@@ -1608,102 +2168,78 @@ static void wai_step(WarContext* context, bool levelStart)
 
     wai_countPlayers(context);
     wai_rescue(context);
-    wai_gatherTargets(context);
+    wai_targetsDirty = true;
     if (wai_autoHuman) wai_humanWave(context);
 
-    // the units think in slot order, as in the original's unit table
+    // the unit table in slot order, as the original's unit update (0x2ECFC):
+    // each unit's walk, then its think at its idle checkpoint
     WarEntityManager* manager = we_getEntityManager(context);
-    for (s32 i = 1; i < MAX_ENTITIES_COUNT; i++)
+    if (levelStart) wst_processPendingTransitions(context);   // (the level's units idle from the start)
+    wmv_tickBegin(context);
+    wai->ticks++;
+    for (u16 slot = 0; slot < WOR_UNIT_COUNT; slot++)
     {
-        WarEntity* e = &manager->entities[i];
-        if (!e->id || !wu_isUnit(e) || !wai_alive(context, e)) continue;
+        if (wos_deathTick(context, slot)) continue;
+        WarEntity* e = manager->originalEntities[slot];
+        if (!e || !e->id || !wu_isUnit(e)) continue;
         WarUnitComponent* u = we_getUnitComponent(context, e);
-        if (!u || u->player >= MAX_PLAYERS_COUNT) continue;
-        if (u->player == 0 && !wai_autoHuman)
+        if (!u) continue;
+        wai_currentUnit = e;
+        u->frankScriptChanged = false;
+        // (the unit's state as its turn begins: a new order runs from the next tick)
+        WarStateBase* st0 = wst_getActiveState(context, e);
+        wst_frankTrainTick(context, e, st0);
+        if (st0 && st0->type == WAR_STATE_CAST &&
+            wst_frankSpellOrder(((WarStateCast*)st0)->spellType))
         {
-            // the human's own units: the original's think for a human unit
-            WarAIUnit* hinfo = wai_unitInfo(context, e);
-            if (!hinfo) continue;
-            if (hinfo->id != e->id) { memset(hinfo, 0, sizeof(*hinfo)); hinfo->id = e->id; hinfo->route = -1; }
-            wai_self = 0;
-            if (wai_retarget(context, e, u, hinfo)) continue;
-            if (wai_isBuildingType(u->type) || !wai_hasStats(u->type) || !wai_thinkDue(context, e, hinfo)) continue;
-            wai_self = 0;
-            if (wai_answerAttacker(context, e, u, hinfo, false)) continue;
-            if (wai_isWorkerType(u->type) || u->type == WAR_UNIT_WOUNDED || u->type == WAR_UNIT_GRIZELDA || u->type == WAR_UNIT_GARONA) continue;
-            wai_humanAcquire(context, e, u, hinfo, true);
-            continue;
+            wst_frankCastTick(context, e, st0);
+            wai_checkpoint = false;
         }
-        if (!wai_isComputer(context, u->player)) continue;
-        wai_self = u->player;
-        WarAIUnit* info = wai_unitInfo(context, e);
-        if (!info) continue;
-        if (info->id != e->id)
+        else if (st0 && (st0->type == WAR_STATE_MINING ||
+            (st0->type == WAR_STATE_DELIVER && ((WarStateDeliver*)st0)->insideBuilding)))
         {
-            wai_assignRole(context, e, u, info, levelStart);
-            if (levelStart && wai_isBuildingType(u->type) && wai->planCount < WAI_PLAN_MAX)
-                wai->plan[wai->planCount++] = (WarAIPlan){ u->type, u->player, (s16)u->tilex, (s16)u->tiley, e->id };
+            u->frankAtkOn = false;
+            u->frankIdleOn = false;
+            wst_frankInsideTick(context, e, st0);
+            wai_checkpoint = false;
         }
-
-        if (!wai_isBuildingType(u->type) && wai_retarget(context, e, u, info)) continue;
-        if (wai_isBuildingType(u->type))
+        else if (st0 && (st0->type == WAR_STATE_GOLD || st0->type == WAR_STATE_WOOD || st0->type == WAR_STATE_DELIVER))
         {
-            if (u->building || !wai_thinkDue(context, e, info)) continue;
-            // the original's countdown (think 0x10EE8): 1 produces, 0 loads
-            // the level's interval, anything else counts down
-            if (info->timer == 1)
+            u->frankAtkOn = false;
+            wai_workTick(context, e, st0);
+            wai_checkpoint = false;
+        }
+        else
+        {
+            wst_frankChopTick(context, e, st0);
+            wmv_unitTick(context, e, st0);
+            wft_unitTick(context, e, wst_getActiveState(context, e));
+            wai_checkpoint = wai_idleCheckpoint(context, e, u, st0);
+        }
+        if (wai_checkpoint && wmv_takePendingOrder(context, e)) continue;
+        // (a made unit's order, waiting since it was made: taken at its first checkpoint)
+        if (wai_firstOrder(context, e, wai_checkpoint)) continue;
+        WarStateMachineComponent* sm = we_getStateMachineComponent(context, e);
+        const u32 before = sm ? sm->nextTransitionSequence : 0;
+        wai_unitThink(context, e, levelStart);
+        if (wai_checkpoint && sm && sm->nextTransitionSequence == before && wai_alive(context, e))
+        {
+            WarAIUnit* info = wai_unitInfo(context, e);
+            if (info && info->id == e->id && info->role == WAI_ROLE_ROUTE)
             {
-                info->timer = 0;
-                wai_produce(context, e, u);
+                WarOriginalUnit* original = wos_unit(context, e);
+                if (original && original->pending == WOR_NONE && original->next == WOR_NONE)
+                    wai_routeStep(context, e, u, info);
             }
-            else if (info->timer == 0)
-                info->timer = wai->lv->interval[u->type - WAR_UNIT_FARM_HUMANS];
-            else
-                info->timer--;
-            continue;
+            else wai_idleTurn(context, e, u);
         }
-        if (!wai_hasStats(u->type)) continue;
-        // war1's units do not push past each other: notice the jammed ones
-        // (about 9 s without moving while trying to)
-        bool moving = wst_isMoving(context, e);
-        if (moving)
-        {
-            s32 ux, uy;
-            wai_tile(context, e, &ux, &uy);
-            if (ux == info->lastX && uy == info->lastY) info->still += WAI_STEP;
-            else { info->still = 0; info->lastX = (s16)ux; info->lastY = (s16)uy; }
-        }
-        else if (info->role != WAI_ROLE_ROUTE || !info->waiting)
-        {
-            info->still = 0;
-        }
-        if (moving && info->still >= 300)
-        {
-            info->still = 0;
-            if (info->role == WAI_ROLE_ROUTE && !info->waiting)
-            {
-                info->still = 300;  // counts as arrived at its waypoint
-                wai_routeStep(context, e, u, info);
-                info->still = 0;
-                continue;
-            }
-            if (wai_isWorkerType(u->type))
-            {
-                // the other job
-                bool wasGold = wst_isGatheringGold(context, e);
-                if (wasGold ? wai_chopWood(context, e, u) : wai_mineGold(context, e, u)) continue;
-            }
-            if (wst_canSubmitTransition(context, e, WAR_INTERRUPT_AI_ORDER))
-                wai_order(context, e, (WarStateBase*)wst_createIdleState(context, e, false));
-            continue;
-        }
-        if (!wai_thinkDue(context, e, info) || !wai_hasStats(u->type)) continue;
-        if (wai_answerAttacker(context, e, u, info, true)) continue;
-        if (wai_isHeroType(u->type)) continue;
-        if (wai_isWorkerType(u->type)) wai_workerThink(context, e, u, info);
-        else if (wai_isCasterType(u->type)) wai_casterThink(context, e, u, info);
-        else wai_soldierThink(context, e, u, info);
     }
+    wai_currentUnit = NULL;
+    // the missile table (0x2ECFC)
+    wft_tickEnd(context);
+    wft_windTick(context);
+    wos_tickStatuses(context);
+    wst_processPendingTransitions(context);
     NOT_USED(map);
 }
 
@@ -1720,6 +2256,13 @@ static void wai_traceLog(WarContext* context, u32 ticks)
             (u32)(context->gameTime * 1000.0f), ticks, wai->wave, wai->reaim, wai->targetX, wai->targetY,
             wai->groupSize, wai->groupsLaunched, wai->quota[0], wai->quota[1], wai->quota[2], wai->quota[3],
             wai->quota[4], wai->lv->flags);
+    const u32* kernel = we_getEntityManager(context)->originalScriptTicks;
+    u32 spellTicks = 0;
+    for (u8 order = 17; order <= 27; order++) spellTicks += kernel[order];
+    fprintf(f, "K idle %u move %u attack %u work %u spell %u\n",
+            kernel[2] + kernel[29], kernel[3] + kernel[12],
+            kernel[5] + kernel[6] + kernel[7] + kernel[8], kernel[10] + kernel[11] + kernel[13],
+            spellTicks);
     u32 cnt[MAX_PLAYERS_COUNT][64] = {{0}}, role[MAX_PLAYERS_COUNT][64] = {{0}};
     WarEntityList* units = we_getEntitiesOfType(context, WAR_ENTITY_TYPE_UNIT);
     for (s32 i = 0; i < units->count; i++)
@@ -1727,8 +2270,31 @@ static void wai_traceLog(WarContext* context, u32 ticks)
         WarEntity* e = units->items[i];
         if (!wai_alive(context, e)) continue;
         WarUnitComponent* u = we_getUnitComponent(context, e);
-        if (!u || u->player >= MAX_PLAYERS_COUNT || u->type >= 64) continue;
+        if (!u || u->player >= MAX_PLAYERS_COUNT || u->type >= 64 || wu_isCorpseUnitType(u->type)) continue;
         cnt[u->player][wu_toOriginalType(u->type)]++;   // (the reference's numbers)
+        {
+            static s32 tiles = -1;
+            if (tiles < 0) tiles = getenv("WAR_AITILES") != NULL;
+            if (tiles)
+            {
+                s32 x, y;
+                wai_tile(context, e, &x, &y);
+                if (wai_isBuildingType(u->type)) { x = u->tilex; y = u->tiley; }
+                WarEntity* tg = we_getAttackTarget(context, e);
+                WarStateBase* st = wst_getActiveState(context, e);
+                {
+                    // a worker inside a mine or a hall: the original keeps it at the building's tile
+                    WarEntityId in = 0;
+                    if (st && st->type == WAR_STATE_MINING) in = ((WarStateMining*)st)->goldmineId;
+                    if (st && st->type == WAR_STATE_DELIVER && ((WarStateDeliver*)st)->insideBuilding) in = ((WarStateDeliver*)st)->townHallId;
+                    WarEntity* b = in ? we_findEntity(context, in) : NULL;
+                    WarUnitComponent* bu = b ? we_getUnitComponent(context, b) : NULL;
+                    if (bu) { x = bu->tilex; y = bu->tiley; }
+                }
+                fprintf(f, "U %d %d %d %d %d %d %d %d\n", e->id, wu_toOriginalType(u->type), u->player, x, y,
+                        st ? (s32)st->type : -1, tg ? (s32)tg->id : -1, u->hp);
+            }
+        }
         WarAIUnit* info = wai_unitInfo(context, e);
         if (u->type <= WAR_UNIT_30) role[u->player][info && info->id == e->id ? info->role & 63 : 63]++;
         if (ticks % 330 == 0)
@@ -1758,6 +2324,29 @@ static void wai_traceLog(WarContext* context, u32 ticks)
 }
 #endif
 
+// A computer's worker out of the hall (0x1D1A0): its think, now. True when
+// it took an order.
+bool wai_workerExit(WarContext* context, WarEntity* worker)
+{
+    if (!wai || !wai->lv) return false;
+    WarUnitComponent* u = we_getUnitComponent(context, worker);
+    if (!u || !wai_isComputer(context, u->player) || (u->player == 0 && !wai_autoHuman)) return false;
+    WarAIUnit* info = wai_unitInfo(context, worker);
+    if (!info || info->id != worker->id) return false;
+    WarStateMachineComponent* sm = we_getStateMachineComponent(context, worker);
+    const u32 before = sm ? sm->nextTransitionSequence : 0;
+    wai_self = u->player;
+    wai_workerThink(context, worker, u, info);
+    return sm && sm->nextTransitionSequence != before;
+}
+
+// The AI's tick runs the unit table, walking included (port/war_move_frank.inc).
+bool wai_drivesTicks(WarContext* context)
+{
+    NOT_USED(context);
+    return wai && wai->lv;
+}
+
 void wai_updateAIPlayers(WarContext* context)
 {
     if (!wai || !wai->lv) return;
@@ -1765,6 +2354,20 @@ void wai_updateAIPlayers(WarContext* context)
     s32 guard = 0;
     while (context->gameTime >= wai->nextStep && guard++ < 8)
     {
+        wrng_tick = wai->ticks + 1;
+#ifndef FRANK_BOARD
+        {
+            static FILE* rf; static s32 on = -1;
+            if (on < 0) { on = getenv("WAR_RNGLOG") != NULL; if (on) rf = fopen(getenv("WAR_RNGLOG"), "w"); }
+            if (rf) fprintf(rf, "%u %08x\n", wrng_tick, wrng_seed);
+            wai_tickNo = wrng_tick;
+        }
+        {
+            // the log for tick t before the tick runs, as the reference
+            // writes it (at its AI clock, before the unit table)
+            if (wrng_tick % 33 == 0 || getenv("WAR_AIEVERY")) wai_traceLog(context, wrng_tick);
+        }
+#endif
         wai_step(context, !wai->started);
         wai->started = true;
 #ifndef FRANK_BOARD
@@ -1772,9 +2375,7 @@ void wai_updateAIPlayers(WarContext* context)
             static u32 ticks;
             static WarAIState* run;
             if (run != wai || !wai->ticksSeen) { ticks = 0; run = wai; wai->ticksSeen = true; }
-            const u32 before = ticks;
             ticks += WAI_STEP;
-            if (before / 33 != ticks / 33) wai_traceLog(context, ticks / 33 * 33);
             static s32 watch = -2;
             if (watch == -2) watch = getenv("WAR_AIWATCH") ? atoi(getenv("WAR_AIWATCH")) : -1;
             if (watch > 0)
@@ -1784,7 +2385,22 @@ void wai_updateAIPlayers(WarContext* context)
                 WarEntity* we = we_findEntity(context, (WarEntityId)watch);
                 WarEntity* wt = we ? we_getAttackTarget(context, we) : NULL;
                 WarUnitComponent* wtu = wt ? we_getUnitComponent(context, wt) : NULL;
-                if (wf && we) fprintf(wf, "w %u t %.3f thp %d\n", ticks, context->gameTime, wtu ? wtu->hp : -1);
+                if (wf && we)
+                {
+                    WarUnitComponent* wu = we_getUnitComponent(context, we);
+                    WarStateBase* ws = wst_getActiveState(context, we);
+                    s32 x, y;
+                    wai_tile(context, we, &x, &y);
+                    fprintf(wf, "w %u t %.3f tile %d,%d state %d step %d path %d/%d blocks %d wait %d act %d/%d thp %d slot %d delay %d scriptTick %u mana %d\n", ticks, context->gameTime, x, y,
+                            ws ? (s32)ws->type : -1, wu ? wu->wmvStepping : -1, wu ? wu->wmvPathIndex : -1, wu ? wu->wmvPath[0] : -1,
+                            wu ? wu->wmvBlocks : -1,
+                            wu && wu->frankOriginalSlot ? we_getEntityManager(context)->originalUnits[wu->frankOriginalSlot - 1].wait : -1,
+                            wu ? (s32)wu->actionType : -1,
+                            wu ? wu->actions[wu->actionType].stepIndex : -1, wtu ? wtu->hp : -1,
+                            wu ? (s32)wu->frankOriginalSlot - 1 : -1, wu ? wu->frankDelay : -1,
+                            wu ? wu->frankScriptTick : UINT32_MAX, wu ? wu->mana : -1);
+                    if (wt) fprintf(wf, "  target %d type %d player %d\n", (s32)wt->id, wtu ? wtu->type : -1, wtu ? wtu->player : -1);
+                }
             }
         }
 #endif

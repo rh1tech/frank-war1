@@ -92,6 +92,7 @@ typedef struct _WarLevelAI
 {
     u16 flags;                  // 0x8E: AI flags (attacks, objectives)
     u8 alliance[5];             // 0x88: 1 = computer player hostile to player 0
+    u8 research[MAX_UPGRADES_COUNT][5];
     u16 interval[19];           // 0x36: production interval per building type 0x20..0x32
     u16 workerLimit[5];         // 0x96
     u16 groupSize[5];           // 0xA2: units gathered at a waypoint before moving on

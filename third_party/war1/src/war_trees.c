@@ -18,6 +18,19 @@ bool we_hasTreeAtPosition(WarContext* context, WarEntity* forest, s32 x, s32 y)
     return false;
 }
 
+#ifdef WAR_FRANK
+WarEntity* we_getForestAtTile(WarContext* context, s32 x, s32 y)
+{
+    WarEntityList* forests = we_getEntitiesOfType(context, WAR_ENTITY_TYPE_FOREST);
+    for (s32 i = 0; i < forests->count; i++)
+    {
+        WarTree* tree = we_getTreeAtTile(context, forests->items[i], x, y);
+        if (tree && tree->amount > 0) return forests->items[i];
+    }
+    return NULL;
+}
+#endif
+
 WarTree* we_getTreeAtTile(WarContext* context, WarEntity* forest, s32 x, s32 y)
 {
     WarForestComponent* fc = we_getForestComponent(context, forest);
@@ -253,6 +266,9 @@ void we_takeTreeDown(WarContext* context, WarEntity* forest, WarTree* tree)
     WarTree choppedTree = *tree;
 
     wpath_setFreeTiles(&map->finder, choppedTree.tilex, choppedTree.tiley, 1, 1);
+#ifdef WAR_FRANK
+    wmv_treeDown(choppedTree.tilex, choppedTree.tiley);
+#endif
     wmap_setMapTileIndex(context, choppedTree.tilex, choppedTree.tiley, choppedTileIndex);
 
     WarForestComponent* forestComp = we_getForestComponent(context, forest);

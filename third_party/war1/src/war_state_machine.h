@@ -79,6 +79,16 @@ struct _WarStateMove
     s32  rvoBestIndex;
     vec2 rvoCandidates[RVO_MAX_CANDIDATES];
     bool rvoCandidateHadCollision[RVO_MAX_CANDIDATES];
+#ifdef WAR_FRANK
+    // frank: the original's walking (port/war_move_frank.inc): a unit or
+    // building to reach within a range in tiles (a follow's), and done
+    WarEntityId frankTarget;
+    s32 frankRange;
+    bool frankDone;
+    WarEntityId frankEnter;   // a building to step into (order 12)
+    u8 frankNextOrder;        // following order, or 31 (0x2EFC4)
+    bool frankEntered;
+#endif
 };
 
 struct _WarStatePatrol
@@ -103,12 +113,20 @@ struct _WarStateAttack
     WarStateBase base;
     WarEntityId targetEntityId;
     vec2 targetPosition;
+#ifdef WAR_FRANK
+    u8 frankOrder;       // fixed target 5, attack 6, auto-attack 8
+    bool frankPursue;    // command starts with move/attack rather than attack alone (0x2109C)
+    bool frankPrepared;  // the command's initial range resolution has run (0x22554)
+#endif
 };
 
 struct _WarStateGold
 {
     WarStateBase base;
     WarEntityId goldmineId;
+#ifdef WAR_FRANK
+    bool frankEntered;   // stepped into the mine
+#endif
 };
 
 struct _WarStateMining
@@ -116,6 +134,9 @@ struct _WarStateMining
     WarStateBase base;
     WarEntityId goldmineId;
     f32 miningTime;
+#ifdef WAR_FRANK
+    s32 frankTicks;   // the original's 80 ticks inside, counted by the AI's tick
+#endif
 };
 
 struct _WarStateWood
@@ -123,6 +144,9 @@ struct _WarStateWood
     WarStateBase base;
     WarEntityId forestId;
     vec2 position;
+#ifdef WAR_FRANK
+    bool frankMoved;   // walked to the forest's edge once
+#endif
 };
 
 struct _WarStateChopping
@@ -130,6 +154,9 @@ struct _WarStateChopping
     WarStateBase base;
     WarEntityId forestId;
     vec2 position;
+#ifdef WAR_FRANK
+    s32 frankChops;   // the original's harvest count (+0x48)
+#endif
 };
 
 struct _WarStateDeliver
@@ -137,6 +164,10 @@ struct _WarStateDeliver
     WarStateBase base;
     WarEntityId townHallId;
     bool insideBuilding;
+#ifdef WAR_FRANK
+    bool frankEntered;   // stepped into the hall
+    s32 frankTicks;      // ticks left inside
+#endif
     bool cycle;             // if true, resume gathering after delivery
     WarResourceKind sourceKind; // resource type to gather after delivery
     WarEntityId sourceId;   // goldmine or forest id for the cycle
@@ -166,6 +197,10 @@ struct _WarStateTrain
     bool outputCommitted;
     bool cancelled;
     bool alreadyRefunded;
+#ifdef WAR_FRANK
+    s32 frankTicks;   // the original's ticks left (port/war_ai_frank.c's tick runs it)
+    s32 frankTotal;
+#endif
 };
 
 struct _WarStateUpgrade
@@ -215,6 +250,10 @@ struct _WarStateCast
     WarSpellType spellType;
     WarEntityId  targetEntityId;
     vec2         targetPosition;
+#ifdef WAR_FRANK
+    bool frankPrepared, frankRunning;
+    u8 frankNextOrder;
+#endif
 };
 
 struct _WarStateWait
@@ -283,6 +322,47 @@ WarStateCast*      wst_createCastState(WarContext* context, WarEntity* entity, W
 bool wst_canSubmitTransition(WarContext* context, WarEntity* entity, WarInterruptKind interrupt);
 bool wst_submitTransition(WarContext* context, WarEntity* entity, WarTransitionRequest request);
 bool wst_pushState(WarContext* context, WarEntity* entity, WarStateBase* state, WarTransitionCause cause);
+#ifdef WAR_FRANK
+// frank: the original's walking (port/war_move_frank.inc)
+void wmv_setTerrain(const u16* data);
+bool wmv_hasTerrain(s32 x, s32 y, u16 mask);
+void wmv_damageTerrain(WarContext* context, s32 x, s32 y, u8 damage);
+bool wai_attackTerrain(WarContext* context, WarEntity* entity, s32 x, s32 y);
+bool wmv_steppingTile(WarContext* context, WarEntity* entity, vec2* tile);
+bool wmv_holdsOrders(WarContext* context, WarEntityId id, WarStateType type);
+bool wmv_enterBuilding(WarContext* context, WarEntity* entity, WarEntity* building);
+bool wmv_placeFree(WarContext* context, WarUnitType type, s32 x, s32 y);
+bool wai_drivesTicks(WarContext* context);
+WarEntity* wai_homeHall(WarContext* context, WarEntity* worker);
+bool wai_workerExit(WarContext* context, WarEntity* worker);
+extern bool wai_targetsDirty;
+void wmv_settle(WarContext* context, WarEntity* e);
+bool wmv_takePendingOrder(WarContext* context, WarEntity* entity);
+void wst_processPendingTransitionOf(WarContext* context, WarEntity* entity);
+void wst_processPendingTransitionOf(WarContext* context, WarEntity* entity);
+void wst_frankTrainTick(WarContext* context, WarEntity* entity, WarStateBase* st);
+void wst_frankInsideTick(WarContext* context, WarEntity* entity, WarStateBase* st);
+void wst_frankChopTick(WarContext* context, WarEntity* entity, WarStateBase* st);
+void wst_frankCastTick(WarContext* context, WarEntity* entity, WarStateBase* state);
+u8 wst_frankSpellOrder(WarSpellType type);
+void wst_frankChopCheckpoint(WarContext* context, WarEntity* entity, WarStateBase* st);
+void wft_unitTick(WarContext* context, WarEntity* e, WarStateBase* st);
+void wst_enterAttackState(WarContext* context, WarEntity* entity, WarStateBase* state);
+void wst_resumeAttackState(WarContext* context, WarEntity* entity, WarStateBase* state, WarStateResumeReason reason);
+bool wmv_attackStep(WarContext* context, WarEntity* entity, WarEntity* target);
+bool wai_moveAcquire(WarContext* context, WarEntity* e, bool attackMove);
+bool wai_hasRetainedAttacker(WarContext* context, WarEntity* entity);
+void wai_noteBuildingDeath(WarContext* context, u8 owner, bool keep);
+bool wmv_standingTree(WarContext* context, s32 x, s32 y);
+void wmv_treeDown(s32 x, s32 y);
+vec2 wmv_backOff(WarContext* context, WarEntity* e, s32 x, s32 y);
+bool wmv_treeAround(WarContext* context, s32 x, s32 y, s32* tx, s32* ty);
+vec2 wmv_buildingGoal(WarContext* context, WarEntity* e, WarEntity* building);
+void wft_tickEnd(WarContext* context);
+vec2 wmv_exitTile(WarContext* context, WarEntity* building, s32 tx, s32 ty);
+bool wmv_findExit(WarContext* context, WarEntity* entity, s32 tx, s32 ty, vec2* result);
+#define WMV_INSIDE_SECONDS (80 * 0.03f)   // the original's 80 ticks in a mine or a hall
+#endif
 bool wst_popState(WarContext* context, WarEntity* entity, WarTransitionCause cause, WarStateResult result);
 bool wst_replaceState(WarContext* context, WarEntity* entity, WarStateBase* state, WarTransitionCause cause);
 bool wst_resetState(WarContext* context, WarEntity* entity, WarStateBase* state, WarTransitionCause cause);
