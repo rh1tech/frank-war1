@@ -437,6 +437,13 @@ static void initPlayersInfo(WarMap* map, WarResource* levelInfo)
 
         player->index = (u8)i;
         player->race = levelInfo->levelInfo.races[i];
+#ifdef WAR_FRANK
+        // frank: the player is its campaign's side; two levels' headers give
+        // player 0 the enemy's race (human 6, orc 7), which left its own farms
+        // uncounted for food
+        if (i == 0 && map->levelInfoIndex >= WAR_CAMPAIGN_HUMANS_01 && map->levelInfoIndex <= WAR_CAMPAIGN_ORCS_12)
+            player->race = (map->levelInfoIndex - WAR_CAMPAIGN_HUMANS_01) % 2 == 0 ? WAR_RACE_HUMANS : WAR_RACE_ORCS;
+#endif
         player->gold = levelInfo->levelInfo.gold[i];
         player->wood = levelInfo->levelInfo.lumber[i];
         player->godMode = false;

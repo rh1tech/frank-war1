@@ -843,7 +843,10 @@ static void wmv_finish(WarContext* context, WarEntity* e, WarUnitComponent* u, W
     WarStateIdle* idle = wst_createIdleState(context, e, false);
     if (!idle || !wst_resetState(context, e, (WarStateBase*)idle, WAR_TRANSITION_CAUSE_AI_ORDER))
     {
-        logError("original kernel: failed movement completion for entity %u", e->id);
+        // a player's newer order, already pending, takes over instead
+        WarStateMachineComponent* sm = we_getStateMachineComponent(context, e);
+        if (!(sm && wst_deref(context, sm->pending.stateRef)))
+            logError("original kernel: failed movement completion for entity %u", e->id);
         return;
     }
     // A failed route replaces the order before later units plan (0x223D8).

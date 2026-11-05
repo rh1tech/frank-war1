@@ -2581,8 +2581,9 @@ static void wai_agState(WarContext* context, const char* path)
         if (u->type == WAR_UNIT_FARM_HUMANS || u->type == WAR_UNIT_FARM_ORCS) { if (!u->building) farms++; }
         else if (!wu_isBuildingUnitType(u->type) && u->type < WAR_UNIT_HUMAN_CORPSE) units++;
     }
-    fprintf(f, "tick %u gold %d wood %d units %d farms %d food_ok %d result %d objectives %04x\n",
-            wrng_tick, p->gold, p->wood, units, farms, we_enoughFarmFood(context, p), (s32)map->result, wai->lv->flags);
+    fprintf(f, "tick %u gold %d wood %d units %d farms %d food_ok %d result %d objectives %04x race %d dudes %d\n",
+            wrng_tick, p->gold, p->wood, units, farms, we_enoughFarmFood(context, p), (s32)map->result, wai->lv->flags,
+            (s32)p->race, wu_getTotalNumberOfDudes(context, 0));
     for (s32 i = 0; i < list->count; i++)
     {
         WarEntity* e = list->items[i];
