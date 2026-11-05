@@ -197,6 +197,13 @@ void wanim_updateAnimations(WarContext* context)
                 WarSpriteAnimation* anim = &animations->animations.items[k];
                 wanim_updateAnimation(context, entity, anim);
             }
+#ifdef WAR_FRANK
+            // frank: a spent effect (a spell's sparkle, an impact) leaves
+            // its entity empty; freed, the pool no longer runs out in a
+            // long game (512 entities, about 400 of them spent effects)
+            if (context->map && entity->type == WAR_ENTITY_TYPE_ANIMATION && animations->animations.count == 0)
+                we_removeEntity(context, entity);
+#endif
         }
     }
 

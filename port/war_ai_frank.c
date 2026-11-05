@@ -2713,6 +2713,28 @@ static void wai_agCommand(WarContext* context, const char* cmd)
     else if (!strncmp(cmd, "map ", 4)) wai_agMap(context, cmd + 4);
     else if (!strncmp(cmd, "sel ", 4)) wai_agSelect(context, cmd + 4);
     else if (!strncmp(cmd, "fullmap ", 8)) wai_agFullMap(context, cmd + 8);
+    else if (!strcmp(cmd, "ents"))
+    {
+        // the entity pool by entity type (units by state too), to stderr
+        WarEntityManager* m = we_getEntityManager(context);
+        s32 byType[WAR_ENTITY_TYPE_COUNT] = {0}, total = 0, dead = 0, corpses = 0;
+        for (s32 i = 1; i < MAX_ENTITIES_COUNT; i++)
+        {
+            WarEntity* e = &m->entities[i];
+            if (!e->id) continue;
+            total++;
+            if ((u32)e->type < WAR_ENTITY_TYPE_COUNT) byType[e->type]++;
+            if (e->type == WAR_ENTITY_TYPE_UNIT)
+            {
+                WarUnitComponent* u = we_getUnitComponent(context, e);
+                if (u && wu_isCorpseUnitType(u->type)) corpses++;
+                else if (!wai_alive(context, e)) dead++;
+            }
+        }
+        fprintf(stderr, "agent: ents total %d (units dead %d corpses %d):", total, dead, corpses);
+        for (s32 k = 0; k < WAR_ENTITY_TYPE_COUNT; k++) fprintf(stderr, " %d", byType[k]);
+        fprintf(stderr, "\n");
+    }
     else if (sscanf(cmd, "stack %d", &a) == 1)
     {
         // a unit's state stack, bottom first (to stderr)

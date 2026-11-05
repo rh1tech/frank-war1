@@ -437,11 +437,9 @@ WarOrderResult wos_targetSpell(WarContext* context, WarEntity* entity, bool acti
     WarEntityManager* manager = we_getEntityManager(context);
     WarEntity* target = original->target && original->target <= WOR_UNIT_COUNT ?
         manager->originalEntities[original->target - 1] : NULL;
-    if (!target)
-    {
-        wos_error(&runtime, unit->frankOriginalSlot - 1, "missing targeted spell recipient");
-        return WOR_ERROR;
-    }
+    // (the recipient died between the checkpoint and the script's action:
+    // its record is gone, as the original's cleared target; nothing to cast on)
+    if (!target) return WOR_UNCHANGED;
     WarUnitComponent* other = we_getUnitComponent(context, target);
     u8 mana = (u8)unit->mana;
     u16 health = (u16)other->hp;

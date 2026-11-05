@@ -2034,6 +2034,18 @@ static void updateCommandButtons(WarContext* context)
         map->commandPanel.textsHighlightCount[i]  = 0;
     }
 
+#ifdef WAR_FRANK
+    // frank: a selected id may outlive its unit (removed without a death
+    // state, or its slot reused): keep only living units with an owner
+    for (s32 k = map->selectedEntities.count - 1; k >= 0; k--)
+    {
+        WarEntityId id = map->selectedEntities.items[k];
+        WarEntity* se = we_findEntity(context, id);
+        if (!se || !wu_isUnit(se) || !wu_getOwningPlayer(context, se) ||
+            wst_isDead(context, se) || wst_isCollapsing(context, se))
+            wmap_removeEntityFromSelection(context, id);
+    }
+#endif
     s32 selectedEntitiesCount = map->selectedEntities.count;
     if (selectedEntitiesCount == 0)
     {

@@ -266,6 +266,12 @@ void wst_frankTrainTick(WarContext* context, WarEntity* entity, WarStateBase* st
         .player=unit->player,
         .isGoingToTrain=false
     ));
+    if (!made)
+    {
+        // (no room for it: the next tick tries again)
+        s->frankTicks = 1;
+        return;
+    }
     wu_setUnitCenterTile(context, made, wmv_exitTile(context, entity, unit->tilex, unit->tiley));
     wmv_occupy(context, made);   // (0x2E7E4 places it, 0x13928)
     we_setInitialIdleState(context, made);
