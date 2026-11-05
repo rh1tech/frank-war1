@@ -894,7 +894,10 @@ static bool wmv_checkpoint(WarContext* context, WarEntity* e, WarUnitComponent* 
     {
         target = we_findEntity(context, mv->frankTarget);
         WarUnitComponent* tu = target && wu_isUnit(target) ? we_getUnitComponent(context, target) : NULL;
-        if (!tu || tu->hp <= 0 || wst_isDead(context, target) || wst_isCollapsing(context, target))
+        // (0x2216C: gone, inside or invisible ends the move, and the next
+        // order takes over at once, 0x223D8)
+        if (!tu || tu->hp <= 0 || wst_isDead(context, target) || wst_isCollapsing(context, target) ||
+            !wos_moveTargetValid(context, e, target))
         {
             wmv_finish(context, e, u, mv, WAR_STATE_RESULT_TARGET_INVALID);
             return false;

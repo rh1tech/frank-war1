@@ -736,6 +736,18 @@ WarOrderResult wos_checkCatapult(WarContext* context, WarEntity* entity, WarEnti
         level->levelInfo.ai->alliance[unit->player], 3, (u8)recipient->sizex, (u8)recipient->sizey);
 }
 
+// 0x2216C on a move's own target: false (and the target cleared, with a
+// matching attacker) when it is gone, inside or invisible
+static bool wos_moveTargetValid(WarContext* context, WarEntity* entity, WarEntity* target)
+{
+    WarOriginalUnit* original = wos_unit(context, entity);
+    if (!original) return false;
+    original->target = wos_reference(context, target ? target->id : 0, original->target);
+    WarOriginalCall call = { .context = context, .entity = entity };
+    WarOriginalRuntime runtime = wos_runtime(&call);
+    return wor_validateTarget(&runtime, we_getUnitComponent(context, entity)->frankOriginalSlot - 1);
+}
+
 bool wos_validateTarget(WarContext* context, WarEntity* entity,
                        WarEntityId* target, WarEntityId* attacker)
 {

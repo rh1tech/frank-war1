@@ -1344,25 +1344,20 @@ static void wai_soldierThink(WarContext* context, WarEntity* e, WarUnitComponent
     target = wai_homeTarget(context, e, u);
     if (target && wai_attack(context, e, target)) return;
 
-    switch (info->role)
+    // (0x2AC44, by the role's bits: an attacker always goes for the target
+    // zone again; a unit with neither the guard nor the route bit goes back
+    // to its post unless it stands on it; the rest step off a lost hall's
+    // site, 0x2A030)
+    if (info->role & WAI_ROLE_ATTACK)
     {
-        case WAI_ROLE_ATTACK:
-        {
-            s32 tx, ty;
-            if (wai_target(u->player, &tx, &ty) && wai_tileDistance(ux, uy, tx, ty) > 3)
-                wai_attackMove(context, e, tx, ty);
-            break;
-        }
-        case WAI_ROLE_ROUTE:
-            break;
-        case WAI_ROLE_GUARD:
-        case WAI_ROLE_POST:
-            if (wai_tileDistance(ux, uy, info->postX, info->postY) > 1)
-                wai_attackMove(context, e, info->postX, info->postY);
-            break;
-        default:
-            break;
+        s32 tx, ty;
+        if (wai_target(u->player, &tx, &ty)) wai_attackMove(context, e, tx, ty);
     }
+    else if (!(info->role & (WAI_ROLE_GUARD | WAI_ROLE_ROUTE)))
+    {
+        if (ux != info->postX || uy != info->postY) wai_attackMove(context, e, info->postX, info->postY);
+    }
+    else wai_leaveHallSite(context, e, u);
 }
 
 // --------------------------------------------------------------- casters

@@ -1308,6 +1308,33 @@ human catapult in Human 7 (slot 21) took its dead target again at 33688
 instead of the skeleton (slot 76). The list now skips inactive records,
 and Human 7 matches through 40,000 ticks.
 
+### A move's own target, and what an idle soldier does
+
+The walk checkpoint (`0x223D8`) first looks round (`0x11004`), then
+validates the move's own target (`0x2216C`). The target is invalid if its
+record is inactive or inside (mask 0x20F) or it is invisible (+0x36). In
+that case the target is cleared, along with a matching attacker, and the
+move ends at once: the next order takes over (`0x2EE9C` with next
+allowed), or idle if there is none. In Orc 12, a conjurer walking to cast
+invisibility on a knight that another caster had just made invisible
+starts its spell where it stands, and the spell's checkpoint then idles.
+The port ended a move only for a dead target. It now validates through the
+kernel's port of `0x2216C`.
+
+The soldier think (`0x2AC44`) tests role *bits*, not values, and has no
+distance thresholds:
+1. A target within the radius (`0x2A1D0`) is attacked; a guard (bit 8)
+   becomes an attacker (4).
+2. Else a home-defence target (`0x2A258`) is attacked.
+3. Else an attacker (bit 4) is always sent again to the target zone.
+4. Else a unit with neither the guard nor the route bit (0x18) goes back
+   to its post unless it stands exactly on it.
+5. Else it steps off a lost hall's site (`0x2A030`).
+
+The port had used "more than 3 tiles from the zone" and "more than 1 tile
+from the post", and sent guards to their posts. Human 12 now matches to
+its mission's end (23990).
+
 ### Rain of fire and the shared effect pool's visuals
 
 Order 26 is now on the original path, like orders 20 and 27: a point
