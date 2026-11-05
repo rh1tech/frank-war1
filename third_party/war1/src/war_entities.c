@@ -306,6 +306,11 @@ void we_removeSpriteComponent(WarContext* context, WarEntity* entity)
     assert(manager);
     WarSpriteStorage* store = &manager->sprites;
 
+#ifdef WAR_FRANK
+    // frank: forests, roads, walls and ruins draw with the map's own tileset
+    // sprite; the map frees that one (wmap_freeMap)
+    if (!context->map || store->dense[idx].sprite.texture != context->map->sprite.texture)
+#endif
     wspr_freeSprite(context, store->dense[idx].sprite);
 
     u16 lastIdx = (u16)(store->count - 1);
