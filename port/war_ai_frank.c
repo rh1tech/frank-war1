@@ -2806,6 +2806,25 @@ static void wai_agCommand(WarContext* context, const char* cmd)
         if (t) wcmd_executeRepairCommand(context, t);
     }
     else if (!strcmp(cmd, "stop")) wcmd_executeStopCommand(context);
+    else if (sscanf(cmd, "wallxy %d %d", &a, &b) == 2)
+    {
+        // a wall piece from the selected town hall, as its button and a click
+        // would (war_commands.c WAR_COMMAND_BUILD_WALL)
+        WarEntity* hallE = map->selectedEntities.count ? we_findEntity(context, map->selectedEntities.items[0]) : NULL;
+        WarUnitCommandType shown[6] = {0};
+        if (hallE) wu_getUnitCommands(context, hallE, shown);
+        bool onPanel = false;
+        for (s32 k = 0; k < 6; k++) onPanel |= shown[k] == WAR_COMMAND_BUILD_WALL;
+        if (!onPanel || (u32)a >= MAP_TILES_WIDTH || (u32)b >= MAP_TILES_HEIGHT) { printf("agent: no wall at %d,%d\n", a, b); return; }
+        WarPlayerInfo* owner = wu_getOwningPlayer(context, hallE);
+        if (!we_checkTileToBuildRoadOrWall(context, a, b)) { printf("agent: cannot wall %d,%d\n", a, b); return; }
+        if (!we_decreasePlayerResources(context, owner, WAR_WALL_GOLD_COST, WAR_WALL_WOOD_COST)) { printf("agent: no money for wall\n"); return; }
+        WarEntity* wall = map->editing.wall;
+        WarWallPiece* piece = we_addWallPiece(context, wall, a, b, 0);
+        piece->hp = WAR_WALL_MAX_HP;
+        piece->maxhp = WAR_WALL_MAX_HP;
+        we_determineWallTypes(context, wall);
+    }
     else if (sscanf(cmd, "rainxy %d %d", &a, &b) == 2 || sscanf(cmd, "summon %d", &c) == 1)
     {
         // a caster's area spell at a place, or a summon (by command type), only
