@@ -1415,6 +1415,19 @@ end of its mission (35043). Other type-7 allocators (`0x11EC0`,
 `0x11F10`, `0x27830`, `0x2E740`) and the ordinary missiles' scripts are
 not yet in the pool.
 
+Visual records from other sources are now allocated in the pool too:
+- a type-7 strike when a type-23 unit lands a melee blow, before the roll
+  (`0x106EC` through `0x11EC0`), and when its death finishes (`0x13F68`);
+- a type-8 sparkle on the recipient of healing, invisibility and unholy
+  armour (`0x27760`, `0x27890`, `0x278C4`);
+- a type-8 sparkle on a new unit of types 19 to 31 placed by `0x2E740`
+  (summoning).
+
+Their positions do not matter to play, only their records and lifetimes.
+Type 8, like 7, takes phase 5 after its first checkpoint and is released
+at the next. The keep-death effects (`0x11F10`, with draws) and the 50-mana
+spell's visual (`0x27830`) are not yet in the pool.
+
 ### Verification corrections and current measurement
 
 The old harness hid several distinctions:

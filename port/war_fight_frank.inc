@@ -167,6 +167,23 @@ static WarOriginalRuntime wft_effectRuntime(WarOriginalCall* call)
     return runtime;
 }
 
+// 0x11E70 at a unit (0x11EC0, 0x2E740): a short visual record of the
+// shared pool; war1 draws its own presentation
+void wft_poolVisual(WarContext* context, u8 type, WarEntity* at)
+{
+    if (!wai_drivesTicks(context) || !at) return;
+    if (context->map != wft_map)
+    {
+        wft_map = context->map;
+        memset(wft_missiles, 0, sizeof(wft_missiles));
+    }
+    const vec2 p = wu_getUnitCenterPosition(context, at);
+    WarOriginalCall call = { .context = context };
+    WarOriginalRuntime pool = wft_effectRuntime(&call);
+    pool.effectCreated = NULL;
+    wor_impactVisual(&pool, type, (s16)p.x, (s16)p.y);
+}
+
 static WarOrderResult wft_rain(WarContext* context, WarEntity* entity, bool action)
 {
     if (!wos_unit(context, entity)) return WOR_ERROR;
@@ -347,7 +364,7 @@ static void wft_missilesTick(WarContext* context)
             }
             continue;
         }
-        if (m->type == 4 || m->type == 7)
+        if (m->type == 4 || m->type == 7 || m->type == 8)
         {
             // rain and impacts run their own scripts (0x12338, 0x11E70)
             WarOriginalRuntime pool = wft_effectRuntime(&call);
@@ -405,6 +422,9 @@ static void wft_action(WarContext* context, WarEntity* entity)
     const s32 mtype = wft_missileType(unit->type);
     if (mtype == 12)
     {
+        // (0x106EC: a type-23 unit's blow shows a strike first, 0x11EC0)
+        WarOriginalUnit* self = wos_unit(context, entity);
+        if (self && self->type == 23) wft_poolVisual(context, 7, entity);
         const s32 damage = wft_roll(context, unit, target);
         if (target) wft_strike(context, entity, target, damage);
         else

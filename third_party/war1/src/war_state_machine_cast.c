@@ -183,6 +183,7 @@ static void wst_frankCastAction(WarContext* context, WarEntity* entity)
     else if (wos_targetSpell(context, entity, true) == WOR_CHANGED)
     {
         WarEntity* target = we_getEntityManager(context)->originalEntities[original->target - 1];
+        wft_poolVisual(context, 8, target);   // (0x27760, 0x27890, 0x278C4 through 0x11EC0)
         if (target)
         {
             vec2 position = wu_getUnitCenterPosition(context, target);

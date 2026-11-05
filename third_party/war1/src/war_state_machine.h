@@ -362,6 +362,7 @@ vec2 wmv_buildingGoal(WarContext* context, WarEntity* e, WarEntity* building);
 void wft_tickEnd(WarContext* context);
 vec2 wmv_exitTile(WarContext* context, WarEntity* building, s32 tx, s32 ty);
 void wmv_occupy(WarContext* context, WarEntity* entity);
+void wft_poolVisual(WarContext* context, u8 type, WarEntity* at);
 bool wmv_findExit(WarContext* context, WarEntity* entity, s32 tx, s32 ty, vec2* result);
 #define WMV_INSIDE_SECONDS (80 * 0.03f)   // the original's 80 ticks in a mine or a hall
 #endif

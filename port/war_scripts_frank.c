@@ -354,7 +354,12 @@ static WarOrderResult wos_deathOrder(WarOriginalRuntime* runtime, u16 slot)
     WarOriginalCall* call = runtime->context;
     WarOriginalUnit* original = &runtime->units[slot];
     if (original->current == 1)
+    {
+        // (0x13F68: a type-23 unit's end shows a strike, 0x11EC0)
+        if (original->type == 23) wft_poolVisual(call->context, 7, call->context->map ?
+            we_getEntityManager(call->context)->originalEntities[slot] : NULL);
         return wor_finishDeath(runtime, slot) == WOR_ERROR ? WOR_ERROR : WOR_UNCHANGED;
+    }
     if (original->current != 0)
     {
         wos_error(runtime, slot, "invalid death order");
@@ -492,6 +497,7 @@ static bool wos_spawn(WarOriginalRuntime* runtime, u16 slot, u8 type)
     if (!summoned) return false;
     we_setInitialIdleState(context, summoned);
     wmv_occupy(context, summoned);   // (0x2E7E4 places it, 0x13928)
+    if (type >= 19 && type <= 31) wft_poolVisual(context, 8, summoned);   // (0x2E740)
     vec2 size = wu_getUnitSize(context, summoned);
     wpath_setStaticEntity(&context->map->finder, (s32)spawn.x, (s32)spawn.y,
                          (s32)size.x, (s32)size.y, summoned->id);
