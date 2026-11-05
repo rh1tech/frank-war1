@@ -2891,6 +2891,12 @@ static void wai_agCommand(WarContext* context, const char* cmd)
                 if (m && m->mappedType == a) type = (WarUnitCommandType)k;
             }
             if (type == WAR_COMMAND_NONE) { printf("agent: no train command for type %d\n", a); return; }
+            // (only a button the panel shows: no peasant from an orc hall)
+            WarUnitCommandType shown[6] = {0};
+            wu_getUnitCommands(context, sel, shown);
+            bool onPanel = false;
+            for (s32 k = 0; k < 6; k++) onPanel |= shown[k] == type;
+            if (!onPanel) { printf("agent: no command to train type %d\n", a); return; }
             wcmd_trainUnit(context, type, (WarUnitType)a, su->type);
         }
         else
