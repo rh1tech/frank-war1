@@ -1,0 +1,1452 @@
+2 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/o4/mines.txt
+2 ai ag fullmap /Volumes/1TB/Repositories/frank-war1/build/agent/o4/full.txt
+3 ai ag fullmap /Volumes/1TB/Repositories/frank-war1/build/agent/o4/full.txt
+5 ai ag sel 37 38 29 30 31 32 26 27 28 33 34 35 36
+5 ai ag attackxy 30 4
+305 ai ag sel 38 37 31 26 27 30 32 33 34 28 29 36 35
+305 ai ag attackxy 30 4
+606 ai ag sel 38 31 32 33 34 36 27 26 28 29 30 37 35
+606 ai ag attackxy 26 3
+1207 ai ag sel 30 26 27 33 38 29 34 35 36 37 31 28 32
+1207 ai ag attackxy 22 2
+1507 ai ag sel 26
+1507 ai ag attack 40
+1507 ai ag sel 34
+1507 ai ag attack 40
+1507 ai ag sel 33
+1507 ai ag attack 40
+1507 ai ag sel 30
+1507 ai ag attack 40
+1507 ai ag sel 29
+1507 ai ag attack 40
+1507 ai ag sel 36
+1507 ai ag attack 40
+1507 ai ag sel 38
+1507 ai ag attack 40
+1507 ai ag sel 31
+1507 ai ag attack 40
+1507 ai ag sel 28
+1507 ai ag attack 40
+1507 ai ag sel 32
+1507 ai ag attack 40
+1507 ai ag sel 35
+1507 ai ag attack 40
+1507 ai ag sel 27
+1507 ai ag attack 40
+1507 ai ag sel 37
+1507 ai ag attack 40
+1657 ai ag sel 33
+1657 ai ag attack 41
+1657 ai ag sel 36
+1657 ai ag attack 41
+1657 ai ag sel 32
+1657 ai ag attack 41
+1807 ai ag sel 36
+1807 ai ag attack 40
+1807 ai ag sel 30
+1807 ai ag attack 41
+1807 ai ag sel 35
+1807 ai ag attack 41
+1807 ai ag sel 33
+1807 ai ag attack 40
+1957 ai ag sel 32
+1957 ai ag attack 40
+1957 ai ag sel 33
+1957 ai ag attack 41
+2107 ai ag sel 34
+2107 ai ag attack 41
+2107 ai ag sel 26
+2107 ai ag attack 41
+2107 ai ag sel 29
+2107 ai ag attack 41
+2107 ai ag sel 36
+2107 ai ag attack 41
+2107 ai ag sel 28
+2107 ai ag attack 41
+2107 ai ag sel 31
+2107 ai ag attack 41
+2107 ai ag sel 32
+2107 ai ag attack 41
+2107 ai ag sel 37
+2107 ai ag attack 41
+2107 ai ag sel 38
+2107 ai ag attack 41
+2107 ai ag sel 27
+2107 ai ag attack 41
+2258 ai ag sel 34 26 28 29 36 30 31 33 27 32 35 38 37
+2258 ai ag attackxy 17 1
+2558 ai ag sel 36 29 33 35 28 34 38 26 27 30 31 32 37
+2558 ai ag attackxy 17 1
+2859 ai ag sel 33 36 26 28 34 35 38 30 31 32 27 29 37
+2859 ai ag attackxy 16 9
+3159 ai ag sel 33 34 35 36 26 28 38 30 31 37 32 27 29
+3159 ai ag attackxy 16 9
+3460 ai ag sel 33 34 26 35 36 38 28 30 31 27 32 37 29
+3460 ai ag attackxy 23 9
+4061 ai ag sel 32 35 28 27 26 34 33 31 38 37 29 30 36
+4061 ai ag attackxy 27 7
+4661 ai ag sel 28 35 26 32 33 29 31 34 30 38 37 27 36
+4661 ai ag attackxy 30 10
+4962 ai ag sel 28 34 27 30 35 26 32 37 38 36 29 33 31
+4962 ai ag attackxy 33 8
+5262 ai ag sel 30 34 28 38 35 32 27 36 26 31 33 37 29
+5262 ai ag attackxy 33 8
+5563 ai ag sel 28 30 35 34 26 32 38 36 27 31 33 37 29
+5563 ai ag attackxy 34 13
+5863 ai ag sel 28 30 32 35 26 38 37 27 33 34 31 36 29
+5863 ai ag attackxy 34 14
+6164 ai ag sel 28 27 32 30 35 38 26 37 34 31 33 36 29
+6164 ai ag attackxy 33 18
+6764 ai ag sel 27 32 28 34 38 26 35 37 30 36 33 29 31
+6764 ai ag attackxy 32 19
+7064 ai ag sel 27
+7064 ai ag attack 54
+7064 ai ag sel 32
+7064 ai ag attack 54
+7064 ai ag sel 28
+7064 ai ag attack 54
+7064 ai ag sel 34
+7064 ai ag attack 54
+7064 ai ag sel 35
+7064 ai ag attack 54
+7064 ai ag sel 38
+7064 ai ag attack 54
+7064 ai ag sel 26
+7064 ai ag attack 54
+7064 ai ag sel 37
+7064 ai ag attack 54
+7064 ai ag sel 29
+7064 ai ag attack 54
+7064 ai ag sel 30
+7064 ai ag attack 54
+7064 ai ag sel 31
+7064 ai ag attack 54
+7064 ai ag sel 36
+7064 ai ag attack 54
+7064 ai ag sel 33
+7064 ai ag attack 54
+7365 ai ag sel 27 32 34 28 37 38 29 30 31 35 26 33 36
+7365 ai ag attackxy 29 25
+7665 ai ag sel 27
+7665 ai ag attack 55
+7665 ai ag sel 31
+7665 ai ag attack 55
+7665 ai ag sel 32
+7665 ai ag attack 55
+7665 ai ag sel 37
+7665 ai ag attack 55
+7665 ai ag sel 30
+7665 ai ag attack 55
+7665 ai ag sel 34
+7665 ai ag attack 55
+7665 ai ag sel 38
+7665 ai ag attack 55
+7665 ai ag sel 28
+7665 ai ag attack 55
+7665 ai ag sel 29
+7665 ai ag attack 55
+7665 ai ag sel 35
+7665 ai ag attack 55
+7665 ai ag sel 26
+7665 ai ag attack 55
+7665 ai ag sel 36
+7665 ai ag attack 55
+7665 ai ag sel 33
+7665 ai ag attack 55
+7965 ai ag sel 27 34 37 30 31 32 29 38 28 26 35 36 33
+7965 ai ag attackxy 29 26
+8266 ai ag sel 27 34 30 37 32 31 38 28 29 36 26 33 35
+8266 ai ag attackxy 30 30
+8867 ai ag sel 27 34 32 30 38 31 37 29 26 35 36 28 33
+8867 ai ag attackxy 37 22
+9468 ai ag sel 27 34 30 32 35 37 38 31 26 36 29 28 33
+9468 ai ag attackxy 35 18
+9768 ai ag sel 27 30 32 31 34 38 36 35 37 29 26 28 33
+9768 ai ag attackxy 40 13
+10368 ai ag sel 27 30 32 31 36 34 38 35 26 33 28 37 29
+10368 ai ag attackxy 40 13
+10669 ai ag sel 31 27 30 32 36 38 34 35 33 26 28 37 29
+10669 ai ag attackxy 43 9
+11270 ai ag sel 30 36 27 31 32 38 35 26 33 34 29 37 28
+11270 ai ag attackxy 47 7
+11871 ai ag sel 30 27 31 33 36 32 35 38 28 29 34 37 26
+11871 ai ag attackxy 51 7
+12171 ai ag sel 30 36 27 35 38 28 31 33 34 37 32 29 26
+12171 ai ag attackxy 51 7
+12472 ai ag sel 28 30 33 36 27 31 34 37 32 38 26 29 35
+12472 ai ag attackxy 43 14
+12772 ai ag sel 30 28 34 31 36 33 35 27 37 38 26 29 32
+12772 ai ag attackxy 43 14
+13073 ai ag sel 30 36 34 33 28 38 27 31 35 37 26 29 32
+13073 ai ag attackxy 51 11
+13674 ai ag sel 26 36 38 28 29 31 33 30 32 35 34 37 27
+13674 ai ag attackxy 53 16
+13974 ai ag sel 26
+13974 ai ag attack 50
+13974 ai ag sel 38
+13974 ai ag attack 50
+13974 ai ag sel 28
+13974 ai ag attack 50
+13974 ai ag sel 36
+13974 ai ag attack 50
+13974 ai ag sel 31
+13974 ai ag attack 50
+13974 ai ag sel 37
+13974 ai ag attack 50
+13974 ai ag sel 29
+13974 ai ag attack 50
+13974 ai ag sel 33
+13974 ai ag attack 50
+13974 ai ag sel 30
+13974 ai ag attack 50
+13974 ai ag sel 32
+13974 ai ag attack 50
+13974 ai ag sel 35
+13974 ai ag attack 50
+13974 ai ag sel 34
+13974 ai ag attack 50
+13974 ai ag sel 27
+13974 ai ag attack 50
+14124 ai ag sel 26 38 28 37 31 36 33 29 30 32 34 35 27
+14124 ai ag attackxy 53 16
+14425 ai ag sel 38 31 28 37 33 36 26 29 30 32 34 35 27
+14425 ai ag attackxy 56 20
+15025 ai ag sel 37 31 29 30 33 38 28 26 34 32 35 36 27
+15025 ai ag attackxy 56 21
+15326 ai ag sel 31 37 33 29 30 32 38 28 26 35 36 34 27
+15326 ai ag attackxy 55 24
+15626 ai ag sel 29 35 32 31 38 37 30 33 28 36 26 34 27
+15626 ai ag attackxy 54 25
+15927 ai ag sel 38 29 35 31 32 33 37 28 30 26 34 27 36
+15927 ai ag attackxy 52 28
+16227 ai ag sel 38 31 35 29 30 33 32 37 28 36 26 34 27
+16227 ai ag attackxy 52 28
+16528 ai ag sel 31 38 33 35 29 30 37 32 28 34 26 27 36
+16528 ai ag attackxy 54 32
+16828 ai ag sel 35 38 31 33 28 30 37 29 32 27 34 26 36
+16828 ai ag attackxy 55 33
+17129 ai ag sel 38 33 35 37 31 32 28 29 30 27 34 26 36
+17129 ai ag attackxy 56 36
+17429 ai ag sel 38
+17429 ai ag attack 58
+17429 ai ag sel 35
+17429 ai ag attack 58
+17429 ai ag sel 28
+17429 ai ag attack 61
+17429 ai ag sel 37
+17429 ai ag attack 58
+17429 ai ag sel 33
+17429 ai ag attack 58
+17429 ai ag sel 29
+17429 ai ag attack 60
+17429 ai ag sel 31
+17429 ai ag attack 60
+17429 ai ag sel 32
+17429 ai ag attack 60
+17429 ai ag sel 30
+17429 ai ag attack 60
+17429 ai ag sel 26
+17429 ai ag attack 59
+17429 ai ag sel 27
+17429 ai ag attack 59
+17429 ai ag sel 34
+17429 ai ag attack 59
+17429 ai ag sel 36
+17429 ai ag attack 59
+17579 ai ag sel 35
+17579 ai ag attack 65
+17579 ai ag sel 38
+17579 ai ag attack 61
+17579 ai ag sel 37
+17579 ai ag attack 61
+17579 ai ag sel 33
+17579 ai ag attack 61
+17729 ai ag sel 35
+17729 ai ag attack 65
+17729 ai ag sel 38
+17729 ai ag attack 65
+17729 ai ag sel 33
+17729 ai ag attack 61
+17729 ai ag sel 37
+17729 ai ag attack 61
+17729 ai ag sel 32
+17729 ai ag attack 61
+17729 ai ag sel 27
+17729 ai ag attack 59
+17879 ai ag sel 35
+17879 ai ag attack 61
+17879 ai ag sel 38
+17879 ai ag attack 61
+17879 ai ag sel 28
+17879 ai ag attack 60
+17879 ai ag sel 33
+17879 ai ag attack 60
+17879 ai ag sel 37
+17879 ai ag attack 61
+17879 ai ag sel 29
+17879 ai ag attack 65
+17879 ai ag sel 30
+17879 ai ag attack 59
+17879 ai ag sel 31
+17879 ai ag attack 59
+17879 ai ag sel 32
+17879 ai ag attack 60
+17879 ai ag sel 27
+17879 ai ag attack 65
+17879 ai ag sel 26
+17879 ai ag attack 65
+17879 ai ag sel 34
+17879 ai ag attack 65
+18029 ai ag sel 35
+18029 ai ag attack 60
+18029 ai ag sel 38
+18029 ai ag attack 60
+18029 ai ag sel 28
+18029 ai ag attack 63
+18029 ai ag sel 33
+18029 ai ag attack 63
+18029 ai ag sel 37
+18029 ai ag attack 59
+18029 ai ag sel 30
+18029 ai ag attack 63
+18029 ai ag sel 31
+18029 ai ag attack 63
+18029 ai ag sel 32
+18029 ai ag attack 59
+18179 ai ag sel 35
+18179 ai ag attack 64
+18179 ai ag sel 38
+18179 ai ag attack 64
+18179 ai ag sel 28
+18179 ai ag attack 63
+18179 ai ag sel 33
+18179 ai ag attack 65
+18179 ai ag sel 37
+18179 ai ag attack 64
+18179 ai ag sel 32
+18179 ai ag attack 58
+18179 ai ag sel 27
+18179 ai ag attack 63
+18329 ai ag sel 35
+18329 ai ag attack 58
+18329 ai ag sel 28
+18329 ai ag attack 64
+18329 ai ag sel 33
+18329 ai ag attack 64
+18329 ai ag sel 37
+18329 ai ag attack 65
+18329 ai ag sel 29
+18329 ai ag attack 64
+18329 ai ag sel 32
+18329 ai ag attack 65
+18329 ai ag sel 26
+18329 ai ag attack 63
+18479 ai ag sel 35
+18479 ai ag attack 58
+18479 ai ag sel 28
+18479 ai ag attack 64
+18479 ai ag sel 33
+18479 ai ag attack 64
+18479 ai ag sel 37
+18479 ai ag attack 65
+18479 ai ag sel 29
+18479 ai ag attack 65
+18479 ai ag sel 32
+18479 ai ag attack 58
+18479 ai ag sel 27
+18479 ai ag attack 64
+18629 ai ag sel 35
+18629 ai ag attack 58
+18629 ai ag sel 28
+18629 ai ag attack 64
+18629 ai ag sel 33
+18629 ai ag attack 64
+18629 ai ag sel 37
+18629 ai ag attack 65
+18779 ai ag sel 35
+18779 ai ag attack 58
+18779 ai ag sel 28
+18779 ai ag attack 64
+18779 ai ag sel 33
+18779 ai ag attack 64
+18779 ai ag sel 37
+18779 ai ag attack 65
+18929 ai ag sel 35
+18929 ai ag attack 58
+18929 ai ag sel 28
+18929 ai ag attack 64
+18929 ai ag sel 33
+18929 ai ag attack 64
+18929 ai ag sel 37
+18929 ai ag attack 65
+19079 ai ag sel 35
+19079 ai ag attack 58
+19079 ai ag sel 28
+19079 ai ag attack 64
+19079 ai ag sel 33
+19079 ai ag attack 64
+19079 ai ag sel 37
+19079 ai ag attack 65
+19229 ai ag sel 35
+19229 ai ag attack 62
+19229 ai ag sel 28
+19229 ai ag attack 64
+19229 ai ag sel 33
+19229 ai ag attack 64
+19229 ai ag sel 37
+19229 ai ag attack 62
+19229 ai ag sel 29
+19229 ai ag attack 62
+19229 ai ag sel 32
+19229 ai ag attack 65
+19379 ai ag sel 35
+19379 ai ag attack 58
+19379 ai ag sel 28
+19379 ai ag attack 62
+19379 ai ag sel 33
+19379 ai ag attack 62
+19379 ai ag sel 37
+19379 ai ag attack 65
+19379 ai ag sel 38
+19379 ai ag attack 62
+19379 ai ag sel 30
+19379 ai ag attack 64
+19379 ai ag sel 31
+19379 ai ag attack 64
+19379 ai ag sel 26
+19379 ai ag attack 64
+19529 ai ag sel 35
+19529 ai ag attack 58
+19529 ai ag sel 28
+19529 ai ag attack 62
+19529 ai ag sel 33
+19529 ai ag attack 62
+19529 ai ag sel 37
+19529 ai ag attack 65
+19529 ai ag sel 29
+19529 ai ag attack 65
+19529 ai ag sel 32
+19529 ai ag attack 58
+19529 ai ag sel 27
+19529 ai ag attack 62
+19679 ai ag sel 35
+19679 ai ag attack 58
+19679 ai ag sel 28
+19679 ai ag attack 62
+19679 ai ag sel 33
+19679 ai ag attack 62
+19679 ai ag sel 37
+19679 ai ag attack 65
+19829 ai ag sel 35
+19829 ai ag attack 59
+19829 ai ag sel 28
+19829 ai ag attack 58
+19829 ai ag sel 33
+19829 ai ag attack 62
+19829 ai ag sel 37
+19829 ai ag attack 62
+19829 ai ag sel 29
+19829 ai ag attack 62
+19829 ai ag sel 32
+19829 ai ag attack 59
+19829 ai ag sel 27
+19829 ai ag attack 58
+19829 ai ag sel 34
+19829 ai ag attack 58
+19979 ai ag sel 28
+19979 ai ag attack 58
+19979 ai ag sel 33
+19979 ai ag attack 62
+19979 ai ag sel 35
+19979 ai ag attack 60
+19979 ai ag sel 37
+19979 ai ag attack 62
+19979 ai ag sel 32
+19979 ai ag attack 60
+19979 ai ag sel 36
+19979 ai ag attack 60
+20129 ai ag sel 28
+20129 ai ag attack 58
+20129 ai ag sel 33
+20129 ai ag attack 62
+20129 ai ag sel 35
+20129 ai ag attack 60
+20129 ai ag sel 37
+20129 ai ag attack 62
+20279 ai ag sel 28
+20279 ai ag attack 58
+20279 ai ag sel 33
+20279 ai ag attack 62
+20279 ai ag sel 35
+20279 ai ag attack 61
+20279 ai ag sel 37
+20279 ai ag attack 60
+20429 ai ag sel 28
+20429 ai ag attack 60
+20429 ai ag sel 33
+20429 ai ag attack 61
+20429 ai ag sel 35
+20429 ai ag attack 61
+20429 ai ag sel 37
+20429 ai ag attack 61
+20429 ai ag sel 38
+20429 ai ag attack 61
+20429 ai ag sel 30
+20429 ai ag attack 62
+20429 ai ag sel 31
+20429 ai ag attack 62
+20429 ai ag sel 26
+20429 ai ag attack 58
+20579 ai ag sel 28
+20579 ai ag attack 60
+20579 ai ag sel 33
+20579 ai ag attack 61
+20579 ai ag sel 35
+20579 ai ag attack 61
+20579 ai ag sel 37
+20579 ai ag attack 61
+20579 ai ag sel 38
+20579 ai ag attack 61
+20729 ai ag sel 28
+20729 ai ag attack 60
+20729 ai ag sel 33
+20729 ai ag attack 61
+20729 ai ag sel 35
+20729 ai ag attack 61
+20729 ai ag sel 37
+20729 ai ag attack 61
+20729 ai ag sel 38
+20729 ai ag attack 61
+20879 ai ag sel 28
+20879 ai ag attack 60
+20879 ai ag sel 33
+20879 ai ag attack 61
+20879 ai ag sel 35
+20879 ai ag attack 61
+20879 ai ag sel 37
+20879 ai ag attack 61
+20879 ai ag sel 38
+20879 ai ag attack 61
+21029 ai ag sel 28
+21029 ai ag attack 61
+21029 ai ag sel 33
+21029 ai ag attack 61
+21029 ai ag sel 35
+21029 ai ag attack 58
+21029 ai ag sel 37
+21029 ai ag attack 58
+21029 ai ag sel 38
+21029 ai ag attack 58
+21029 ai ag sel 32
+21029 ai ag attack 61
+21029 ai ag sel 36
+21029 ai ag attack 61
+21179 ai ag sel 28
+21179 ai ag attack 61
+21179 ai ag sel 33
+21179 ai ag attack 61
+21179 ai ag sel 35
+21179 ai ag attack 66
+21179 ai ag sel 37
+21179 ai ag attack 66
+21179 ai ag sel 38
+21179 ai ag attack 66
+21329 ai ag sel 28
+21329 ai ag attack 61
+21329 ai ag sel 33
+21329 ai ag attack 61
+21329 ai ag sel 35
+21329 ai ag attack 66
+21329 ai ag sel 37
+21329 ai ag attack 66
+21329 ai ag sel 38
+21329 ai ag attack 66
+21479 ai ag sel 28
+21479 ai ag attack 61
+21479 ai ag sel 33
+21479 ai ag attack 66
+21479 ai ag sel 35
+21479 ai ag attack 66
+21479 ai ag sel 37
+21479 ai ag attack 66
+21479 ai ag sel 38
+21479 ai ag attack 66
+21629 ai ag sel 28
+21629 ai ag attack 66
+21629 ai ag sel 33
+21629 ai ag attack 66
+21629 ai ag sel 35
+21629 ai ag attack 66
+21629 ai ag sel 37
+21629 ai ag attack 68
+21629 ai ag sel 38
+21629 ai ag attack 68
+21629 ai ag sel 29
+21629 ai ag attack 70
+21629 ai ag sel 30
+21629 ai ag attack 70
+21629 ai ag sel 31
+21629 ai ag attack 70
+21629 ai ag sel 32
+21629 ai ag attack 66
+21629 ai ag sel 26
+21629 ai ag attack 70
+21629 ai ag sel 27
+21629 ai ag attack 61
+21629 ai ag sel 34
+21629 ai ag attack 61
+21779 ai ag sel 33
+21779 ai ag attack 68
+21779 ai ag sel 37
+21779 ai ag attack 66
+21779 ai ag sel 31
+21779 ai ag attack 61
+21779 ai ag sel 27
+21779 ai ag attack 70
+21929 ai ag sel 38
+21929 ai ag attack 67
+21929 ai ag sel 28
+21929 ai ag attack 67
+21929 ai ag sel 33
+21929 ai ag attack 67
+21929 ai ag sel 30
+21929 ai ag attack 61
+21929 ai ag sel 37
+21929 ai ag attack 67
+21929 ai ag sel 32
+21929 ai ag attack 69
+21929 ai ag sel 35
+21929 ai ag attack 69
+22079 ai ag sel 38
+22079 ai ag attack 67
+22079 ai ag sel 28
+22079 ai ag attack 66
+22079 ai ag sel 29
+22079 ai ag attack 61
+22079 ai ag sel 31
+22079 ai ag attack 66
+22079 ai ag sel 33
+22079 ai ag attack 67
+22079 ai ag sel 32
+22079 ai ag attack 66
+22079 ai ag sel 37
+22079 ai ag attack 70
+22079 ai ag sel 35
+22079 ai ag attack 66
+22229 ai ag sel 28
+22229 ai ag attack 67
+22229 ai ag sel 30
+22229 ai ag attack 66
+22229 ai ag sel 32
+22229 ai ag attack 69
+22229 ai ag sel 33
+22229 ai ag attack 70
+22229 ai ag sel 37
+22229 ai ag attack 61
+22379 ai ag sel 29
+22379 ai ag attack 67
+22379 ai ag sel 30
+22379 ai ag attack 67
+22379 ai ag sel 31
+22379 ai ag attack 67
+22379 ai ag sel 38
+22379 ai ag attack 69
+22379 ai ag sel 28
+22379 ai ag attack 66
+22379 ai ag sel 37
+22379 ai ag attack 67
+22379 ai ag sel 34
+22379 ai ag attack 66
+22529 ai ag sel 32
+22529 ai ag attack 68
+22529 ai ag sel 38
+22529 ai ag attack 66
+22529 ai ag sel 28
+22529 ai ag attack 68
+22679 ai ag sel 31
+22679 ai ag attack 68
+22679 ai ag sel 28
+22679 ai ag attack 68
+22829 ai ag sel 28
+22829 ai ag attack 68
+22979 ai ag sel 28
+22979 ai ag attack 68
+23129 ai ag sel 28
+23129 ai ag attack 68
+23279 ai ag sel 29
+23279 ai ag attack 69
+23279 ai ag sel 30
+23279 ai ag attack 69
+23279 ai ag sel 31
+23279 ai ag attack 69
+23279 ai ag sel 38
+23279 ai ag attack 68
+23279 ai ag sel 26
+23279 ai ag attack 66
+23279 ai ag sel 28
+23279 ai ag attack 68
+23279 ai ag sel 33
+23279 ai ag attack 67
+23279 ai ag sel 27
+23279 ai ag attack 67
+23429 ai ag sel 28
+23429 ai ag attack 66
+23429 ai ag sel 37
+23429 ai ag attack 68
+23429 ai ag sel 26
+23429 ai ag attack 67
+23579 ai ag sel 29
+23579 ai ag attack 68
+23579 ai ag sel 30
+23579 ai ag attack 68
+23579 ai ag sel 31
+23579 ai ag attack 68
+23579 ai ag sel 28
+23579 ai ag attack 69
+23579 ai ag sel 33
+23579 ai ag attack 69
+23579 ai ag sel 26
+23579 ai ag attack 68
+23579 ai ag sel 27
+23579 ai ag attack 68
+23579 ai ag sel 34
+23579 ai ag attack 68
+23579 ai ag sel 35
+23579 ai ag attack 69
+23729 ai ag sel 28
+23729 ai ag attack 69
+23729 ai ag sel 33
+23729 ai ag attack 69
+23879 ai ag sel 29
+23879 ai ag attack 69
+23879 ai ag sel 30
+23879 ai ag attack 69
+23879 ai ag sel 31
+23879 ai ag attack 69
+23879 ai ag sel 32
+23879 ai ag attack 69
+23879 ai ag sel 28
+23879 ai ag attack 69
+23879 ai ag sel 33
+23879 ai ag attack 69
+23879 ai ag sel 37
+23879 ai ag attack 69
+23879 ai ag sel 38
+23879 ai ag attack 69
+23879 ai ag sel 26
+23879 ai ag attack 69
+23879 ai ag sel 27
+23879 ai ag attack 69
+23879 ai ag sel 34
+23879 ai ag attack 69
+24180 ai ag sel 29 30 31 28 32 37 38 27 34 35 26 33
+24180 ai ag attackxy 53 41
+24480 ai ag sel 29
+24480 ai ag attack 74
+24480 ai ag sel 30
+24480 ai ag attack 74
+24480 ai ag sel 31
+24480 ai ag attack 74
+24480 ai ag sel 28
+24480 ai ag attack 73
+24480 ai ag sel 32
+24480 ai ag attack 73
+24480 ai ag sel 37
+24480 ai ag attack 74
+24480 ai ag sel 38
+24480 ai ag attack 73
+24480 ai ag sel 27
+24480 ai ag attack 73
+24480 ai ag sel 34
+24480 ai ag attack 71
+24480 ai ag sel 33
+24480 ai ag attack 71
+24480 ai ag sel 35
+24480 ai ag attack 71
+24480 ai ag sel 26
+24480 ai ag attack 71
+24630 ai ag sel 32
+24630 ai ag attack 74
+24630 ai ag sel 37
+24630 ai ag attack 73
+24780 ai ag sel 35
+24780 ai ag attack 72
+24930 ai ag sel 30
+24930 ai ag attack 72
+25080 ai ag sel 29
+25080 ai ag attack 72
+25080 ai ag sel 30
+25080 ai ag attack 74
+25080 ai ag sel 27
+25080 ai ag attack 71
+25080 ai ag sel 26
+25080 ai ag attack 72
+25230 ai ag sel 32
+25230 ai ag attack 72
+25230 ai ag sel 29
+25230 ai ag attack 74
+25380 ai ag sel 31
+25380 ai ag attack 72
+25380 ai ag sel 32
+25380 ai ag attack 74
+25530 ai ag sel 31
+25530 ai ag attack 74
+25530 ai ag sel 32
+25530 ai ag attack 72
+25830 ai ag sel 29
+25830 ai ag attack 73
+25830 ai ag sel 30
+25830 ai ag attack 73
+25830 ai ag sel 31
+25830 ai ag attack 73
+25830 ai ag sel 32
+25830 ai ag attack 73
+25830 ai ag sel 27
+25830 ai ag attack 72
+25830 ai ag sel 33
+25830 ai ag attack 73
+25830 ai ag sel 34
+25830 ai ag attack 72
+25980 ai ag sel 29
+25980 ai ag attack 72
+25980 ai ag sel 30
+25980 ai ag attack 72
+25980 ai ag sel 31
+25980 ai ag attack 72
+25980 ai ag sel 32
+25980 ai ag attack 72
+25980 ai ag sel 28
+25980 ai ag attack 72
+25980 ai ag sel 37
+25980 ai ag attack 72
+25980 ai ag sel 38
+25980 ai ag attack 72
+25980 ai ag sel 33
+25980 ai ag attack 72
+26280 ai ag sel 29 30 31 32 38 37 26 27 28 34 33 35
+26280 ai ag attackxy 53 41
+26581 ai ag sel 30 32 31 38 26 29 37 33 34 35 28 27
+26581 ai ag attackxy 49 37
+27182 ai ag sel 34 35 27 37 29 30 26 38 28 32 31 33
+27182 ai ag attackxy 45 35
+27782 ai ag sel 35 34 28 26 30 37 31 33 27 38 32 29
+27782 ai ag attackxy 44 36
+28082 ai ag sel 35
+28082 ai ag attack 51
+28082 ai ag sel 28
+28082 ai ag attack 51
+28082 ai ag sel 34
+28082 ai ag attack 51
+28082 ai ag sel 26
+28082 ai ag attack 51
+28082 ai ag sel 27
+28082 ai ag attack 51
+28082 ai ag sel 30
+28082 ai ag attack 51
+28082 ai ag sel 33
+28082 ai ag attack 51
+28082 ai ag sel 37
+28082 ai ag attack 51
+28082 ai ag sel 29
+28082 ai ag attack 51
+28082 ai ag sel 32
+28082 ai ag attack 51
+28082 ai ag sel 38
+28082 ai ag attack 51
+28082 ai ag sel 31
+28082 ai ag attack 51
+28233 ai ag sel 28 26 27 30 33 35 29 32 34 37 31 38
+28233 ai ag attackxy 41 32
+28533 ai ag sel 28 30 33 26 34 27 37 29 35 32 31 38
+28533 ai ag attackxy 40 31
+28833 ai ag sel 28 30 33 26 27 37 29 34 32 35 31 38
+28833 ai ag attackxy 40 31
+29134 ai ag sel 28 30 26 27 33 37 29 35 34 31 32 38
+29134 ai ag attackxy 42 40
+29734 ai ag fullmap /Volumes/1TB/Repositories/frank-war1/build/agent/o4/full.txt
+29736 ai ag sel 28 33 29 30 34 37 27 35 26 32 31 38
+29736 ai ag attackxy 38 38
+30036 ai ag sel 29 28 33 30 34 37 26 27 31 32 35 38
+30036 ai ag attackxy 37 37
+30337 ai ag sel 29 30 28 34 26 32 37 27 33 35 38 31
+30337 ai ag attackxy 46 37
+30637 ai ag sel 26
+30637 ai ag move 44 37
+30637 ai ag sel 32
+30637 ai ag move 44 37
+30637 ai ag sel 28 29 30 34 37 33 35 27 31 38
+30637 ai ag attackxy 52 43
+30937 ai ag sel 26
+30937 ai ag move 46 40
+30937 ai ag sel 28
+30937 ai ag move 46 40
+30937 ai ag sel 30 29 35 34 37 32 27 33 38 31
+30937 ai ag attackxy 52 43
+31237 ai ag sel 26 28 35 38 30 32 37 31 27 34 29 33
+31237 ai ag attackxy 53 45
+31537 ai ag sel 26 27 30 32 28 38 37 35 31 34 29 33
+31537 ai ag attackxy 53 45
+31838 ai ag sel 27 26 35 28 32 38 30 37 29 31 34 33
+31838 ai ag attackxy 53 48
+32138 ai ag sel 26 28 32 35 27 38 29 30 31 37 34 33
+32138 ai ag attackxy 53 48
+32439 ai ag sel 26 28 32 35 27 38 29 31 30 34 37 33
+32439 ai ag attackxy 49 52
+33039 ai ag sel 26 28 35 32 27 29 38 31 34 37 30 33
+33039 ai ag attackxy 49 52
+33340 ai ag sel 28 26 32 35 27 34 37 38 30 33 29 31
+33340 ai ag attackxy 45 51
+33640 ai ag sel 28 26 27 32 35 33 34 37 38 29 30 31
+33640 ai ag attackxy 44 52
+33940 ai ag sel 28 27 38 37 29 31 33 34 26 32 30 35
+33940 ai ag attackxy 44 52
+34241 ai ag sel 27 28 38 26 31 33 34 37 29 30 35 32
+34241 ai ag attackxy 40 51
+34841 ai ag sel 34 29 33 28 30 31 35 37 26 38 32 27
+34841 ai ag attackxy 39 51
+35142 ai ag sel 29 34 26 28 31 33 37 30 32 35 38 27
+35142 ai ag attackxy 35 50
+35743 ai ag sel 29 35 26 31 28 38 33 37 34 27 32 30
+35743 ai ag attackxy 31 52
+36344 ai ag sel 28 27 26 35 29 31 34 32 33 38 37 30
+36344 ai ag attackxy 27 57
+36644 ai ag sel 26
+36644 ai ag attack 52
+36644 ai ag sel 28
+36644 ai ag attack 52
+36644 ai ag sel 27
+36644 ai ag attack 52
+36644 ai ag sel 34
+36644 ai ag attack 52
+36644 ai ag sel 31
+36644 ai ag attack 52
+36644 ai ag sel 35
+36644 ai ag attack 52
+36644 ai ag sel 38
+36644 ai ag attack 52
+36644 ai ag sel 29
+36644 ai ag attack 52
+36644 ai ag sel 37
+36644 ai ag attack 52
+36644 ai ag sel 30
+36644 ai ag attack 52
+36644 ai ag sel 33
+36644 ai ag attack 52
+36644 ai ag sel 32
+36644 ai ag attack 52
+36794 ai ag sel 35
+36794 ai ag attack 52
+36944 ai ag sel 28 35 31 27 26 29 34 30 38 32 33 37
+36944 ai ag attackxy 26 58
+37245 ai ag sel 27 28 35 31 29 26 30 38 32 33 34 37
+37245 ai ag attackxy 23 57
+37545 ai ag sel 27 26 31 32 38 28 35 29 30 33 37 34
+37545 ai ag attackxy 23 57
+37846 ai ag sel 26 27 32 28 29 30 33 35 31 34 37 38
+37846 ai ag attackxy 19 53
+38446 ai ag sel 32 29 34 33 37 30 31 38 28 26 35 27
+38446 ai ag attackxy 18 52
+38747 ai ag sel 32 30 33 34 37 28 29 38 35 31 26 27
+38747 ai ag attackxy 13 49
+39047 ai ag sel 33 30 34 29 32 37 31 28 26 35 38 27
+39047 ai ag attackxy 12 49
+39348 ai ag sel 30 33 34 29 32 31 35 37 26 28 38 27
+39348 ai ag attackxy 8 49
+39648 ai ag sel 29
+39648 ai ag attack 56
+39648 ai ag sel 30
+39648 ai ag attack 56
+39648 ai ag sel 33
+39648 ai ag attack 56
+39648 ai ag sel 34
+39648 ai ag attack 56
+39648 ai ag sel 35
+39648 ai ag attack 56
+39648 ai ag sel 32
+39648 ai ag attack 56
+39648 ai ag sel 26
+39648 ai ag attack 56
+39648 ai ag sel 31
+39648 ai ag attack 56
+39648 ai ag sel 28
+39648 ai ag attack 56
+39648 ai ag sel 38
+39648 ai ag attack 56
+39648 ai ag sel 37
+39648 ai ag attack 56
+39648 ai ag sel 27
+39648 ai ag attack 56
+39948 ai ag sel 29 30 33 26 31 35 28 32 34 38 27 37
+39948 ai ag attackxy 8 49
+40249 ai ag sel 29 30 33 35 31 32 34 38 26 28 37 27
+40249 ai ag attackxy 4 46
+40549 ai ag sel 31
+40549 ai ag attack 57
+40549 ai ag sel 33
+40549 ai ag attack 57
+40549 ai ag sel 29
+40549 ai ag attack 57
+40549 ai ag sel 38
+40549 ai ag attack 57
+40549 ai ag sel 32
+40549 ai ag attack 57
+40549 ai ag sel 28
+40549 ai ag attack 57
+40549 ai ag sel 26
+40549 ai ag attack 57
+40549 ai ag sel 35
+40549 ai ag attack 57
+40549 ai ag sel 30
+40549 ai ag attack 57
+40549 ai ag sel 37
+40549 ai ag attack 57
+40549 ai ag sel 27
+40549 ai ag attack 57
+40549 ai ag sel 34
+40549 ai ag attack 57
+40849 ai ag sel 31 29 33 38 26 32 35 37 28 34 27 30
+40849 ai ag attackxy 3 46
+41150 ai ag sel 31 29 33 38 26 37 32 27 34 35 28 30
+41150 ai ag attackxy 12 49
+41750 ai ag sel 26 38 28 29 33 34 35 37 27 30 32 31
+41750 ai ag attackxy 16 47
+42050 ai ag sel 34 32 28 29 38 35 26 30 27 33 31 37
+42050 ai ag attackxy 16 47
+42351 ai ag sel 34 29 32 35 26 27 30 33 31 38 28 37
+42351 ai ag attackxy 19 45
+42651 ai ag sel 34 32 30 35 29 31 33 26 27 37 38 28
+42651 ai ag attackxy 19 45
+42951 ai ag sel 34 32 35 31 29 33 30 37 27 28 38 26
+42951 ai ag attackxy 20 44
+43252 ai ag sel 34 31 32 35 30 33 29 38 27 28 37 26
+43252 ai ag attackxy 17 41
+43552 ai ag sel 34 31 32 33 35 30 28 29 27 37 38 26
+43552 ai ag attackxy 17 41
+43853 ai ag sel 35 31 34 32 33 30 29 28 37 27 26 38
+43853 ai ag attackxy 15 37
+44153 ai ag sel 35 31 33 30 34 29 32 28 37 26 38 27
+44153 ai ag attackxy 15 37
+44454 ai ag sel 27
+44454 ai ag move 18 39
+44454 ai ag sel 33 35 31 29 30 34 28 32 37 26 38
+44454 ai ag attackxy 12 33
+44754 ai ag sel 35
+44754 ai ag attack 43
+44754 ai ag sel 31
+44754 ai ag attack 43
+44754 ai ag sel 33
+44754 ai ag attack 43
+44754 ai ag sel 29
+44754 ai ag attack 43
+44754 ai ag sel 30
+44754 ai ag attack 43
+44754 ai ag sel 34
+44754 ai ag attack 43
+44754 ai ag sel 32
+44754 ai ag attack 43
+44754 ai ag sel 37
+44754 ai ag attack 43
+44754 ai ag sel 26
+44754 ai ag attack 43
+44754 ai ag sel 28
+44754 ai ag attack 43
+44754 ai ag sel 38
+44754 ai ag attack 43
+44754 ai ag sel 27
+44754 ai ag attack 43
+44904 ai ag sel 34
+44904 ai ag attack 45
+44904 ai ag sel 29
+44904 ai ag attack 45
+44904 ai ag sel 30
+44904 ai ag attack 45
+44904 ai ag sel 28
+44904 ai ag attack 45
+45054 ai ag sel 30
+45054 ai ag attack 43
+45054 ai ag sel 31
+45054 ai ag attack 45
+45054 ai ag sel 37
+45054 ai ag attack 45
+45054 ai ag sel 29
+45054 ai ag attack 43
+45204 ai ag sel 33
+45204 ai ag attack 45
+45204 ai ag sel 35
+45204 ai ag attack 45
+45204 ai ag sel 30
+45204 ai ag attack 45
+45204 ai ag sel 29
+45204 ai ag attack 45
+45204 ai ag sel 32
+45204 ai ag attack 45
+45204 ai ag sel 26
+45204 ai ag attack 45
+45204 ai ag sel 38
+45204 ai ag attack 45
+45204 ai ag sel 27
+45204 ai ag attack 45
+45355 ai ag sel 33 34 35 28 37 30 31 26 29 32 38 27
+45355 ai ag attackxy 8 29
+45956 ai ag sel 35 37 34 26 31 28 32 33 29 30 27 38
+45956 ai ag attackxy 4 29
+46256 ai ag sel 35
+46256 ai ag attack 44
+46256 ai ag sel 37
+46256 ai ag attack 44
+46256 ai ag sel 31
+46256 ai ag attack 44
+46256 ai ag sel 26
+46256 ai ag attack 44
+46256 ai ag sel 33
+46256 ai ag attack 44
+46256 ai ag sel 29
+46256 ai ag attack 44
+46256 ai ag sel 34
+46256 ai ag attack 44
+46256 ai ag sel 28
+46256 ai ag attack 44
+46256 ai ag sel 32
+46256 ai ag attack 44
+46256 ai ag sel 27
+46256 ai ag attack 44
+46256 ai ag sel 30
+46256 ai ag attack 44
+46256 ai ag sel 38
+46256 ai ag attack 44
+46556 ai ag sel 33
+46556 ai ag attack 44
+46556 ai ag sel 26
+46556 ai ag attack 44
+46856 ai ag sel 28
+46856 ai ag attack 47
+46856 ai ag sel 35
+46856 ai ag attack 47
+46856 ai ag sel 26
+46856 ai ag attack 46
+46856 ai ag sel 31
+46856 ai ag attack 47
+46856 ai ag sel 27
+46856 ai ag attack 46
+46856 ai ag sel 37
+46856 ai ag attack 46
+47006 ai ag sel 28
+47006 ai ag attack 46
+47006 ai ag sel 35
+47006 ai ag attack 46
+47006 ai ag sel 37
+47006 ai ag attack 47
+47006 ai ag sel 26
+47006 ai ag attack 47
+47156 ai ag sel 34
+47156 ai ag attack 46
+47156 ai ag sel 29
+47156 ai ag attack 47
+47156 ai ag sel 30
+47156 ai ag attack 47
+47156 ai ag sel 27
+47156 ai ag attack 47
+47156 ai ag sel 37
+47156 ai ag attack 46
+47156 ai ag sel 38
+47156 ai ag attack 46
+47156 ai ag sel 26
+47156 ai ag attack 46
+47156 ai ag sel 31
+47156 ai ag attack 46
+47156 ai ag sel 32
+47156 ai ag attack 46
+47156 ai ag sel 33
+47156 ai ag attack 46
+47306 ai ag sel 29
+47306 ai ag attack 46
+47306 ai ag sel 37
+47306 ai ag attack 47
+47456 ai ag sel 29
+47456 ai ag attack 47
+47456 ai ag sel 30
+47456 ai ag attack 46
+47456 ai ag sel 31
+47456 ai ag attack 47
+47456 ai ag sel 33
+47456 ai ag attack 47
+47456 ai ag sel 32
+47456 ai ag attack 47
+47456 ai ag sel 38
+47456 ai ag attack 47
+47606 ai ag sel 35
+47606 ai ag attack 47
+47606 ai ag sel 26
+47606 ai ag attack 47
+47606 ai ag sel 30
+47606 ai ag attack 47
+47756 ai ag sel 35 27 26 33 37 29 30 31 32 38
+47756 ai ag attackxy 4 29
+48356 ai ag sel 35 27 37 32 33 38 29 30 26 31
+48356 ai ag attackxy 3 29
+48657 ai ag sel 35 37 30 32 38 27 29 31 33 26
+48657 ai ag attackxy 11 27
+49257 ai ag sel 35
+49257 ai ag move 10 29
+49257 ai ag sel 37 27 30 29 31 32 33 26 38
+49257 ai ag attackxy 15 28
+49558 ai ag sel 35 27 29 30 26 37 33 31 32 38
+49558 ai ag attackxy 6 33
+50159 ai ag sel 29 33 27 35 37 26 30 31 38 32
+50159 ai ag attackxy 13 29
+50459 ai ag sel 29 30 37 38 33 27 35 26 31 32
+50459 ai ag attackxy 17 26
+50760 ai ag sel 29 30 31 33 35 37 26 38 27 32
+50760 ai ag attackxy 17 23
+51060 ai ag sel 29 33 30 31 35 26 37 38 27 32
+51060 ai ag attackxy 17 22
+51361 ai ag sel 38
+51361 ai ag move 17 23
+51361 ai ag sel 29 31 33 35 30 26 37 27 32
+51361 ai ag attackxy 16 17
+51661 ai ag sel 29
+51661 ai ag attack 48
+51661 ai ag sel 33
+51661 ai ag attack 48
+51661 ai ag sel 30
+51661 ai ag attack 48
+51661 ai ag sel 35
+51661 ai ag attack 48
+51661 ai ag sel 31
+51661 ai ag attack 48
+51661 ai ag sel 26
+51661 ai ag attack 48
+51661 ai ag sel 37
+51661 ai ag attack 48
+51661 ai ag sel 38
+51661 ai ag attack 48
+51661 ai ag sel 27
+51661 ai ag attack 48
+51661 ai ag sel 32
+51661 ai ag attack 48
+52111 ai ag sel 33 29 35 30 38 26 31 32 37 27
+52111 ai ag attackxy 16 17
+52411 ai ag sel 29 33 35 26 31 27 38 30 37 32
+52411 ai ag attackxy 15 16
+52712 ai ag sel 29 33 26 35 27 31 30 38 37 32
+52712 ai ag attackxy 22 19
+53012 ai ag sel 26
+53012 ai ag attack 49
+53012 ai ag sel 33
+53012 ai ag attack 49
+53012 ai ag sel 29
+53012 ai ag attack 49
+53012 ai ag sel 31
+53012 ai ag attack 49
+53012 ai ag sel 27
+53012 ai ag attack 49
+53012 ai ag sel 30
+53012 ai ag attack 49
+53012 ai ag sel 35
+53012 ai ag attack 49
+53012 ai ag sel 32
+53012 ai ag attack 49
+53012 ai ag sel 37
+53012 ai ag attack 49
+53012 ai ag sel 38
+53012 ai ag attack 49
+53162 ai ag sel 38
+53162 ai ag move 17 19
+53312 ai ag sel 38
+53312 ai ag attack 49
+53612 ai ag sel 37 26 31 29 32 33 30 35 38 27
+53612 ai ag attackxy 22 19
+54213 ai ag sel 37 26 30 31 32 33 27 38 35 29
+54213 ai ag attackxy 14 14
+54814 ai ag sel 27
+54814 ai ag move 16 17
+54814 ai ag sel 30
+54814 ai ag move 16 17
+54814 ai ag sel 37 26 38 31 35 29 33 32
+54814 ai ag attackxy 10 15
+55114 ai ag sel 37 35 38 26 29 31 33 32 27 30
+55114 ai ag attackxy 10 15
+55414 ai ag sel 37
+55414 ai ag attack 39
+55414 ai ag sel 38
+55414 ai ag attack 39
+55414 ai ag sel 26
+55414 ai ag attack 39
+55414 ai ag sel 29
+55414 ai ag attack 39
+55414 ai ag sel 32
+55414 ai ag attack 39
+55414 ai ag sel 27
+55414 ai ag attack 39
+55414 ai ag sel 31
+55414 ai ag attack 39
+55414 ai ag sel 33
+55414 ai ag attack 39
+55414 ai ag sel 35
+55414 ai ag attack 39
+55414 ai ag sel 30
+55414 ai ag attack 39
+55564 ai ag sel 27 38 26 37 30 31 33 29 32 35
+55564 ai ag attackxy 10 15
+55865 ai ag sel 26 38 30 31 33 35 27 32 37 29
+55865 ai ag attackxy 8 20
+56165 ai ag sel 27
+56165 ai ag move 11 18
+56165 ai ag sel 38 31 33 26 30 37 35 32 29
+56165 ai ag attackxy 3 20
+56465 ai ag sel 29
+56465 ai ag move 10 20
+56465 ai ag sel 38 31 33 30 26 27 35 37 32
+56465 ai ag attackxy 3 20
+56765 ai ag sel 31
+56765 ai ag move 9 20
+56765 ai ag sel 32
+56765 ai ag move 9 20
+56765 ai ag sel 30 38 33 26 27 37 29 35
+56765 ai ag attackxy 3 20
+57065 ai ag sel 31 38 30 26 35 33 27 29 32 37
+57065 ai ag attackxy 3 20
+57366 ai ag sel 38 30 35 31 33 26 29 37 27 32
+57366 ai ag attackxy 10 18
+57666 ai ag sel 38 27 30 26 31 37 33 35 29 32
+57666 ai ag attackxy 7 14
+57966 ai ag sel 38
+57966 ai ag move 10 21
+57966 ai ag sel 26 27 32 30 31 33 29 35 37
+57966 ai ag attackxy 7 14
+58266 ai ag sel 38 26 27 32 31 37 33 29 30 35
+58266 ai ag attackxy 7 14
+58567 ai ag sel 31
+58567 ai ag move 10 19
+58567 ai ag sel 26 27 38 32 30 37 35 29 33
+58567 ai ag attackxy 15 20
+58867 ai ag sel 26
+58867 ai ag move 11 20
+58867 ai ag sel 27 38 32 29 33 30 31 35 37
+58867 ai ag attackxy 15 20
+59167 ai ag sel 26 27 38 29 30 33 31 32 37 35
+59167 ai ag attackxy 19 26
+59768 ai ag sel 26 27 30 37 31 38 29 33 32 35
+59768 ai ag attackxy 17 30
+60069 ai ag sel 30
+60069 ai ag move 17 27
+60069 ai ag sel 26
+60069 ai ag move 17 27
+60069 ai ag sel 38
+60069 ai ag move 17 27
+60069 ai ag sel 37 27 31 29 32 33 35
+60069 ai ag attackxy 23 24
+60369 ai ag sel 37
+60369 ai ag move 18 26
+60369 ai ag sel 30 26 27 31 33 35 32 29 38
+60369 ai ag attackxy 23 24
+60669 ai ag sel 37 30 33 26 27 31 35 29 32 38
+60669 ai ag attackxy 24 25
+60970 ai ag sel 29 37 30 33 27 31 38 32 26 35
+60970 ai ag attackxy 19 31
+61270 ai ag sel 37 29 32 30 38 27 33 26 31 35
+61270 ai ag attackxy 19 31
+61570 ai ag sel 37 29 30 32 27 38 26 33 31 35
+61570 ai ag attackxy 21 37
+62171 ai ag sel 37 29 30 32 27 38 26 33 35 31
+62171 ai ag attackxy 19 40
+62471 ai ag sel 37 29 32 30 27 38 26 33 35 31
+62471 ai ag attackxy 24 45
+62771 ai ag sel 31
+62771 ai ag move 21 39
+63072 ai ag sel 37 32 27 29 38 30 26 31 33 35
+63072 ai ag attackxy 16 36
+63672 ai ag sel 32 37 27 29 30 38 31 33 26 35
+63672 ai ag attackxy 10 30
+64272 ai ag sel 32 29 37 27 30 38 31 33 35 26
+64272 ai ag attackxy 10 30
+64572 ai ag sel 32 27 29 31 30 37 38 33 26 35
+64572 ai ag attackxy 4 34
+65173 ai ag sel 27 32 35 33 31 37 38 26 30 29
+65173 ai ag attackxy 13 35
+65473 ai ag sel 32 27 31 30 33 38 26 29 35 37
+65473 ai ag attackxy 13 35
+65773 ai ag sel 27 31 30 32 33 38 26 29 35 37
+65773 ai ag attackxy 17 41
+66373 ai ag sel 38 30 31 32 27 29 37 33 26 35
+66373 ai ag attackxy 17 41
+66673 ai ag sel 38 31 27 29 30 32 37 26 33 35
+66673 ai ag attackxy 22 47
+67273 ai ag sel 29 31 38 37 27 30 26 32 33 35
+67273 ai ag attackxy 23 48
+67574 ai ag sel 31 29 37 38 27 30 26 32 33 35
+67574 ai ag attackxy 16 47
+68174 ai ag sel 29 38 30 31 35 37 27 26 32 33
+68174 ai ag attackxy 10 49
+68774 ai ag sel 35 29 38 27 30 31 37 26 32 33
+68774 ai ag attackxy 4 53
+69374 ai ag sel 35 38 29 37 26 27 32 33 30 31
+69374 ai ag attackxy 4 53
+69675 ai ag sel 27 35 38 29 26 32 33 37 30 31
+69675 ai ag attackxy 13 48
+70275 ai ag sel 33 29 30 37 35 27 26 32 31 38
+70275 ai ag attackxy 19 53
+70875 ai ag sel 29 30 35 38 31 37 26 27 32 33
+70875 ai ag attackxy 25 58
+71475 ai ag sel 38 30 31 35 29 26 37 27 32 33
+71475 ai ag attackxy 31 53
+72375 ai ag sel 33 27 32 29 26 38 35 37 31 30
+72375 ai ag attackxy 31 53
+72675 ai ag sel 27 33 26 32 29 37 38 35 31 30
+72675 ai ag attackxy 37 54
+73275 ai ag sel 32 27 29 38 26 33 35 31 37 30
+73275 ai ag attackxy 39 58
+73875 ai ag fullmap /Volumes/1TB/Repositories/frank-war1/build/agent/o4/full.txt
+73877 ai ag sel 31 38 30 35 32 37 27 26 29 33
+73877 ai ag attackxy 44 58
+74177 ai ag sel 31 30 35 38 37 27 29 26 32 33
+74177 ai ag attackxy 45 59
+74478 ai ag sel 30 31 26 37 38 35 27 29 32 33
+74478 ai ag attackxy 48 61
+74778 ai ag sel 26
+74778 ai ag attack 42
+74778 ai ag sel 31
+74778 ai ag attack 42
+74778 ai ag sel 37
+74778 ai ag attack 42
+74778 ai ag sel 38
+74778 ai ag attack 42
+74778 ai ag sel 30
+74778 ai ag attack 42
+74778 ai ag sel 35
+74778 ai ag attack 42
+74778 ai ag sel 27
+74778 ai ag attack 42
+74778 ai ag sel 29
+74778 ai ag attack 42
+74778 ai ag sel 32
+74778 ai ag attack 42
+74778 ai ag sel 33
+74778 ai ag attack 42
+75229 ai ag sel 33 37 26 30 35 29 31 38 32 27
+75229 ai ag attackxy 53 62
+75529 ai ag sel 33
+75529 ai ag attack 53
+75529 ai ag sel 37
+75529 ai ag attack 53
+75529 ai ag sel 26
+75529 ai ag attack 53
+75529 ai ag sel 31
+75529 ai ag attack 53
+75529 ai ag sel 30
+75529 ai ag attack 53
+75529 ai ag sel 35
+75529 ai ag attack 53
+75529 ai ag sel 29
+75529 ai ag attack 53
+75529 ai ag sel 38
+75529 ai ag attack 53
+75529 ai ag sel 27
+75529 ai ag attack 53
+75529 ai ag sel 32
+75529 ai ag attack 53
+75679 ai ag sel 32
+75679 ai ag move 48 60
+75829 ai ag sel 32
+75829 ai ag attack 53
+77329 quit

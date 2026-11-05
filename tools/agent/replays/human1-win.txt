@@ -1,0 +1,63 @@
+2 ai ag sel 26
+2 ai ag harvest 17
+2 ai ag sel 21
+2 ai ag train 2
+2 ai ag sel 23 24 25
+2 ai ag move 43 20
+2552 ai ag sel 37
+2552 ai ag build 32 44 25
+7952 ai ag sel 37
+7952 ai ag harvestxy 41 14
+13952 ai ag sel 21
+13952 ai ag train 2
+16552 ai ag sel 42
+16552 ai ag harvestxy 40 13
+16552 ai ag sel 21
+16552 ai ag train 2
+19052 ai ag sel 45
+19052 ai ag harvestxy 38 13
+19052 ai ag sel 23 24 25
+19052 ai ag move 40 17
+20652 ai ag sel 45
+20652 ai ag build 34 38 24
+25252 ai ag sel 23 24 25
+25252 ai ag attack 27
+26452 ai ag sel 21
+26452 ai ag train 2
+26452 ai ag sel 23 24 25
+26452 ai ag move 40 17
+28552 ai ag sel 45
+28552 ai ag build 32 46 23
+29152 ai ag sel 57
+29152 ai ag harvestxy 39 13
+29652 ai ag sel 57
+29652 ai ag harvestxy 37 28
+33352 ai ag sel 26
+33352 ai ag cmd 4
+33352 ai ag sel 23 24 25
+33352 ai ag move 26 35
+35452 ai ag sel 23 24 25
+35452 ai ag attack 30
+35952 ai ag sel 23 24 25
+35952 ai ag attack 28
+39652 ai ag sel 23 24 25
+39652 ai ag move 25 35
+39952 ai ag sel 25
+39952 ai ag move 22 35
+40352 ai ag sel 26 45
+40352 ai ag harvest 19
+40352 ai ag sel 37
+40352 ai ag build 32 38 21
+40352 ai ag sel 23 24 25
+40352 ai ag move 27 37
+45452 ai ag sel 37
+45452 ai ag cmd 4
+45752 ai ag sel 37
+45752 ai ag harvestxy 36 28
+46352 ai ag sel 37
+46352 ai ag build 32 38 28
+52652 ai ag sel 37
+52652 ai ag harvestxy 34 27
+57552 ai ag sel 57
+57552 ai ag build 32 41 29
+64052 quit

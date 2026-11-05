@@ -1,0 +1,531 @@
+2 ai ag sel 36
+2 ai ag harvest 28
+2 ai ag sel 31
+2 ai ag train 2
+2 ai ag sel 33 34 35
+2 ai ag move 55 42
+2502 ai ag sel 55
+2502 ai ag buildnear 32 50 35
+7602 ai ag sel 55
+7602 ai ag harvestxy 60 41
+7602 ai ag sel 31
+7602 ai ag train 2
+10102 ai ag sel 60
+10102 ai ag harvest 28
+12002 ai ag sel 33 34 35
+12002 ai ag attack 37
+12802 ai ag sel 60
+12802 ai ag buildnear 34 47 39
+17002 ai ag sel 31
+17002 ai ag train 2
+19502 ai ag sel 83
+19502 ai ag harvest 28
+20202 ai ag sel 60
+20202 ai ag harvest 28
+20902 ai ag sel 74
+20902 ai ag train 0
+21002 ai ag sel 74
+21002 ai ag train 0
+23503 ai ag sel 55
+23503 ai ag buildnear 32 53 36
+24703 ai ag sel 34 33 35 88
+24703 ai ag attack 38
+25303 ai ag sel 74
+25303 ai ag train 0
+26503 ai ag sel 60
+26503 ai ag harvest 28
+28903 ai ag sel 55
+28903 ai ag harvest 28
+28903 ai ag sel 74
+28903 ai ag train 0
+31303 ai ag sel 74
+31303 ai ag train 8
+31903 ai ag sel 74
+31903 ai ag train 0
+34303 ai ag sel 74
+34303 ai ag train 0
+36103 ai ag sel 35 34 33 109 113 88 115
+36103 ai ag attack 39
+36703 ai ag sel 109 113 34 88 33 35 115 126
+36703 ai ag attack 39
+36703 ai ag sel 74
+36703 ai ag train 8
+37303 ai ag sel 74
+37303 ai ag train 0
+40603 ai ag sel 109 113 33 88 115 126 141 35
+40603 ai ag attackxy 45 30
+41403 ai ag sel 109 113 33 88 115 126 141 35
+41403 ai ag move 47 31
+45003 ai ag sel 109 113 33 88 115 126 141 35
+45003 ai ag move 38 22
+46203 ai ag sel 109 113 88 115 126 141 35
+46203 ai ag attack 41
+46203 ai ag sel 33
+46203 ai ag attack 40
+49003 ai ag sel 141 126 88 113 109 34
+49003 ai ag move 47 23
+49003 ai ag sel 83
+49003 ai ag harvestxy 60 41
+49003 ai ag sel 36
+49003 ai ag harvestxy 61 40
+49104 ai ag sel 74
+49104 ai ag train 0
+51504 ai ag sel 74
+51504 ai ag train 0
+53904 ai ag sel 74
+53904 ai ag train 8
+54504 ai ag sel 74
+54504 ai ag train 0
+55104 ai ag sel 83
+55104 ai ag harvest 28
+55104 ai ag sel 55
+55104 ai ag cmd 4
+55704 ai ag sel 36
+55704 ai ag harvest 28
+55704 ai ag sel 60
+55704 ai ag harvest 28
+55704 ai ag sel 83
+55704 ai ag harvest 28
+56304 ai ag sel 55
+56304 ai ag harvest 28
+56304 ai ag sel 36
+56304 ai ag harvest 28
+56304 ai ag sel 60
+56304 ai ag harvest 28
+56304 ai ag sel 83
+56304 ai ag harvestxy 50 45
+56904 ai ag sel 55
+56904 ai ag harvest 28
+56904 ai ag sel 36
+56904 ai ag harvest 28
+56904 ai ag sel 60
+56904 ai ag harvest 28
+57504 ai ag sel 55
+57504 ai ag harvest 28
+57504 ai ag sel 36
+57504 ai ag harvest 28
+57504 ai ag sel 60
+57504 ai ag harvest 28
+58104 ai ag sel 55
+58104 ai ag harvest 28
+58104 ai ag sel 36
+58104 ai ag harvest 28
+58104 ai ag sel 60
+58104 ai ag harvest 28
+58704 ai ag sel 55
+58704 ai ag harvest 28
+58704 ai ag sel 36
+58704 ai ag harvest 28
+58704 ai ag sel 60
+58704 ai ag harvest 28
+59304 ai ag sel 55
+59304 ai ag harvest 28
+59304 ai ag sel 36
+59304 ai ag harvest 28
+59304 ai ag sel 60
+59304 ai ag harvest 28
+59904 ai ag sel 55
+59904 ai ag harvest 28
+59904 ai ag sel 36
+59904 ai ag harvest 28
+59904 ai ag sel 60
+59904 ai ag harvest 28
+60504 ai ag sel 55
+60504 ai ag harvest 28
+60504 ai ag sel 36
+60504 ai ag harvest 28
+60504 ai ag sel 60
+60504 ai ag harvest 28
+61104 ai ag sel 55
+61104 ai ag harvest 28
+61104 ai ag sel 36
+61104 ai ag harvest 28
+61104 ai ag sel 60
+61104 ai ag harvest 28
+61704 ai ag sel 55
+61704 ai ag harvest 28
+61704 ai ag sel 36
+61704 ai ag harvest 28
+61704 ai ag sel 60
+61704 ai ag harvest 28
+62304 ai ag sel 55
+62304 ai ag harvest 28
+62304 ai ag sel 36
+62304 ai ag harvest 28
+62304 ai ag sel 60
+62304 ai ag harvest 28
+62904 ai ag sel 55
+62904 ai ag harvest 28
+62904 ai ag sel 36
+62904 ai ag harvest 28
+62904 ai ag sel 60
+62904 ai ag harvest 28
+63504 ai ag sel 55
+63504 ai ag harvest 28
+63504 ai ag sel 36
+63504 ai ag harvest 28
+63504 ai ag sel 60
+63504 ai ag harvest 28
+64104 ai ag sel 55
+64104 ai ag harvest 28
+64104 ai ag sel 36
+64104 ai ag harvest 28
+64104 ai ag sel 60
+64104 ai ag harvest 28
+64704 ai ag sel 55
+64704 ai ag harvest 28
+64704 ai ag sel 36
+64704 ai ag harvest 28
+64704 ai ag sel 60
+64704 ai ag harvest 28
+65304 ai ag sel 55
+65304 ai ag harvest 28
+65304 ai ag sel 36
+65304 ai ag harvest 28
+65304 ai ag sel 60
+65304 ai ag harvest 28
+65904 ai ag sel 55
+65904 ai ag harvest 28
+65904 ai ag sel 36
+65904 ai ag harvest 28
+65904 ai ag sel 60
+65904 ai ag harvest 28
+66504 ai ag sel 88 126 141 109 34 113 200 202 207
+66504 ai ag attack 44
+66504 ai ag sel 55
+66504 ai ag harvest 28
+66504 ai ag sel 60
+66504 ai ag harvest 28
+67104 ai ag sel 141 126 88 113 109 34 200 207 202
+67104 ai ag attack 44
+67104 ai ag sel 55
+67104 ai ag harvest 28
+67704 ai ag sel 60
+67704 ai ag harvest 28
+67704 ai ag sel 83
+67704 ai ag cmd 4
+67704 ai ag sel 55
+67704 ai ag harvest 28
+67704 ai ag sel 36
+67704 ai ag harvest 28
+68304 ai ag sel 60
+68304 ai ag harvest 28
+68304 ai ag sel 55
+68304 ai ag harvest 28
+68304 ai ag sel 36
+68304 ai ag harvest 28
+68304 ai ag sel 60
+68304 ai ag buildnear 32 53 36
+68904 ai ag sel 55
+68904 ai ag harvest 28
+68904 ai ag sel 36
+68904 ai ag harvest 28
+69504 ai ag sel 55
+69504 ai ag harvest 28
+69504 ai ag sel 36
+69504 ai ag harvest 28
+70104 ai ag sel 55
+70104 ai ag harvest 28
+70104 ai ag sel 36
+70104 ai ag harvest 28
+70704 ai ag sel 55
+70704 ai ag harvest 28
+70704 ai ag sel 36
+70704 ai ag harvest 28
+71304 ai ag sel 55
+71304 ai ag harvest 28
+71304 ai ag sel 36
+71304 ai ag harvest 28
+71904 ai ag sel 55
+71904 ai ag harvest 28
+71904 ai ag sel 36
+71904 ai ag harvest 28
+72504 ai ag sel 55
+72504 ai ag harvest 28
+72504 ai ag sel 36
+72504 ai ag harvest 28
+73104 ai ag sel 55
+73104 ai ag harvest 28
+73104 ai ag sel 36
+73104 ai ag harvest 28
+73704 ai ag sel 55
+73704 ai ag harvest 28
+73704 ai ag sel 36
+73704 ai ag harvest 28
+74304 ai ag sel 60
+74304 ai ag harvest 28
+74304 ai ag sel 55
+74304 ai ag harvest 28
+74304 ai ag sel 36
+74304 ai ag harvest 28
+74304 ai ag sel 74
+74304 ai ag train 0
+74904 ai ag sel 60
+74904 ai ag harvest 28
+74904 ai ag sel 55
+74904 ai ag harvest 28
+74904 ai ag sel 36
+74904 ai ag harvest 28
+75504 ai ag sel 60
+75504 ai ag harvest 28
+75504 ai ag sel 55
+75504 ai ag harvest 28
+75504 ai ag sel 36
+75504 ai ag harvest 28
+76104 ai ag sel 60
+76104 ai ag harvest 28
+76104 ai ag sel 55
+76104 ai ag harvest 28
+76104 ai ag sel 36
+76104 ai ag harvest 28
+76704 ai ag sel 141 126 88 113 109 34 238 200 202 207
+76704 ai ag attack 45
+76704 ai ag sel 60
+76704 ai ag harvest 28
+76704 ai ag sel 55
+76704 ai ag harvest 28
+76704 ai ag sel 36
+76704 ai ag harvest 28
+76704 ai ag sel 74
+76704 ai ag train 8
+77304 ai ag sel 141 126 88 113 109 34 238 202 200 207
+77304 ai ag attack 45
+77304 ai ag sel 60
+77304 ai ag harvest 28
+77304 ai ag sel 55
+77304 ai ag harvest 28
+77304 ai ag sel 36
+77304 ai ag harvest 28
+77904 ai ag sel 60
+77904 ai ag harvest 28
+77904 ai ag sel 55
+77904 ai ag harvest 28
+77904 ai ag sel 36
+77904 ai ag harvest 28
+78504 ai ag sel 60
+78504 ai ag harvest 28
+78504 ai ag sel 55
+78504 ai ag harvest 28
+78504 ai ag sel 36
+78504 ai ag harvest 28
+79104 ai ag sel 60
+79104 ai ag harvest 28
+79104 ai ag sel 55
+79104 ai ag harvest 28
+79104 ai ag sel 36
+79104 ai ag harvest 28
+79104 ai ag sel 74
+79104 ai ag train 0
+79704 ai ag sel 60
+79704 ai ag harvest 28
+79704 ai ag sel 55
+79704 ai ag harvest 28
+79704 ai ag sel 36
+79704 ai ag harvest 28
+80304 ai ag sel 60
+80304 ai ag harvest 28
+80304 ai ag sel 55
+80304 ai ag harvest 28
+80304 ai ag sel 36
+80304 ai ag harvest 28
+80904 ai ag sel 60
+80904 ai ag harvest 28
+80904 ai ag sel 55
+80904 ai ag harvest 28
+80904 ai ag sel 36
+80904 ai ag harvest 28
+81504 ai ag sel 60
+81504 ai ag harvest 28
+81504 ai ag sel 55
+81504 ai ag harvest 28
+81504 ai ag sel 36
+81504 ai ag harvest 28
+82104 ai ag sel 141 88 113 109 258 260 238 200 202 207
+82104 ai ag move 46 20
+85404 ai ag sel 141 88 113 109 258 260 238 200 202 207
+85404 ai ag attack 48
+85904 ai ag sel 141 88 113 109 258 260 238 200 202 207
+85904 ai ag move 44 12
+86205 ai ag sel 238 207 260 109 113 141 258 202 200 88
+86205 ai ag attack 48
+86505 ai ag sel 260 113 207 238 109 141 258 88 200 202
+86505 ai ag move 40 8
+86905 ai ag sel 238 109 207 113 258 200 141 260 202 88
+86905 ai ag move 40 8
+87305 ai ag sel 238 109 207 113 200 260 141 88 202 258
+87305 ai ag move 40 8
+87705 ai ag sel 141 113 238 200 109 207 260 88 258 202
+87705 ai ag move 30 10
+88105 ai ag sel 238 113 141 109 200 260 88 207 258 202
+88105 ai ag move 30 10
+88505 ai ag sel 238 141 109 113 258 200 260 88 202 207
+88505 ai ag move 30 10
+88905 ai ag sel 141 109 113 258 200 202 238 260 88 207
+88905 ai ag move 20 12
+89305 ai ag sel 258 141 109 113 238 202 200 207 260 88
+89305 ai ag attack 49
+90205 ai ag sel 109 141 207 258 260 202 200 88 113 238
+90205 ai ag attack 50
+90505 ai ag sel 74
+90505 ai ag train 0
+90556 ai ag sel 109 141 258 260 202 207 88 200 113 238
+90556 ai ag move 15 20
+90956 ai ag sel 109 260 141 207 258 202 200 88 113 238
+90956 ai ag attack 51
+91856 ai ag sel 109 260 258 207 141 88 200 202 238 113
+91856 ai ag attack 52
+92456 ai ag sel 109 207 258 260 88 113 141 238 200 202
+92456 ai ag move 15 20
+92856 ai ag sel 109 258 260 207 238 88 113 141 200 202
+92856 ai ag move 15 35
+93256 ai ag sel 260 258 109 207 238 200 113 88 141 202
+93256 ai ag move 15 35
+93656 ai ag sel 109 260 207 258 141 200 238 113 88 202
+93656 ai ag move 15 35
+94056 ai ag sel 207 141 109 260 238 258 200 113 88 202
+94056 ai ag move 15 35
+94456 ai ag sel 207 109 260 141 238 258 200 88 202 113
+94456 ai ag move 15 35
+94856 ai ag sel 207 109 260 141 238 258 200 88 202 113
+94856 ai ag move 15 35
+95256 ai ag sel 207 260 238 258 109 141 200 88 202 113
+95256 ai ag move 15 35
+95656 ai ag sel 207 238 258 260 109 141 200 88 202 113
+95656 ai ag move 15 35
+96056 ai ag sel 207 238 258 260 109 141 200 88 202 113
+96056 ai ag move 15 35
+96456 ai ag sel 207 238 258 260 109 141 200 88 202 113
+96456 ai ag move 15 35
+96856 ai ag sel 207 238 258 260 109 141 200 88 202 113
+96856 ai ag move 15 35
+97256 ai ag sel 207 238 258 260 109 141 200 88 202 113
+97256 ai ag move 15 35
+97656 ai ag sel 207 238 258 260 109 141 200 88 202 113
+97656 ai ag move 15 35
+98056 ai ag sel 207 238 258 260 109 141 200 88 202 113
+98056 ai ag move 15 35
+98456 ai ag sel 207 238 258 260 109 141 200 88 202 113
+98456 ai ag move 15 35
+98856 ai ag sel 207 238 258 260 109 141 200 88 202 113
+98856 ai ag move 15 35
+99256 ai ag sel 207 238 258 260 109 141 200 88 202 113
+99256 ai ag move 15 35
+99656 ai ag sel 207 238 258 260 109 141 200 88 202 113
+99656 ai ag move 15 35
+100056 ai ag sel 207 238 258 260 109 141 200 88 202 113
+100056 ai ag move 15 35
+100456 ai ag sel 207 238 258 260 109 141 200 88 202 113
+100456 ai ag move 15 35
+100856 ai ag sel 207 238 258 260 109 141 200 88 202 113
+100856 ai ag move 15 35
+101256 ai ag sel 207 238 258 260 109 141 200 88 202 113
+101256 ai ag move 15 35
+101656 ai ag sel 207 238 258 260 109 141 200 88 202 113
+101656 ai ag move 15 35
+102056 ai ag sel 207 238 258 260 109 141 200 88 202 113
+102056 ai ag move 15 35
+102456 ai ag sel 207 238 258 260 109 141 200 88 202 113
+102456 ai ag move 15 35
+102856 ai ag sel 207 238 258 260 109 141 200 88 202 113
+102856 ai ag move 15 35
+103256 ai ag sel 207 238 258 260 109 141 200 88 202 113
+103256 ai ag move 15 35
+103656 ai ag sel 207 238 258 260 109 141 200 88 202 113
+103656 ai ag move 15 35
+104056 ai ag sel 207 238 258 260 109 141 200 88 202 113
+104056 ai ag move 15 35
+104456 ai ag sel 207 238 258 260 109 141 200 88 202 113
+104456 ai ag move 15 35
+104856 ai ag sel 207 238 258 260 109 141 200 88 202 113
+104856 ai ag move 15 35
+105256 ai ag sel 207 238 258 260 109 141 200 88 202 113
+105256 ai ag move 15 35
+105656 ai ag sel 207 238 258 260 109 141 200 88 202 113
+105656 ai ag move 15 35
+106056 ai ag sel 207 238 258 260 109 141 200 88 202 113
+106056 ai ag move 15 35
+106456 ai ag sel 207 238 258 260 109 141 200 88 202 113
+106456 ai ag move 15 35
+106856 ai ag sel 207 238 258 260 109 141 200 88 202 113
+106856 ai ag move 15 35
+107256 ai ag sel 207 238 258 260 109 141 200 88 202 113
+107256 ai ag move 15 35
+107656 ai ag sel 207 238 258 260 109 141 200 88 202 113
+107656 ai ag move 15 35
+108056 ai ag sel 207 238 258 260 109 141 200 88 202 113
+108056 ai ag move 15 35
+108456 ai ag sel 207 238 258 260 109 141 200 88 202 113
+108456 ai ag move 15 35
+108856 ai ag sel 207 238 258 260 109 141 200 88 202 113
+108856 ai ag move 15 35
+109256 ai ag sel 207 238 258 260 109 141 200 88 202 113
+109256 ai ag move 15 35
+109656 ai ag sel 207 238 258 260 109 141 200 88 202 113
+109656 ai ag move 15 35
+110056 ai ag sel 207 238 258 260 109 141 200 88 202 113
+110056 ai ag move 15 35
+110456 ai ag sel 207 238 258 260 109 141 200 88 202 113
+110456 ai ag move 15 35
+110856 ai ag sel 207 238 258 260 109 141 200 88 202 113
+110856 ai ag move 15 35
+111256 ai ag sel 207 238 258 260 109 141 200 88 202 113
+111256 ai ag move 15 35
+111656 ai ag sel 207 238 258 260 109 141 200 88 202 113
+111656 ai ag move 15 35
+112056 ai ag sel 207 238 258 260 109 141 200 88 202 113
+112056 ai ag move 15 35
+112456 ai ag sel 207 238 258 260 109 141 200 88 202 113
+112456 ai ag move 15 35
+112856 ai ag sel 207 238 258 260 109 141 200 88 202 113
+112856 ai ag move 15 35
+113256 ai ag sel 207 238 258 260 109 141 200 88 202 113
+113256 ai ag move 15 35
+113656 ai ag sel 207 238 258 260 109 141 200 88 202 113
+113656 ai ag move 15 35
+114056 ai ag sel 207 238 258 260 109 141 200 88 202 113
+114056 ai ag move 15 35
+114456 ai ag sel 207 238 258 260 109 141 200 88 202 113
+114456 ai ag move 15 35
+114856 ai ag sel 207 238 258 260 109 141 200 88 202 113
+114856 ai ag move 15 35
+115256 ai ag sel 207 238 258 260 109 141 200 88 202 113
+115256 ai ag move 15 35
+115656 ai ag sel 207 238 258 260 109 141 200 88 202 113
+115656 ai ag move 15 35
+116056 ai ag sel 207 238 258 260 109 141 200 88 202 113
+116056 ai ag move 15 35
+116456 ai ag sel 207 238 258 260 109 141 200 88 202 113
+116456 ai ag move 15 35
+116856 ai ag sel 207 238 258 260 109 141 200 88 202 113
+116856 ai ag move 15 35
+117256 ai ag sel 207 238 258 260 109 141 200 88 202 113
+117256 ai ag move 15 35
+117656 ai ag sel 207 238 258 260 109 141 200 88 202 113
+117656 ai ag move 15 35
+118056 ai ag sel 207 238 258 260 109 141 200 88 202 113
+118056 ai ag move 15 35
+118456 ai ag sel 207 238 258 260 109 141 200 88 202 113
+118456 ai ag move 15 35
+118856 ai ag sel 207 238 258 260 109 141 200 88 202 113
+118856 ai ag move 15 35
+119256 ai ag sel 207 238 258 260 109 141 200 88 202 113
+119256 ai ag move 15 35
+119656 ai ag sel 207 238 258 260 109 141 200 88 202 113
+119656 ai ag move 15 35
+120056 ai ag sel 207 238 258 260 109 141 200 88 202 113
+120056 ai ag move 15 35
+120456 ai ag sel 207 238 258 260 109 141 200 88 202 113
+120456 ai ag move 15 35
+120856 ai ag sel 207 238 258 260 109 141 200 88 202 113
+120856 ai ag move 15 35
+121256 ai ag sel 207 238 258 260 109 141 200 88 202 113
+121256 ai ag move 15 35
+121656 ai ag sel 207 238 258 260 109 141 200 88 202 113
+121656 ai ag move 15 35
+122057 ai ag sel 207 238 258 260 109 141 200 88 202 113
+122057 ai ag move 15 42
+122457 ai ag sel 260 141 207 258 238 200 109 88 202 113
+122457 ai ag move 15 42
+122857 ai ag sel 258 260 141 238 207 109 200 88 202 113
+122857 ai ag move 15 42
+123857 quit

@@ -1,0 +1,833 @@
+2 ai ag sel 30
+2 ai ag harvest 21
+2 ai ag sel 31
+2 ai ag harvestxy 46 56
+2 ai ag sel 23
+2 ai ag train 2
+2 ai ag sel 25 26 27 28 29
+2 ai ag move 42 47
+2 ai ag fullmap /Volumes/1TB/Repositories/frank-war1/build/agent/h5/full.txt
+103 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+704 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+1304 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+1904 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+2504 ai ag sel 70
+2504 ai ag harvest 21
+2504 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+3104 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+3704 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+4304 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+4904 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+5504 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+6104 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+6704 ai ag sel 23
+6704 ai ag train 2
+6704 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+7304 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+7904 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+8504 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+9104 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+9704 ai ag sel 76
+9704 ai ag harvest 21
+9704 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+10304 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+10904 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+11504 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+12104 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+12704 ai ag sel 27 26 28 25 29
+12704 ai ag attack 75
+12704 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+13304 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+13904 ai ag sel 70
+13904 ai ag harvest 21
+13904 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+14504 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+15104 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+15705 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+16305 ai ag sel 76
+16305 ai ag cmd 4
+16305 ai ag sel 31
+16305 ai ag buildnear 32 43 48
+16305 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+16905 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+17505 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+18105 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+18705 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+19305 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+19905 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+20505 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+21105 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+21705 ai ag sel 27 28 25 26 29
+21705 ai ag attack 110
+21705 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+22305 ai ag sel 27 28 25 26 29
+22305 ai ag attack 110
+22305 ai ag sel 31
+22305 ai ag harvestxy 46 57
+22305 ai ag sel 23
+22305 ai ag train 2
+22305 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+22905 ai ag sel 27 28 26 25 29
+22905 ai ag attack 110
+22905 ai ag sel 76
+22905 ai ag harvest 21
+22905 ai ag sel 30
+22905 ai ag harvest 21
+22905 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+23505 ai ag sel 28 27 26 25 29
+23505 ai ag attack 110
+23505 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+24105 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+24705 ai ag sel 70
+24705 ai ag cmd 4
+24705 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+25305 ai ag sel 155
+25305 ai ag harvest 21
+25305 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+25905 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+26505 ai ag sel 23
+26505 ai ag train 2
+26505 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+27105 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+27705 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+28305 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+28905 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+29505 ai ag sel 159
+29505 ai ag harvestxy 46 57
+29505 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+30105 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+35505 ai ag sel 31
+35505 ai ag buildnear 34 38 50
+35606 ai ag sel 28 27 25 26 29
+35606 ai ag attack 158
+35606 ai ag sel 159
+35606 ai ag repair 166
+35606 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+36206 ai ag sel 25 28 26 27 29
+36206 ai ag attack 158
+36206 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+36806 ai ag sel 159
+36806 ai ag harvest 21
+36806 ai ag sel 155
+36806 ai ag cmd 4
+36806 ai ag sel 76
+36806 ai ag harvestxy 45 57
+36806 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+37406 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+38006 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+38606 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+39206 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+39806 ai ag sel 23
+39806 ai ag train 2
+39806 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+40406 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+41006 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+41606 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+42206 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+42806 ai ag sel 205
+42806 ai ag harvest 21
+42806 ai ag sel 205
+42806 ai ag buildnear 32 43 48
+42806 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+43406 ai ag sel 76
+43406 ai ag buildnear 32 43 48
+43406 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+44006 ai ag sel 31
+44006 ai ag harvestxy 45 57
+44006 ai ag sel 31
+44006 ai ag repair 209
+44006 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+44606 ai ag sel 23
+44606 ai ag train 2
+44606 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+45206 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+45806 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+46406 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+47006 ai ag sel 166
+47006 ai ag train 0
+47006 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+47606 ai ag sel 28 25 27 26 29
+47606 ai ag attack 107
+47606 ai ag sel 213
+47606 ai ag harvest 21
+47606 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+48206 ai ag sel 25 28 26 27 29
+48206 ai ag attack 161
+48206 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+48806 ai ag sel 25 26 29 28 27
+48806 ai ag attack 204
+48806 ai ag sel 23
+48806 ai ag train 2
+48806 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+49406 ai ag sel 76
+49406 ai ag harvestxy 45 57
+49406 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+50006 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+50606 ai ag sel 166
+50606 ai ag train 8
+50606 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+51206 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+51806 ai ag sel 310
+51806 ai ag harvest 21
+51806 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+52406 ai ag sel 31
+52406 ai ag buildnear 32 43 48
+52406 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+53006 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+53606 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+54206 ai ag sel 166
+54206 ai ag train 0
+54206 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+54806 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+55406 ai ag sel 26 290 314 25 29 27 28
+55406 ai ag attack 309
+55406 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+56006 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+56606 ai ag sel 166
+56606 ai ag train 8
+56606 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+57206 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+57806 ai ag sel 31
+57806 ai ag harvestxy 45 57
+57806 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+58406 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+59006 ai ag sel 166
+59006 ai ag train 0
+59006 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+59606 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+60206 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+60806 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+61406 ai ag sel 76
+61406 ai ag buildnear 32 43 48
+61406 ai ag sel 166
+61406 ai ag train 8
+61406 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+62006 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+62606 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+63206 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+63806 ai ag sel 166
+63806 ai ag train 0
+63806 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+64406 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+65006 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+65606 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+66206 ai ag sel 166
+66206 ai ag train 8
+66206 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+66806 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+67406 ai ag sel 76
+67406 ai ag harvestxy 45 57
+67406 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+68006 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+68606 ai ag sel 166
+68606 ai ag train 0
+68606 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+69206 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+69806 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+70406 ai ag sel 26 314 349 355 357 360 25 29 362 290 367 27 28
+70406 ai ag attack 353
+70406 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+71006 ai ag sel 166
+71006 ai ag train 8
+71006 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+71606 ai ag sel 31
+71606 ai ag buildnear 32 43 48
+71606 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+72206 ai ag sel 31
+72206 ai ag buildnear 32 43 48
+72206 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+72806 ai ag sel 31
+72806 ai ag buildnear 32 43 48
+72806 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+73406 ai ag sel 31
+73406 ai ag buildnear 32 43 48
+73406 ai ag sel 166
+73406 ai ag train 0
+73406 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+74006 ai ag sel 76
+74006 ai ag buildnear 32 43 48
+74006 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+74606 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+75206 ai ag sel 76
+75206 ai ag buildnear 32 43 48
+75206 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+75806 ai ag sel 31
+75806 ai ag buildnear 32 43 48
+75806 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+76407 ai ag sel 31
+76407 ai ag buildnear 32 43 48
+76407 ai ag sel 166
+76407 ai ag train 0
+76407 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+77007 ai ag sel 31
+77007 ai ag buildnear 32 43 48
+77007 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+77607 ai ag sel 31
+77607 ai ag buildnear 32 43 48
+77607 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+78207 ai ag sel 76
+78207 ai ag buildnear 32 43 48
+78207 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+78807 ai ag sel 76
+78807 ai ag buildnear 32 43 48
+78807 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+79407 ai ag sel 76
+79407 ai ag buildnear 32 43 48
+79407 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+80007 ai ag sel 31
+80007 ai ag buildnear 32 43 48
+80007 ai ag sel 76
+80007 ai ag buildnear 32 43 48
+80007 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+80607 ai ag sel 213
+80607 ai ag harvest 21
+80607 ai ag sel 310
+80607 ai ag harvest 21
+80607 ai ag sel 155
+80607 ai ag harvest 21
+80607 ai ag sel 70
+80607 ai ag cmd 4
+80607 ai ag sel 31
+80607 ai ag buildnear 32 43 48
+80607 ai ag sel 213
+80607 ai ag buildnear 32 43 48
+80607 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+81207 ai ag sel 159
+81207 ai ag harvest 19
+81207 ai ag sel 205
+81207 ai ag harvest 19
+81207 ai ag sel 213
+81207 ai ag harvest 19
+81207 ai ag sel 310
+81207 ai ag harvest 19
+81207 ai ag sel 155
+81207 ai ag harvest 19
+81207 ai ag sel 31
+81207 ai ag buildnear 32 43 48
+81207 ai ag sel 159
+81207 ai ag buildnear 32 43 48
+81207 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+81807 ai ag sel 70
+81807 ai ag harvest 19
+81807 ai ag sel 31
+81807 ai ag buildnear 32 43 48
+81807 ai ag sel 70
+81807 ai ag buildnear 32 43 48
+81807 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+82407 ai ag sel 76
+82407 ai ag buildnear 32 43 48
+82407 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+83007 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+83607 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+84207 ai ag sel 31
+84207 ai ag buildnear 32 43 48
+84207 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+84807 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+85407 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+86007 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+86607 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+87207 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+87807 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+88407 ai ag sel 76
+88407 ai ag harvestxy 42 55
+88407 ai ag sel 166
+88407 ai ag train 8
+88407 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+89007 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+89607 ai ag sel 31
+89607 ai ag harvestxy 42 55
+89607 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+90207 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+90807 ai ag sel 166
+90807 ai ag train 0
+90807 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+91407 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+92007 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+92607 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+93207 ai ag sel 166
+93207 ai ag train 8
+93207 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+93807 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+94407 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+95007 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+95607 ai ag sel 166
+95607 ai ag train 0
+95607 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+96207 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+96807 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+97407 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+98007 ai ag sel 166
+98007 ai ag train 8
+98007 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+98607 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+99207 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+99807 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+100407 ai ag sel 166
+100407 ai ag train 0
+100407 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+101007 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+101607 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+102207 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+102807 ai ag sel 166
+102807 ai ag train 8
+102807 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+103407 ai ag sel 31
+103407 ai ag buildnear 32 43 48
+103407 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+104007 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+104607 ai ag sel 76
+104607 ai ag repair 505
+104607 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+105207 ai ag sel 76
+105207 ai ag harvestxy 38 57
+105207 ai ag sel 166
+105207 ai ag train 0
+105207 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+105807 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+106407 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+107007 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+107607 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+108208 ai ag sel 290 349 26 357 25 355 362 314 384 449 452 454 360 482 485 367 495 497 499 503 507 510 27 28
+108208 ai ag move 34 43
+108608 ai ag sel 357 454 25 26 290 314 362 349 482 360 384 449 507 355 367 485 27 452 495 510 28 503 497 499
+108608 ai ag move 27 43
+109008 ai ag sel 290 357 25 26 27 349 360 454 362 482 28 314 355 485 507 510 495 503 452 449 384 499 367 497
+109008 ai ag move 27 43
+109408 ai ag sel 290 314 362 26 349 355 360 454 452 357 25 27 449 28 510 503 507 482 499 367 485 497 384 495
+109408 ai ag move 20 41
+109808 ai ag sel 25 290 349 355 510 26 28 314 452 454 503 27 360 357 482 499 507 367 384 485 362 449 497 495
+109808 ai ag move 20 41
+110208 ai ag sel 25 355 499 28 349 510 360 26 452 290 384 503 449 367 482 362 27 314 507 454 485 497 357 495
+110208 ai ag move 20 41
+110608 ai ag sel 25 355 499 28 290 362 452 510 449 26 349 360 485 503 314 27 454 495 497 384 482 357 367 507
+110608 ai ag move 23 34
+111008 ai ag sel 25 28 503 290 27 355 499 384 349 510 26 362 452 454 367 485 507 360 497 482 357 314 449 495
+111008 ai ag attack 514
+111608 ai ag sel 28 503 27 290 349 355 384 499 510 26 362 367 452 454 314 360 482 485 495 497 507 357 449
+111608 ai ag attack 484
+111908 ai ag sel 503 27 290 349 355 384 499 510 26 362 367 452 454 497 314 360 482 485 495 507 357 449
+111908 ai ag attack 567
+112208 ai ag sel 510 384 27 290 349 355 497 499 26 362 367 449 452 454 314 357 360 495 507 482 485
+112208 ai ag attack 484
+112508 ai ag sel 290 510 384 27 497 349 355 499 357 362 367 449 452 454 507 26 360 495 314 482 485
+112508 ai ag attack 502
+112808 ai ag sel 290 510 384 27 497 349 355 499 357 362 367 449 452 454 507 26 314 360 495 482 485
+112808 ai ag attack 58
+113108 ai ag sel 290 510 384 497 349 27 355 357 499 367 449 452 495 507 26 314 360 482 362 454 485
+113108 ai ag attack 514
+113408 ai ag sel 510 384 349 497 27 355 357 495 499 314 362 367 449 452 482 507 26 360 454 485
+113408 ai ag move 23 34
+113808 ai ag sel 510 384 497 349 27 367 355 357 482 449 495 499 507 485 26 314 360 362 454 452
+113808 ai ag attack 45
+114408 ai ag sel 384 510 497 349 27 355 367 357 482 485 507 449 495 499 26 314 360 362 452 454
+114408 ai ag attack 57
+115308 ai ag sel 349 367 355 357 27 482 449 360 362 485 495 507 26 314 499 452 454
+115308 ai ag attack 50
+115608 ai ag sel 357 367 355 27 449 482 360 362 485 507 495 499 26 314 454 452
+115608 ai ag attack 63
+116208 ai ag sel 485 367 355 362 27 449 482 360 507 499 314 26 495 452 454
+116208 ai ag attack 50
+116508 ai ag sel 485 362 367 355 27 449 482 360 507 499 314 26 454 495 452
+116508 ai ag attack 59
+116808 ai ag sel 485 367 355 27 449 482 507 360 499 314 454 26 452 495
+116808 ai ag attack 48
+117108 ai ag sel 485 507 367 355 499 27 449 482 314 360 454 26 452 495
+117108 ai ag attack 51
+117408 ai ag sel 485 367 507 355 499 27 314 449 454 482 360 495 26 452
+117408 ai ag attack 49
+117708 ai ag sel 367 507 314 355 499 27 454 449 482 360 495 26 452
+117708 ai ag move 30 27
+118108 ai ag sel 355 367 499 507 27 449 454 314 26 360 482 495 452
+118108 ai ag attack 64
+118708 ai ag sel 355 367 27 499 507 360 449 482 314 454 495 26 452
+118708 ai ag attack 501
+119008 ai ag sel 355 367 27 499 507 360 449 454 482 26 314 495 452
+119008 ai ag attack 1275
+119308 ai ag sel 367 27 454 499 507 26 360 449 482 314 452 495
+119308 ai ag attack 1196
+119608 ai ag sel 454 26 367 499 27 360 482 495 507 314 449 452
+119608 ai ag attack 42
+119908 ai ag sel 26 454 360 27 507 367 449 482 495 499 314 452
+119908 ai ag attack 44
+120208 ai ag sel 454 26 27 360 507 449 499 314 367 452 482 495
+120208 ai ag attack 461
+120508 ai ag sel 26 27 360 507 452 449 482 499 314 367 495
+120508 ai ag move 38 45
+120908 ai ag sel 31
+120908 ai ag buildnear 34 46 46
+121009 ai ag sel 31
+121009 ai ag harvest 19
+121009 ai ag sel 166
+121009 ai ag train 0
+121009 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+121609 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+122209 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+122809 ai ag sel 360 499 449 452 495 314 507 482 367
+122809 ai ag attack 44
+122809 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+123409 ai ag sel 166
+123409 ai ag train 8
+123409 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+124009 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+124609 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+125209 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+125809 ai ag sel 166
+125809 ai ag train 0
+125809 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+126409 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+127009 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+127609 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+128209 ai ag sel 166
+128209 ai ag train 8
+128209 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+128809 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+129409 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+130009 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+130609 ai ag sel 166
+130609 ai ag train 0
+130609 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+131209 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+131809 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+132409 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+133009 ai ag sel 166
+133009 ai ag train 8
+133009 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+133609 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+134209 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+134809 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+135409 ai ag sel 166
+135409 ai ag train 0
+135409 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+136009 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+136609 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+137209 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+137809 ai ag sel 166
+137809 ai ag train 8
+137809 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+138409 ai ag sel 31
+138409 ai ag harvest 19
+138409 ai ag sel 159
+138409 ai ag harvest 19
+138409 ai ag sel 70
+138409 ai ag harvestxy 38 57
+138409 ai ag sel 205
+138409 ai ag harvest 19
+138409 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+139009 ai ag sel 310
+139009 ai ag cmd 4
+139009 ai ag sel 31
+139009 ai ag harvest 16
+139009 ai ag sel 159
+139009 ai ag harvest 16
+139009 ai ag sel 205
+139009 ai ag harvest 16
+139009 ai ag sel 213
+139009 ai ag harvest 16
+139009 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+139609 ai ag sel 155
+139609 ai ag harvest 16
+139609 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+140209 ai ag sel 166
+140209 ai ag train 0
+140209 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+140809 ai ag sel 310
+140809 ai ag harvest 16
+140809 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+141409 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+142009 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+142609 ai ag sel 166
+142609 ai ag train 8
+142609 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+143209 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+143809 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+144409 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+145009 ai ag sel 166
+145009 ai ag train 0
+145009 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+145609 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+146209 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+146809 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+147409 ai ag sel 166
+147409 ai ag train 8
+147409 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+148009 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+148609 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+149209 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+149809 ai ag sel 166
+149809 ai ag train 0
+149809 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+150409 ai ag sel 1679 1888 1892 1894 1897 1900 1902 1908 1911 1954 2001 2003
+150409 ai ag attack 1899
+150409 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+151009 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+151609 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+152209 ai ag sel 166
+152209 ai ag train 8
+152209 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+152809 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+153409 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+154009 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+154609 ai ag sel 166
+154609 ai ag train 0
+154609 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+155209 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+155809 ai ag sel 1897 1888 1892 1894 2031 2033 1679 1900 1902 1908 1954 2003 1911 2001
+155809 ai ag attack 2030
+155809 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+156409 ai ag sel 1897 1900 2031 1679 1888 1892 1894 1908 1911 2001 2033 2003 1954 1902
+156409 ai ag attack 1891
+156409 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+157009 ai ag sel 1897 1900 1888 1892 1894 1908 1911 2001 2031 2033 2118 1679 1902 2003 1954
+157009 ai ag attack 2000
+157009 ai ag sel 166
+157009 ai ag train 8
+157009 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+157609 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+158209 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+158809 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+159409 ai ag sel 166
+159409 ai ag train 0
+159409 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+160009 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+160609 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+161209 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+161809 ai ag sel 166
+161809 ai ag train 8
+161809 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+162409 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+163009 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+163609 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+164209 ai ag sel 166
+164209 ai ag train 0
+164209 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+164809 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+165409 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+166009 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+166609 ai ag sel 166
+166609 ai ag train 8
+166609 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+167209 ai ag sel 70
+167209 ai ag harvestxy 48 57
+167209 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+167809 ai ag sel 70
+167809 ai ag harvestxy 48 57
+167809 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+168409 ai ag sel 70
+168409 ai ag harvestxy 48 57
+168409 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+169009 ai ag sel 70
+169009 ai ag harvestxy 48 57
+169009 ai ag sel 166
+169009 ai ag train 0
+169009 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+169609 ai ag sel 70
+169609 ai ag harvestxy 48 57
+169609 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+170209 ai ag sel 70
+170209 ai ag harvestxy 48 57
+170209 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+170809 ai ag sel 70
+170809 ai ag harvestxy 48 57
+170809 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+171409 ai ag sel 70
+171409 ai ag harvestxy 48 57
+171409 ai ag sel 166
+171409 ai ag train 8
+171409 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+172009 ai ag sel 70
+172009 ai ag harvestxy 48 57
+172009 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+172609 ai ag sel 70
+172609 ai ag harvestxy 48 57
+172609 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+173209 ai ag sel 70
+173209 ai ag harvestxy 48 57
+173209 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+173809 ai ag sel 70
+173809 ai ag harvestxy 48 57
+173809 ai ag sel 166
+173809 ai ag train 0
+173809 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+174409 ai ag sel 70
+174409 ai ag harvestxy 48 57
+174409 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+175009 ai ag sel 70
+175009 ai ag harvestxy 48 57
+175009 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+175609 ai ag sel 70
+175609 ai ag harvestxy 48 57
+175609 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+176209 ai ag sel 70
+176209 ai ag harvestxy 48 57
+176209 ai ag sel 166
+176209 ai ag train 8
+176209 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+176809 ai ag sel 70
+176809 ai ag harvestxy 48 57
+176809 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+177409 ai ag sel 70
+177409 ai ag harvestxy 48 57
+177409 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+178009 ai ag sel 70
+178009 ai ag harvestxy 48 57
+178009 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+178609 ai ag sel 70
+178609 ai ag harvestxy 48 57
+178609 ai ag sel 166
+178609 ai ag train 0
+178609 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+179209 ai ag sel 70
+179209 ai ag harvestxy 48 57
+179209 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+179809 ai ag sel 70
+179809 ai ag harvestxy 48 57
+179809 ai ag sel 23
+179809 ai ag train 2
+179809 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+180409 ai ag sel 70
+180409 ai ag harvestxy 48 57
+180409 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+181009 ai ag sel 1897 1900 1888 1892 1908 2031 2118 1894 1911 2001 2163 2167 2169 2171 1679 1902 2033 2177 2003 2183 1954 2189 2196 2203 2237
+181009 ai ag attack 2199
+181009 ai ag sel 70
+181009 ai ag harvestxy 48 57
+181009 ai ag sel 166
+181009 ai ag train 8
+181009 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+181609 ai ag sel 1908 2167 1897 1900 2171 1888 1892 2163 2177 2183 1679 1894 1902 1911 2001 2169 2031 2033 2118 2189 2003 1954 2237 2196 2203
+181609 ai ag attack 2165
+181609 ai ag sel 76
+181609 ai ag harvestxy 48 57
+181609 ai ag sel 70
+181609 ai ag harvestxy 48 57
+181609 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+182209 ai ag sel 2167 2171 1911 1892 1897 1908 1679 1888 1900 1902 2001 2163 2177 1894 2031 2169 2183 2189 2003 2033 2118 1954 2196 2203 2237
+182209 ai ag attack 2381
+182209 ai ag sel 310
+182209 ai ag harvest 16
+182209 ai ag sel 70
+182209 ai ag harvestxy 48 57
+182209 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+182809 ai ag sel 2402
+182809 ai ag harvest 16
+182809 ai ag sel 70
+182809 ai ag harvestxy 48 57
+182809 ai ag sel 23
+182809 ai ag train 2
+182809 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+183409 ai ag sel 70
+183409 ai ag harvestxy 48 57
+183409 ai ag mines /Volumes/1TB/Repositories/frank-war1/build/agent/h5/mines.txt
+184010 ai ag sel 2167 2171 1897 1908 1911 2163 1888 1892 1900 1902 2001 2177 1679 1894 2003 2031 2169 2183 2189 2033 2118 2425 1954 2196 2203 2237
+184010 ai ag move 27 43
+184410 ai ag sel 2177 2167 2171 1897 1679 2163 1902 1908 2118 2183 1900 2425 2001 1911 2203 2031 2237 1888 1892 2189 2033 1954 2169 2196 2003 1894
+184410 ai ag move 27 43
+184810 ai ag sel 1679 2177 1908 2001 2118 2167 2171 2237 2425 2203 1897 1900 1902 2031 1892 2163 2196 1888 1954 2169 2183 1894 1911 2189 2033 2003
+184810 ai ag move 27 43
+185210 ai ag sel 1679 1954 2031 1897 2001 2118 2167 2237 2171 2169 1894 1900 2183 2196 2203 2425 1892 1902 1908 2003 2177 2033 2189 1888 1911 2163
+185210 ai ag move 20 41
+185610 ai ag sel 1894 1897 1954 2237 1679 1892 2033 2196 1888 2118 2203 1902 2001 2167 2031 2169 2171 2183 2189 1908 2003 2177 1911 1900 2163 2425
+185610 ai ag move 20 41
+186010 ai ag sel 1894 1897 2203 1679 1888 2001 2033 2237 1954 1902 2031 2196 1900 1892 1908 1911 2118 2183 2169 2189 2171 2177 2167 2163 2425 2003
+186010 ai ag move 20 41
+186410 ai ag sel 1894 1897 2203 1908 1888 1892 1900 2033 2118 1902 2031 2183 2425 1679 2169 2237 1954 2171 2001 2167 2196 1911 2189 2177 2163 2003
+186410 ai ag move 23 34
+186810 ai ag sel 1894 1892 1679 1888 1908 1954 2033 2237 1897 2118 2203 1902 2001 1900 2171 2183 2189 1911 2031 2196 2003 2163 2167 2169 2177 2425
+186810 ai ag move 23 34
+187210 ai ag sel 1894 1892 1679 1888 1908 1897 2189 2033 2001 2171 1911 2169 2183 2196 2203 2031 1900 1902 1954 2118 2003 2237 2163 2177 2425 2167
+187210 ai ag move 23 34
+187610 ai ag sel 1894 1679 1888 1892 2189 1908 1897 1911 2033 2237 2001 2203 2183 1954 2003 2031 2171 2196 1902 2169 2177 2118 2167 2163 1900 2425
+187610 ai ag move 23 34
+188010 ai ag sel 1894 2189 1679 1888 1892 1897 1908 2033 2237 1911 1954 2001 2203 2183 2196 2031 2167 2425 2171 2003 2118 2163 2177 1900 2169 1902
+188010 ai ag move 23 34
+188410 ai ag sel 1908 1894 1897 2189 1679 1888 1892 2033 2203 2001 2196 2237 1954 1911 2183 2003 2171 2169 2177 2031 1900 1902 2167 2118 2425 2163
+188410 ai ag move 23 34
+188810 ai ag sel 2033 1897 1908 1894 2189 2203 1679 1888 1892 2001 1954 2196 2237 2183 2171 1911 2003 2167 1902 2425 2169 2118 2177 2031 1900 2163
+188810 ai ag move 23 34
+189210 ai ag sel 2001 2203 1897 1908 2033 2196 2237 1894 2189 1679 1888 1892 1954 2003 2171 2183 2167 1911 2031 2118 1902 2169 2177 2163 2425 1900
+189210 ai ag move 30 27
+189610 ai ag sel 1908 2001 2033 1894 2196 2203 1897 2237 2189 1888 2171 2003 2167 1892 1954 1679 2183 1911 2169 1900 1902 2163 2177 2031 2118 2425
+189610 ai ag move 30 27
+190010 ai ag sel 2196 1908 2033 2001 1897 2203 2237 1888 2167 1894 1954 2003 1892 2189 2171 2183 2169 1679 1911 1900 1902 2031 2425 2177 2118 2163
+190010 ai ag attack 2430
+190310 ai ag sel 2196 2237 1908 2001 2033 1897 2167 2203 1888 1894 1954 2169 2183 2171 1892 2003 1679 2189 1911 1902 1900 2425 2031 2177 2118 2163
+190310 ai ag attack 2174
+190610 ai ag sel 2196 2237 1908 2001 2033 1888 1894 1954 2167 2169 2171 2203 1679 1892 1897 2183 1911 2003 2189 2425 1902 2031 2177 1900 2118 2163
+190610 ai ag attack 46
+190910 ai ag sel 2196 2237 2171 1908 2001 2033 1679 1888 1894 1954 2167 2169 2203 1892 1897 1911 2031 2183 1900 2003 2189 2425 1902 2177 2118 2163
+190910 ai ag attack 42
+191810 ai ag sel 2033 2237 1908 2171 2196 1679 2001 1900 1894 1888 1954 1897 2169 2003 2167 2183 1911 2203 2031 2163 1902 2189 1892 2118 2177 2425
+191810 ai ag attack 2496
+192110 ai ag sel 2171 2237 1679 2196 2033 2001 1894 1908 1888 1900 1954 1897 2169 2003 1911 2167 1892 2031 1902 2183 2189 2163 2118 2203 2177 2425
+192110 ai ag attack 62
+192710 ai ag sel 1888 2171 1954 2001 2196 1897 2003 2033 1894 1908 2169 1900 1911 2167 1892 2031 2183 2203 1902 2163 2189 2425 2177 2118
+192710 ai ag attack 60
+193010 ai ag sel 1888 1954 2001 1897 1894 2003 2033 2196 1900 1908 2169 2171 1911 2031 2167 1892 2183 2203 1902 2189 2163 2425 2118 2177
+193010 ai ag attack 2688
+193310 ai ag sel 1888 1897 2003 1954 2169 2167 1894 1911 2033 1900 1908 2183 2031 1892 2203 1902 2189 2425 2163 2177 2118
+193310 ai ag attack 60
+193610 ai ag sel 1888 2003 2167 1911 1954 2169 1894 2033 1900 1908 2031 2183 2203 1892 1902 2189 2425 2163 2177 2118
+193610 ai ag attack 61
+193910 ai ag sel 1911 1888 2003 2031 2167 1954 2169 2183 1892 1894 1900 1908 2203 1902 2189 2163 2425 2177 2118
+193910 ai ag attack 65
+194210 ai ag sel 1911 2031 2167 2183 1892 1888 2003 1954 2169 1894 1902 1900 1908 2163 2203 2177 2189 2425 2118
+194210 ai ag attack 53
+194510 ai ag sel 1911 1892 2167 2183 2031 1888 2003 1954 2169 1894 1900 1902 1908 2163 2203 2189 2177 2425 2118
+194510 ai ag attack 47
+194810 ai ag sel 1911 1892 2003 1888 2167 2183 1954 2031 2169 1894 1900 2163 2203 1902 2189 2177 2425 2118
+194810 ai ag attack 33
+195710 ai ag sel 2177 2203 1892 2118 2163 2425 1911 2169 2003 2183 1888 1902 2031 2167 1954 1894 1900 2189
+195710 ai ag attack 66
+196310 ai ag sel 2118 2183 1892 1911 2177 2203 2163 2169 1902 2003 1888 2031 2425 1894 1954 1900 2189 2167
+196310 ai ag attack 33
+196610 ai ag sel 2118 1892 1911 2177 2183 2203 2163 2169 1902 2003 1888 2031 2425 1894 1954 1900 2167 2189
+196610 ai ag attack 74
+196910 ai ag sel 2118 2183 1892 1911 2177 2203 1902 2003 2163 2031 2169 2425 1888 1894 1900 1954 2167 2189
+196910 ai ag attack 3333
+197810 ai ag sel 1892 1911 2118 2177 2183 2203 1902 2003 2163 2031 2169 2425 1888 1894 2167 1900 1954 2189
+197810 ai ag attack 37
+199010 ai ag sel 1902 1911 1892 2118 2167 2177 2183 2203 2003 2163 2169 2425 1888 1894 2031 1900 1954 2189
+199010 ai ag attack 38
+199310 ai ag sel 1902 1911 1892 2118 2167 2177 2183 2203 2003 2163 2031 2169 2425 1888 1894 1900 1954 2189
+199310 ai ag attack 3905
+199910 ai ag sel 1902 1911 2031 2167 1892 2118 2177 2183 2203 2003 2163 2169 2425 1888 1894 1900 1954 2189
+199910 ai ag attack 3871
+209810 ai ag sel 1902 1911 2031 2167 1892 2118 2177 2183 2203 2003 2163 2169 2425 1888 1894 1900 1954 2189
+209810 ai ag attack 36
+210710 ai ag sel 1888 1892 1911 2425 1902 2163 2167 2203 2031 2118 2177 2183 2003 2169 1894 1900 1954 2189
+210710 ai ag attack 35
+211310 ai ag sel 1888 2425 2163 2203 1911 1892 2118 2177 2183 2003 2031 2167 2169 1902 1894 1900 1954 2189
+211310 ai ag attack 41
+211910 ai ag sel 1888 2163 2177 2203 2425 2003 2118 2169 1894 1892 1900 1902 1911 1954 2167 2183 2189 2031
+211910 ai ag attack 40
+212810 ai ag sel 1888 2425 2163 2203 2169 1911 1954 2118 1892 2177 2189 1900 1902 2003 1894 2031 2167 2183
+212810 ai ag attack 67
+213410 ai ag sel 2425 1888 1911 2163 2169 1954 2118 2203 1900 2177 2189 1892 1894 1902 2003 2167 2031 2183
+213410 ai ag attack 6164
+213710 ai ag sel 2425 1888 1911 2118 2163 2169 1892 1900 1954 2167 2177 2203 1894 2003 2189 1902 2031 2183
+213710 ai ag attack 73
+214010 ai ag sel 2425 2163 2118 1888 2169 1911 1900 2003 1892 2189 1894 1954 2177 2203 2031 2167 1902 2183
+214010 ai ag attack 3871
+214310 ai ag sel 1888 2118 2163 2425 2169 1911 2189 1894 1900 1954 2003 2203 2031 2167 2177 1892 2183 1902
+214310 ai ag attack 67
+214610 ai ag sel 2118 1888 2163 2425 1911 2169 1894 2003 2189 1900 1954 2031 2167 2203 1892 2177 2183 1902
+214610 ai ag attack 32
+216410 ai ag sel 2031 2118 2167 1888 2163 2425 1911 2169 1894 2003 2189 1892 1900 1902 1954 2183 2203 2177
+216410 ai ag attack 7105
+216710 ai ag sel 2031 2118 2167 1888 2163 2425 1911 2169 1894 2003 2189 1892 1900 1902 1954 2183 2203 2177
+216710 ai ag attack 32
+217010 ai ag sel 2031 2118 2167 1888 2163 2425 1911 2169 1894 2003 2189 1892 1900 1902 1954 2183 2203 2177
+217010 ai ag attack 7248
+217310 ai ag sel 2031 2118 2167 1888 2163 2425 1911 2169 1894 2003 2189 1892 1900 1902 1954 2183 2203 2177
+217310 ai ag attack 73
+217610 ai ag sel 2031 2167 2425 1888 2163 1894 2118 2169 2189 1900 1902 1954 2003 2203 1911 2177 2183 1892
+217610 ai ag attack 7248
+219410 ai ag sel 1892 1911 2031 2167 2425 1888 2118 2163 1894 2169 2189 1900 1902 1954 2003 2183 2203 2177
+219410 ai ag attack 7735
+220010 ai ag sel 1892 2167 1911 2031 2118 2183 1888 1894 1954 2163 2189 2425 2169 2177 1900 2203 1902 2003
+220010 ai ag attack 7248
+220610 ai ag sel 1892 1911 2031 2167 2183 1888 1894 1954 2163 2189 2425 2118 2169 2177 1900 1902 2203 2003
+220610 ai ag attack 34
+221210 ai ag sel 2118 1911 1892 1902 2031 2167 2183 1888 1894 1954 2163 2189 2425 2169 2177 1900 2203 2003
+221210 ai ag attack 39
+222410 quit
