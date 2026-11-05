@@ -2050,6 +2050,30 @@ rerouted to walk-to-target while war1 stayed in the cast with no move,
 and the caster stood in a walk script ("invalid targeted spell order").
 A newer order waiting at that moment goes first.
 
+### Walks begun mid-step, and fresh wood orders
+
+A walk begun while the unit is between two tiles (a player's command) cannot
+select its walk order at once; the step's script ends first. It now takes
+its order at that step's checkpoint, and the new script starts at the next
+tick: "every order change selects its animation and initializes wait to
+one", as at any checkpoint. Before, the old script went on: a peasant sent
+to the trees while stepping into a mine (order 12) kept stepping east with
+the entry script, past the map's edge.
+
+The wood state measures its arrival against the record's goal. A fresh
+order has not set that goal yet, so a worker standing beside its last tree
+was "there", found no tree round it and idled. It counts as there only once
+the work order (10) has been taken.
+
+### Trees without a tile shape
+
+war1 re-shapes a forest's tiles after each felled tree and dropped any tree
+its neighbours left without a shape, without taking it down. The original
+keeps every tree until it is chopped: its standing-tree bits are what the
+walk and the worker's tree search see (`0x2BCD4`). The dropped trees stayed
+standing in those bits and in war1's pathfinder but could not be chopped.
+They stay trees now; their art comes from the level anyway.
+
 ### Checking it tile by tile
 
 `tools/ai_ref_compare.sh RACE N MINUTES` plays the mission in the

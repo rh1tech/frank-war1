@@ -101,8 +101,14 @@ void we_determineTreeTiles(WarContext* context, WarEntity* forest)
             S32ListAdd(&invalidTrees, i);
     }
 
+#ifndef WAR_FRANK
     for (s32 i = invalidTrees.count - 1; i >= 0; i--)
         WarTreeListRemoveAt(trees, invalidTrees.items[i]);
+#endif
+    // frank: a tree whose neighbours leave it no tile shape stays a tree, as
+    // in the original (its tile comes from the level, not from the shape);
+    // dropped from the list it went on standing in the walk grid and the
+    // pathfinder, unchoppable: every order to it failed
 
     S32ListFree(&invalidTrees);
 }

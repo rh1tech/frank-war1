@@ -79,7 +79,10 @@ void wst_updateGatherWoodState(WarContext* context, WarEntity* entity, WarState*
         vec2 edge = wai_drivesTicks(context) && original ? vec2i(original->goalX, original->goalY)
             : wmv_backOff(context, entity, (s32)treeTile.x, (s32)treeTile.y);
         const s32 ex = (s32)edge.x, ey = (s32)edge.y;
-        if (MAX(ABS(ux - ex), ABS(uy - ey)) > 1)
+        // (a fresh order still carries the last one's goal: there only
+        // once the work order has been taken, else the walk is set up first)
+        const bool unprepared = wai_drivesTicks(context) && original && original->current != 10;
+        if (unprepared || MAX(ABS(ux - ex), ABS(uy - ey)) > 1)
         {
             if (wai_drivesTicks(context))
             {

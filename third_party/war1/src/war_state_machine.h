@@ -88,6 +88,7 @@ struct _WarStateMove
     WarEntityId frankEnter;   // a building to step into (order 12)
     u8 frankNextOrder;        // following order, or 31 (0x2EFC4)
     bool frankEntered;
+    bool frankSelectAfterStep;   // begun mid-step: its walk order at the step's checkpoint
 #endif
 };
 

@@ -2681,6 +2681,13 @@ static void wai_agFullMap(WarContext* context, const char* path)
     fclose(f);
 }
 
+// A unit a player could click on (an id may since be reused by a forest or a road)
+static WarEntity* wai_agUnit(WarContext* context, s32 id)
+{
+    WarEntity* e = we_findEntity(context, (WarEntityId)id);
+    return e && wu_isUnit(e) && wai_alive(context, e) && !wst_isInsideBuilding(context, e) ? e : NULL;
+}
+
 static void wai_agSelect(WarContext* context, const char* args)
 {
     WarMap* map = context->map;
@@ -2706,6 +2713,19 @@ static void wai_agCommand(WarContext* context, const char* cmd)
     else if (!strncmp(cmd, "map ", 4)) wai_agMap(context, cmd + 4);
     else if (!strncmp(cmd, "sel ", 4)) wai_agSelect(context, cmd + 4);
     else if (!strncmp(cmd, "fullmap ", 8)) wai_agFullMap(context, cmd + 8);
+    else if (sscanf(cmd, "stack %d", &a) == 1)
+    {
+        // a unit's state stack, bottom first (to stderr)
+        WarEntity* e = we_findEntity(context, (WarEntityId)a);
+        WarStateMachineComponent* sm = e ? we_getStateMachineComponent(context, e) : NULL;
+        fprintf(stderr, "agent: stack %d:", a);
+        for (u8 k = 0; sm && k < sm->depth; k++) fprintf(stderr, " %d", (s32)sm->stack[k].type);
+        fprintf(stderr, " pending op %d type %d\n", sm ? (s32)sm->pending.operation : -1, sm ? (s32)sm->pending.stateRef.type : -1);
+        WarStateStorage* ss = &we_getEntityManager(context)->stateStorage;
+        fprintf(stderr, "agent: states in use (of %d):", MAX_STATES_PER_TYPE);
+        for (s32 k = 0; k < WAR_STATE_COUNT; k++) fprintf(stderr, " %d", (s32)ss->activeCounts[k]);
+        fprintf(stderr, "\n");
+    }
     else if (!strncmp(cmd, "heroes ", 7))
     {
         // the mission's heroes, wherever they are (objective 0x04)
@@ -2741,7 +2761,7 @@ static void wai_agCommand(WarContext* context, const char* cmd)
     else if (sscanf(cmd, "attackxy %d %d", &a, &b) == 2) wcmd_executeAttackCommand(context, NULL, wai_tileCenter(a, b));
     else if (sscanf(cmd, "attack %d", &a) == 1)
     {
-        WarEntity* t = we_findEntity(context, (WarEntityId)a);
+        WarEntity* t = wai_agUnit(context, a);
         if (t) wcmd_executeAttackCommand(context, t, wu_getUnitCenterPosition(context, t));
     }
     else if (sscanf(cmd, "harvestxy %d %d", &a, &b) == 2)
@@ -2751,18 +2771,18 @@ static void wai_agCommand(WarContext* context, const char* cmd)
     }
     else if (sscanf(cmd, "harvest %d", &a) == 1)
     {
-        WarEntity* t = we_findEntity(context, (WarEntityId)a);
+        WarEntity* t = wai_agUnit(context, a);
         if (t) wcmd_executeHarvestCommand(context, t, wu_getUnitCenterTile(context, t));
     }
     else if (sscanf(cmd, "repair %d", &a) == 1)
     {
-        WarEntity* t = we_findEntity(context, (WarEntityId)a);
+        WarEntity* t = wai_agUnit(context, a);
         if (t) wcmd_executeRepairCommand(context, t);
     }
     else if (!strcmp(cmd, "stop")) wcmd_executeStopCommand(context);
     else if (sscanf(cmd, "heal %d", &a) == 1)
     {
-        WarEntity* t = we_findEntity(context, (WarEntityId)a);
+        WarEntity* t = wai_agUnit(context, a);
         if (t) wcmd_executeHealingCommand(context, t, wu_getUnitCenterPosition(context, t));
     }
     else if (sscanf(cmd, "buildnear %d %d %d", &a, &b, &c) == 3)

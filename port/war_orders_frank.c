@@ -742,7 +742,13 @@ WarOrderResult wor_attackZone(WarOriginalRuntime* runtime, int16_t* x, int16_t* 
         if (unit->owner != 0 || (unit->flags & WOR_INACTIVE)) continue;
         if (unit->tileX < 0 || unit->tileX >= WOR_MAP_WIDTH ||
             unit->tileY < 0 || unit->tileY >= WOR_MAP_WIDTH)
+        {
+#ifndef FRANK_BOARD
+            fprintf(stderr, "attack zone: slot %u type %u tile %d,%d flags %04x current %u\n", slot, unit->type,
+                    unit->tileX, unit->tileY, unit->flags, unit->current);
+#endif
             return wor_error(runtime, slot, "invalid attack-zone tile");
+        }
         unsigned zone = (unsigned)(unit->tileY / 16) * 4 + (unsigned)(unit->tileX / 16);
         scores[zone] += unit->type >= 32 && unit->type <= 50 ? 4 : 1;
     }

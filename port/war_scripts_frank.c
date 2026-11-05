@@ -669,6 +669,15 @@ static void wos_syncTile(WarContext* context, WarEntity* entity, WarOriginalUnit
     original->tileX = (s16)tile.x;
     original->tileY = (s16)tile.y;
     original->owner = unit->player;
+#ifndef FRANK_BOARD
+    if (getenv("WAR_TILECHECK") && ((u32)tile.x >= MAP_TILES_WIDTH || (u32)tile.y >= MAP_TILES_HEIGHT))
+    {
+        WarStateBase* st = wst_getActiveState(context, entity);
+        vec2 pos = wu_getUnitCenterPosition(context, entity);
+        fprintf(stderr, "off-map tick %u entity %u type %d tile %d,%d pos %.1f,%.1f state %d\n", wrng_tick, entity->id,
+                unit->type, (s32)tile.x, (s32)tile.y, pos.x, pos.y, st ? (s32)st->type : -1);
+    }
+#endif
 }
 
 static u16 wos_reference(WarContext* context, WarEntityId id, u16 retained)

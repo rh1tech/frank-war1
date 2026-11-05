@@ -692,6 +692,11 @@ static void wmv_prepareWork(WarContext* context, WarEntity* entity, WarStateBase
     }
     WarStateMove* move = wst_createMoveState(context, entity, 2,
         arrayArg(vec2, wu_getUnitCenterPosition(context, entity), wmap_tileToMapCoordinatesV(goal, true)), false);
+#ifndef FRANK_BOARD
+    if (getenv("WAR_SCRIPTWATCH") && atoi(getenv("WAR_SCRIPTWATCH")) == (s32)entity->id)
+        fprintf(stderr, "prepareWork tick %u state %d here %d,%d goal %d,%d move %p\n", wrng_tick, state->type,
+                (s32)here.x, (s32)here.y, (s32)goal.x, (s32)goal.y, (void*)move);
+#endif
     if (!move) return;
     move->frankTarget = target ? target->id : 0;
     move->frankRange = 1;
@@ -997,6 +1002,8 @@ static bool wmv_checkpoint(WarContext* context, WarEntity* e, WarUnitComponent* 
     return true;
 }
 
+static void wmv_selectWalk(WarContext* context, WarEntity* entity, WarStateMove* s);
+
 // One tick of a unit's walk script; the move order at its checkpoint.
 static void wmv_runScript(WarContext* context, WarEntity* e, WarUnitComponent* u, WarStateMove* mv)
 {
@@ -1005,6 +1012,12 @@ static void wmv_runScript(WarContext* context, WarEntity* e, WarUnitComponent* u
     wu_setUnitCenterTile(context, e, vec2i(u->wmvTileX, u->wmvTileY));
     if (wmv_takePendingOrder(context, e)) return;
     if (!mv || mv->frankDone) return;
+    if (mv->frankSelectAfterStep)
+    {
+        mv->frankSelectAfterStep = false;
+        wmv_selectWalk(context, e, mv);
+        return;
+    }
     wmv_checkpoint(context, e, u, mv);
 }
 
@@ -1057,6 +1070,19 @@ static void wmv_tick(WarContext* context)
     }
 }
 
+// The walk's order: move 3 (12 to step into a building), paired with the
+// order it leads to.
+static void wmv_selectWalk(WarContext* context, WarEntity* entity, WarStateMove* s)
+{
+    if (wai_drivesTicks(context) && (s->frankNextOrder == 7 ||
+        s->frankNextOrder == 17 || s->frankNextOrder == 19 || s->frankNextOrder == 20 || s->frankNextOrder == 21 ||
+        s->frankNextOrder == 27 ||
+        s->frankNextOrder == 10 || s->frankNextOrder == 11))
+        wos_startPair(context, entity, 3, s->frankNextOrder);
+    else
+        wos_select(context, entity, s->frankEnter ? 12 : 3, 1);
+}
+
 // A move begins: the original's order setter drops the old route and the
 // count of hold-ups (0x22554).
 static void wmv_enter(WarContext* context, WarEntity* entity, WarStateMove* s)
@@ -1072,19 +1098,17 @@ static void wmv_enter(WarContext* context, WarEntity* entity, WarStateMove* s)
         u->wmvGiveUp = false;
     }
     s->frankDone = false;
+    s->frankSelectAfterStep = false;
     if (!u->wmvStepping)
     {
         vec2 c = wu_getUnitCenterPosition(context, entity);
         u->wmvTileX = (s16)CLAMP((s32)(c.x / MEGA_TILE_WIDTH), 0, MAP_TILES_WIDTH - 1);
         u->wmvTileY = (s16)CLAMP((s32)(c.y / MEGA_TILE_HEIGHT), 0, MAP_TILES_HEIGHT - 1);
-        if (wai_drivesTicks(context) && (s->frankNextOrder == 7 ||
-            s->frankNextOrder == 17 || s->frankNextOrder == 19 || s->frankNextOrder == 20 || s->frankNextOrder == 21 ||
-            s->frankNextOrder == 27 ||
-            s->frankNextOrder == 10 || s->frankNextOrder == 11))
-            wos_startPair(context, entity, 3, s->frankNextOrder);
-        else
-            wos_select(context, entity, s->frankEnter ? 12 : 3, 1);
+        wmv_selectWalk(context, entity, s);
     }
+    // (begun mid-step, by a player's command: the step's script ends first,
+    // then this walk's order is taken, not the old script's)
+    else if (wai_drivesTicks(context)) s->frankSelectAfterStep = true;
 }
 
 static void wmv_update(WarContext* context)
