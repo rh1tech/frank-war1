@@ -329,6 +329,7 @@ void wmv_setTerrain(const u16* data);
 bool wmv_hasTerrain(s32 x, s32 y, u16 mask);
 void wmv_damageTerrain(WarContext* context, s32 x, s32 y, u8 damage);
 bool wai_attackTerrain(WarContext* context, WarEntity* entity, s32 x, s32 y);
+bool wai_playerAttackPlace(WarContext* context, WarEntity* entity, s32 x, s32 y);
 bool wmv_steppingTile(WarContext* context, WarEntity* entity, vec2* tile);
 bool wmv_holdsOrders(WarContext* context, WarEntityId id, WarStateType type);
 bool wmv_enterBuilding(WarContext* context, WarEntity* entity, WarEntity* building);

@@ -208,6 +208,18 @@ void wst_frankCastTick(WarContext* context, WarEntity* entity, WarStateBase* sta
     if (unit->frankScriptChanged) return;
     if (!cast->frankRunning)
     {
+        // the range as the spell starts, not as it was ordered: the
+        // recipient may have walked off meanwhile (the original's spell
+        // entry walks first then, 0x21258)
+        cast->frankPrepared = false;
+        // (a newer order waiting: no script yet to finish, it goes first)
+        WarStateMachineComponent* sm = we_getStateMachineComponent(context, entity);
+        if (sm && sm->pending.operation != WAR_STATE_OP_NONE)
+        {
+            unit->frankOrderQueued = false;
+            wmv_settle(context, entity);
+            return;
+        }
         wst_frankPrepareCast(context, entity, cast);
         wmv_settle(context, entity);
         return;

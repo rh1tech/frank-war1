@@ -378,6 +378,15 @@ bool wai_attackTerrain(WarContext* context, WarEntity* entity, s32 x, s32 y)
     return wai_order(context, entity, (WarStateBase*)attack);
 }
 
+// The human's attack command on a place (command 4, 0x20FC4): a wall or a
+// tree is attacked (order 7), open ground is an attack-move (order 6), both
+// after the walk there; a target unit takes the fixed-target attack 5 instead.
+bool wai_playerAttackPlace(WarContext* context, WarEntity* entity, s32 x, s32 y)
+{
+    if (wmv_hasTerrain(x, y, 0xC)) return wai_attackTerrain(context, entity, x, y);
+    return wai_attackMove(context, entity, x, y);
+}
+
 #ifndef FRANK_BOARD
 #define wai_attack(c, e, t) wai_attackAt(c, e, t, __func__)
 #else
@@ -2187,7 +2196,16 @@ static void wai_step(WarContext* context, bool levelStart)
         // (the unit's state as its turn begins: a new order runs from the next tick)
         WarStateBase* st0 = wst_getActiveState(context, e);
         wst_frankTrainTick(context, e, st0);
-        if (st0 && st0->type == WAR_STATE_CAST &&
+        if (u->wmvStepping && st0 && st0->type != WAR_STATE_MOVE)
+        {
+            // An order given mid-step (a spell, work, a stop) waits for the
+            // walk's checkpoint: only the step's script runs, and the new
+            // order's script starts at the next tick (0x2ECFC).
+            wmv_unitTick(context, e, st0);
+            wft_unitTick(context, e, wst_getActiveState(context, e));
+            wai_checkpoint = false;
+        }
+        else if (st0 && st0->type == WAR_STATE_CAST &&
             wst_frankSpellOrder(((WarStateCast*)st0)->spellType))
         {
             wst_frankCastTick(context, e, st0);
@@ -2672,8 +2690,11 @@ static void wai_agSelect(WarContext* context, const char* args)
     {
         long id = strtol(q, &end, 10);
         if (end == q) break;
+        // only what a player can click: a living unit on the map (war1 drops
+        // the dead and the hidden from a selection; a stale id may be reused)
         WarEntity* e = we_findEntity(context, (WarEntityId)id);
-        if (e) WarEntityIdListAdd(&map->selectedEntities, e->id);
+        if (e && wu_isUnit(e) && wai_alive(context, e) && !wst_isInsideBuilding(context, e))
+            WarEntityIdListAdd(&map->selectedEntities, e->id);
     }
 }
 
@@ -2795,7 +2816,12 @@ static void wai_agCommand(WarContext* context, const char* cmd)
         }
         else
         {
-            WarUnitCommandData d = wu_getUnitCommandData(context, sel, (WarUnitCommandType)b);
+            // only a button the panel shows now (no orc upgrade on a human smithy)
+            WarUnitCommandType shown[6] = {0};
+            wu_getUnitCommands(context, sel, shown);
+            bool onPanel = false;
+            for (s32 k = 0; k < 6; k++) onPanel |= shown[k] == (WarUnitCommandType)b;
+            WarUnitCommandData d = onPanel ? wu_getUnitCommandData(context, sel, (WarUnitCommandType)b) : (WarUnitCommandData){0};
             if (!d.clickHandler) { printf("agent: no command %d\n", b); return; }
             d.clickHandler(context, sel);
         }

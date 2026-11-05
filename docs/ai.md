@@ -179,7 +179,8 @@ has 100 records and is obtained from `0x596D4`.
 | 0x2EFEC | Validate an action target, reacquire when allowed, and reissue movement when required. | 0x113E0, 0x1143C, 0x14140, 0x141E0, 0x1CF1C | read |
 | 0x20FA4 | Construct a plain move, with no following action. | Indirect command callback | read |
 | 0x21020 | Construct move followed by attack order 6. | Indirect command callback | read |
-| 0x21074 | Construct move followed by fixed-target attack 5, or idle without a target. | Indirect command callback | read |
+| 0x20FC4 | The Attack button's command (4): order 5 on a unit, 7 on a wall tile, else attack-move 6, after move 3; the computer always 6. | Indirect command callback | read |
+| 0x21074 | Construct move 3 followed by fixed-target attack 5, or a plain move 2 without a target. | Indirect command callback | read |
 | 0x2109C | Construct the human auto-attack variant, or the computer's move/attack pair. | Indirect command callback | read |
 | 0x1143C | Shared attack checkpoint: validate/reacquire, alert, handle range and mana, face target. | 0x114D8, 0x114EC | read |
 | 0x110A4 | Check a caster's shot cost; if short, flee an attacker or idle. | Attack handlers | read |
@@ -2013,6 +2014,41 @@ Found by watching single units tick by tick in the reference:
   unit spends one tick there, then goes idle (melee and ranged alike).
 - **A new target** restarts the attack script. The look-round runs at the
   script's checkpoint (op 0), once per blow cycle.
+
+### The player's Attack button
+
+The command table at `0x529C0` maps a command number to its constructor;
+the UI stores the chosen command in `[0x5A854]` and sends it with the
+click (`0x21B48`). The Attack button sets command 4 (`0x21120`), whose
+constructor `0x20FC4` queues move 3 and then: attack-move 6 for a computer
+player (the per-player controller table `0x5008C`: 0 human, 1 computer,
+2 passive); for the human, fixed-target attack 5 on a unit, wall attack 7
+when the clicked tile has wall bits `0xC`, otherwise attack-move 6.
+Command 5 (`0x21074`) is not on a button. The port's player attack with no
+target is now this attack-move or wall attack (`wai_playerAttackPlace`);
+before, war1's targetless attack state was never prepared under the
+kernel and the units stood still.
+
+### Orders given mid-step
+
+The original takes a new order at the walk script's checkpoint, the end
+of a step (`0x2ECFC`). war1's player commands reset a unit's state at
+once, so a heal, a work order or a stop could arrive while the unit was
+still between two tiles. The kernel then ran that order's script right
+away and left the step unfinished. Two scripts then ran in one tick, the
+step's and the new order's. A cleric between tiles started its heal, and
+when the heal ended its idle checkpoint ran in the same tick as the
+leftover step. A peasant sent to the trees mid-step ran both the chopping
+script and the step. Now, while a unit is mid-step and its state is not
+a move, only the step's script runs; the new order's script begins at the
+next tick, as an attack already did.
+
+A spell checks its range when it actually starts, not when it was
+ordered. The recipient may have walked away in between, and the
+original's spell entry then walks first (`0x21258`). Before, the kernel
+rerouted to walk-to-target while war1 stayed in the cast with no move,
+and the caster stood in a walk script ("invalid targeted spell order").
+A newer order waiting at that moment goes first.
 
 ### Checking it tile by tile
 

@@ -833,6 +833,21 @@ WarOrderResult wos_tick(WarContext* context, WarEntity* entity,
     WarUnitComponent* unit = we_getUnitComponent(context, entity);
     if (wai_drivesTicks(context))
     {
+#ifndef FRANK_BOARD
+        {
+            // WAR_SCRIPTWATCH=id: where each script of that unit runs from
+            static s32 watch = -2;
+            if (watch == -2) watch = getenv("WAR_SCRIPTWATCH") ? atoi(getenv("WAR_SCRIPTWATCH")) : -1;
+            if ((s32)entity->id == watch)
+            {
+                extern int backtrace(void**, int);
+                extern void backtrace_symbols_fd(void* const*, int, int);
+                void* frames[8];
+                fprintf(stderr, "script tick %u entity %u pc %u orders %u/%u/%u\n", wrng_tick, entity->id, original->pc, original->current, original->pending, original->next);
+                backtrace_symbols_fd(frames, backtrace(frames, 8), 2);
+            }
+        }
+#endif
         if (unit->frankScriptTick == wrng_tick)
         {
             logError("original kernel: two scripts in tick %u for entity %u", wrng_tick, entity->id);

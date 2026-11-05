@@ -665,7 +665,6 @@ void wcmd_executeAttackCommand(WarContext* context, WarEntity* targetEntity, vec
         WarEntityId entityId = map->selectedEntities.items[i];
         WarEntity* entity = we_findEntity(context, entityId);
         assert(entity);
-
         if (wu_isFriendlyUnit(context, entity) &&
             wst_canSubmitTransition(context, entity, WAR_INTERRUPT_PLAYER_ORDER))
         {
@@ -693,6 +692,21 @@ void wcmd_executeAttackCommand(WarContext* context, WarEntity* targetEntity, vec
                     }
                 }
             }
+#ifdef WAR_FRANK
+            else if (wai_drivesTicks(context))
+            {
+                const vec2 tile = wmap_mapToTileCoordinatesV(targetPosition);
+                if (wai_playerAttackPlace(context, entity, (s32)tile.x, (s32)tile.y))
+                {
+                    if (!player)
+                    {
+                        player = wu_getOwningPlayer(context, entity);
+                    }
+
+                    isGoingToAttack = true;
+                }
+            }
+#endif
             else
             {
                 WarStateAttack* attackState = wst_createAttackState(context, entity, 0, targetPosition);
