@@ -2802,6 +2802,20 @@ static void wai_agCommand(WarContext* context, const char* cmd)
         if (t) wcmd_executeRepairCommand(context, t);
     }
     else if (!strcmp(cmd, "stop")) wcmd_executeStopCommand(context);
+    else if (sscanf(cmd, "rainxy %d %d", &a, &b) == 2 || sscanf(cmd, "summon %d", &c) == 1)
+    {
+        // a caster's area spell at a place, or a summon (by command type), only
+        // when the selection's panel shows its button
+        WarEntity* sel = map->selectedEntities.count ? we_findEntity(context, map->selectedEntities.items[0]) : NULL;
+        WarUnitCommandType want = !strncmp(cmd, "rainxy", 6) ? WAR_COMMAND_SPELL_RAIN_OF_FIRE : (WarUnitCommandType)c;
+        WarUnitCommandType shown[6] = {0};
+        if (sel) wu_getUnitCommands(context, sel, shown);
+        bool onPanel = false;
+        for (s32 k = 0; k < 6; k++) onPanel |= shown[k] == want;
+        if (!onPanel) { printf("agent: no command %d\n", want); return; }
+        if (want == WAR_COMMAND_SPELL_RAIN_OF_FIRE) wcmd_executeRainOfFireCommand(context, wai_tileCenter(a, b));
+        else wcmd_executeSummonCommand(context, want);
+    }
     else if (sscanf(cmd, "heal %d", &a) == 1)
     {
         WarEntity* t = wai_agUnit(context, a);
