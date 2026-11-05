@@ -2779,6 +2779,10 @@ static void wai_agCommand(WarContext* context, const char* cmd)
         }
         if (f) fclose(f);
     }
+    else if ((sscanf(cmd, "move %d %d", &a, &b) == 2 || sscanf(cmd, "attackxy %d %d", &a, &b) == 2 ||
+              sscanf(cmd, "rainxy %d %d", &a, &b) == 2 || sscanf(cmd, "harvestxy %d %d", &a, &b) == 2) &&
+             ((u32)a >= MAP_TILES_WIDTH || (u32)b >= MAP_TILES_HEIGHT))
+        printf("agent: %d,%d is off the map\n", a, b);   // (a click lands on the map)
     else if (sscanf(cmd, "move %d %d", &a, &b) == 2) wcmd_executeMoveCommand(context, wai_tileCenter(a, b));
     else if (sscanf(cmd, "attackxy %d %d", &a, &b) == 2) wcmd_executeAttackCommand(context, NULL, wai_tileCenter(a, b));
     else if (sscanf(cmd, "attack %d", &a) == 1)
