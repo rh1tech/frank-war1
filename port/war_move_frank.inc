@@ -65,6 +65,9 @@ static u16 wmv_visual[WMV_TILES] WMV_BSS;
 static WarOriginalTerrain wmv_terrainState;
 static bool wmv_visualReady;
 static u8 wmv_built[WMV_TILES] WMV_BSS;      // 1: a building, a wall (this tick)
+// 0x55104: a wall's artwork row by its walled neighbours (8 below, 4 right,
+// 2 left, 1 above)
+static const u8 wmv_wallShape[16] = { 2, 2, 9, 3, 9, 1, 9, 5, 12, 12, 11, 6, 8, 4, 10, 7 };
 static u16 wmv_set[2 * WMV_TILES] WMV_BSS;   // the tiles set this tick, to clear (built, then units)
 static s32 wmv_setBuilt, wmv_setUnits;
 static u16 wmv_unitAt[WMV_TILES] WMV_BSS;    // the entity pool slot + 1 of the unit on a tile
@@ -127,9 +130,10 @@ static void wmv_terrainError(WarOriginalRuntime* runtime, u16 slot, const char* 
     logError("original kernel: %s", message);
 }
 
-void wmv_damageTerrain(WarContext* context, s32 x, s32 y, u8 damage)
+// The level's artwork and the wall/transition table of its tileset (the
+// original loads the same resource at 0x2BA0C, rows after a 4-byte header).
+static bool wmv_visualInit(WarContext* context)
 {
-    if (!wmv_hasTerrain(x, y, 0xC)) return;
     if (!wmv_visualReady)
     {
         WarResource* level = wres_getOrCreateResource(context, context->map->levelInfoIndex);
@@ -139,7 +143,7 @@ void wmv_damageTerrain(WarContext* context, s32 x, s32 y, u8 damage)
         if (!wfile_readResource(context->warFile, tableIndex))
         {
             logError("original kernel: terrain transition resource %d unavailable", tableIndex);
-            return;
+            return false;
         }
         WarRawResource* table = &context->warFile->resources[tableIndex];
         memcpy(wmv_visual, visual->levelVisual.data, sizeof(wmv_visual));
@@ -148,6 +152,70 @@ void wmv_damageTerrain(WarContext* context, s32 x, s32 y, u8 damage)
         };
         wmv_visualReady = true;
     }
+    return true;
+}
+
+static WarWallPiece* wmv_wallPieceAt(WarContext* context, s32 x, s32 y)
+{
+    WarEntityList* walls = we_getEntitiesOfType(context, WAR_ENTITY_TYPE_WALL);
+    for (s32 i = 0; i < walls->count; i++)
+    {
+        WarWallComponent* wall = walls->items[i] ? we_getWallComponent(context, walls->items[i]) : NULL;
+        if (!wall) continue;
+        for (s32 k = 0; k < wall->pieces.count; k++)
+            if (wall->pieces.items[k].tilex == x && wall->pieces.items[k].tiley == y)
+                return &wall->pieces.items[k];
+    }
+    return NULL;
+}
+
+// 0x2C054: give a wall tile the artwork for its walled neighbours; with
+// `bits`, first lay that owner's wall bit in place of the low nibble
+static void wmv_fitWall(WarContext* context, s32 x, s32 y, u16 bits)
+{
+    if (!wmv_inside(x, y)) return;
+    const s32 t = y * WMV_W + x;
+    if (!((wmv_terrain[t] | bits) & 0xC)) return;
+    if (bits) wmv_terrain[t] = (u16)((wmv_terrain[t] & ~0xF) | bits);
+    if (!wmv_visualReady) return;
+    const u16 shape = wmv_wallShape[(wmv_hasTerrain(x, y + 1, 0xC) << 3) | (wmv_hasTerrain(x + 1, y, 0xC) << 2)
+                                    | (wmv_hasTerrain(x - 1, y, 0xC) << 1) | wmv_hasTerrain(x, y - 1, 0xC)];
+    const u8* table = wmv_terrainState.wallTable;
+    const u32 offset = 4 + (u32)shape * (u32)(table[0] | table[1] << 8) * 2;   // (column 0: a finished wall)
+    if (offset + 2 > wmv_terrainState.wallTableLength)
+    {
+        logError("original kernel: truncated wall artwork table");
+        return;
+    }
+    const u16 art = (u16)(((table[offset] | table[offset + 1] << 8) & 0xFFF) + 9);
+    if ((wmv_visual[t] & 0x7FF) == art) return;
+    wmv_visual[t] = (u16)((wmv_visual[t] & 0xF800) | art);
+    wmap_setMapTileIndex(context, x, y, art);
+}
+
+// 0x2C23C: a wall piece laid on the map: its owner's bit (0x51DC0: 4 for the
+// player, 8 for the computers), the artwork round it, durability 20
+static void wmv_layWall(WarContext* context, WarWallPiece* piece)
+{
+    piece->frankLaid = true;
+    const s32 x = piece->tilex, y = piece->tiley;
+    const u16 bit = piece->player == 0 ? 4 : piece->player < 4 ? 8 : 0;
+    if (!wmv_inside(x, y)) return;
+    wmv_visualInit(context);
+    wmv_fitWall(context, x, y, bit);
+    wmv_fitWall(context, x - 1, y, 0);
+    wmv_fitWall(context, x + 1, y, 0);
+    wmv_fitWall(context, x, y - 1, 0);
+    wmv_fitWall(context, x, y + 1, 0);
+    wmv_visual[y * WMV_W + x] = (u16)((wmv_visual[y * WMV_W + x] & 0x7FF) | (20 << 11));
+}
+
+// 0x105D0: a strike on a wall or the terrain wears it down; worn out, it
+// takes the next artwork, and the last leaves no wall bit
+void wmv_damageTerrain(WarContext* context, s32 x, s32 y, u8 damage)
+{
+    if (!wmv_hasTerrain(x, y, 0xC)) return;
+    if (!wmv_visualInit(context)) return;
     u16 before[3];
     for (s32 i = 0; i < 3; i++)
         before[i] = wmv_inside(x, y + i - 1) ? wmv_visual[(y + i - 1) * WMV_W + x] : 0;
@@ -166,6 +234,9 @@ void wmv_damageTerrain(WarContext* context, s32 x, s32 y, u8 damage)
         if ((before[i] & 0x7FF) == (wmv_visual[tile] & 0x7FF)) continue;
         wmap_setMapTileIndex(context, x, ty, wmv_visual[tile] & 0x7FF);
         if (!WMV_STATIC(tile)) wpath_setFreeTiles(&context->map->finder, x, ty, 1, 1);
+        // a war1 wall piece goes with its wall bit
+        WarWallPiece* piece = wmv_wallPieceAt(context, x, ty);
+        if (piece && piece->frankLaid && !(wmv_terrain[tile] & 0xC)) piece->hp = 0;
     }
 }
 
@@ -176,6 +247,20 @@ static void wmv_unitTile(WarContext* context, WarEntity* e, WarUnitComponent* u,
     vec2 c = wu_getUnitCenterPosition(context, e);
     *x = (s32)(c.x / MEGA_TILE_WIDTH);
     *y = (s32)(c.y / MEGA_TILE_HEIGHT);
+}
+
+// 0x13928: a unit put on the map (out of a building, made or summoned)
+// holds its tile at once, so the units after it in the same tick find it
+void wmv_occupy(WarContext* context, WarEntity* entity)
+{
+    WarUnitComponent* u = we_getUnitComponent(context, entity);
+    if (!u) return;
+    s32 x, y;
+    wmv_unitTile(context, entity, u, &x, &y);
+    if (!wmv_inside(x, y)) return;
+    const s32 t = y * WMV_W + x;
+    if (!wmv_unitAt[t] && wmv_setUnits < WMV_TILES) wmv_set[WMV_TILES + wmv_setUnits++] = (u16)t;
+    wmv_unitAt[t] = (u16)(entity - we_getEntityManager(context)->entities + 1);
 }
 
 static bool wmv_onMap(WarContext* context, WarEntity* e, WarUnitComponent* u)
@@ -205,9 +290,9 @@ static void wmv_buildGrids(WarContext* context)
             for (s32 k = 0; k < wall->pieces.count; k++)
             {
                 WarWallPiece* p = &wall->pieces.items[k];
-                if (p->hp <= 0 || !wmv_inside(p->tilex, p->tiley)) continue;
-                const s32 t = p->tiley * WMV_W + p->tilex;
-                if (!wmv_built[t]) { wmv_built[t] = 1; wmv_set[wmv_setBuilt++] = (u16)t; }
+                // a finished piece is laid in the terrain, which is its
+                // obstacle and wears it down from then on (0x2C23C)
+                if (p->hp > 0 && !p->frankLaid) wmv_layWall(context, p);
             }
             continue;
         }
@@ -903,6 +988,22 @@ static void wmv_runScript(WarContext* context, WarEntity* e, WarUnitComponent* u
 static void wmv_tickBegin(WarContext* context)
 {
     wmv_buildGrids(context);
+#ifndef FRANK_BOARD
+    {   // WAR_VISUALAT=x,y,w,h: the terrain and visual words of a region, once
+        static bool shown;
+        const char* at = getenv("WAR_VISUALAT");
+        s32 rx, ry, rw, rh;
+        if (at && !shown && sscanf(at, "%d,%d,%d,%d", &rx, &ry, &rw, &rh) == 4)
+        {
+            shown = true;
+            fprintf(stderr, "wt");
+            for (s32 y = ry; y < ry + rh; y++) { fprintf(stderr, " |"); for (s32 x = rx; x < rx + rw; x++) fprintf(stderr, " %04x", wmv_terrain[y * WMV_W + x]); }
+            fprintf(stderr, "\nwv");
+            for (s32 y = ry; y < ry + rh; y++) { fprintf(stderr, " |"); for (s32 x = rx; x < rx + rw; x++) fprintf(stderr, " %04x", wmv_visual[y * WMV_W + x]); }
+            fprintf(stderr, "\n");
+        }
+    }
+#endif
 }
 
 // One unit's walk this tick, in its turn of the unit table.

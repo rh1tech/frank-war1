@@ -66,6 +66,67 @@ void wai_debug(void* opaque, const char* command)
         printf("live spell movement: failed route is stationary before the next unit plans\n");
         return;
     }
+    if (!strcmp(command, "test-wall-bits"))
+    {
+        // a wall piece's terrain bit is its owner's, 4 or 8 (0x51DC0)
+        WarEntity* wall = context->map->editing.wall;
+        vec2 hall = wu_getUnitCenterTile(context, wai_townHall(context, 0));
+        s32 tiles[2][2], found = 0;
+        for (s32 y = (s32)hall.y + 3; found < 2 && y < MIN(63, (s32)hall.y + 12); y++)
+            for (s32 x = (s32)hall.x + 3; found < 2 && x < MIN(63, (s32)hall.x + 12); x++)
+                if (wmv_placeFree(context, WAR_UNIT_FOOTMAN, x, y) && !wmv_hasTerrain(x, y, 0xC))
+                {
+                    tiles[found][0] = x; tiles[found][1] = y; found++;
+                    x += 2;
+                }
+        assert(wall && found == 2);
+        for (s32 i = 0; i < 2; i++)
+        {
+            WarWallPiece* piece = we_addWallPiece(context, wall, tiles[i][0], tiles[i][1], i);
+            piece->hp = piece->maxhp = WAR_WALL_MAX_HP;
+        }
+        wmv_tickBegin(context);
+        assert(wmv_hasTerrain(tiles[0][0], tiles[0][1], 4) && !wmv_hasTerrain(tiles[0][0], tiles[0][1], 8));
+        assert(wmv_hasTerrain(tiles[1][0], tiles[1][1], 8) && !wmv_hasTerrain(tiles[1][0], tiles[1][1], 4));
+        assert(!wmv_placeFree(context, WAR_UNIT_FOOTMAN, tiles[0][0], tiles[0][1]));
+        for (s32 i = 0; i < 2; i++)
+        {
+            const s32 t = tiles[i][1] * WMV_W + tiles[i][0];
+            assert(wmv_visual[t] >> 11 == 20 && (wmv_visual[t] & 0x7FF) >= 10);
+        }
+        // worn down in the terrain (0x105D0), the piece goes with its bit
+        WarWallPiece* piece = we_getWallPieceAtPosition(context, wall, tiles[1][0], tiles[1][1]);
+        s32 strikes = 0;
+        while (wmv_hasTerrain(tiles[1][0], tiles[1][1], 0xC) && strikes < 200)
+        {
+            we_takeWallDamage(context, wall, piece, 40, 0);
+            strikes++;
+        }
+        assert(strikes > 1 && strikes < 200 && piece->hp == 0);
+        assert(wmv_hasTerrain(tiles[0][0], tiles[0][1], 4));
+        printf("live spell terrain: walls laid with owner bit and durability, worn away in %d strikes\n", strikes);
+        return;
+    }
+    if (!strcmp(command, "test-occupy"))
+    {
+        // a unit put on the map holds its tile within the same tick (0x13928)
+        WarEntity* hall = wai_townHall(context, 0);
+        vec2 tile = wu_getUnitCenterTile(context, hall), exit;
+        wmv_tickBegin(context);
+        assert(wmv_findExit(context, hall, (s32)tile.x, (s32)tile.y, &exit));
+        WarEntity* made = we_createUnit(context, CREATE_UNIT_ARGS_INIT(
+            .type = WAR_UNIT_FOOTMAN, .player = 0, .x = (s32)exit.x, .y = (s32)exit.y, .addToMap = true));
+        assert(made);
+        we_setInitialIdleState(context, made);
+        assert(!wmv_exitBlocked(NULL, (s16)exit.x, (s16)exit.y));
+        wmv_occupy(context, made);
+        assert(wmv_exitBlocked(NULL, (s16)exit.x, (s16)exit.y));
+        vec2 next;
+        assert(wmv_findExit(context, hall, (s32)tile.x, (s32)tile.y, &next));
+        assert(next.x != exit.x || next.y != exit.y);
+        printf("live spell movement: a placed unit holds its tile before later units move\n");
+        return;
+    }
     if (!strcmp(command, "test-poison"))
     {
         WarEntity* caster = spellUnit(context, WAR_UNIT_WARLOCK);

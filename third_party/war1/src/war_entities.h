@@ -33,6 +33,9 @@ struct _WarWallPiece
     s32 maxhp;
     s32 tilex, tiley;
     u8 player;
+#ifdef WAR_FRANK
+    bool frankLaid;   // in the terrain words (port/war_move_frank.inc)
+#endif
 };
 
 struct _WarRuinPiece

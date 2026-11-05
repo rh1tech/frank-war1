@@ -112,6 +112,9 @@ void wst_updateDeliverState(WarContext* context, WarEntity* entity, WarState* st
         const WarUnitData* unitData = wu_getUnitData(unit->type);
         we_removeSpriteComponent(context, entity);
         we_addSpriteComponentFromResource(context, entity, imageResourceRef(unitData->resourceIndex));
+#ifdef WAR_FRANK
+        wmv_occupy(context, entity);   // (0x13928, on the way out)
+#endif
 
 #ifdef WAR_FRANK
         if (wai_drivesTicks(context)) wos_select(context, entity, 2, 1);

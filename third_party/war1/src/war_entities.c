@@ -2185,6 +2185,9 @@ void renderWall(WarContext* context, WarEntity* entity)
 #ifdef WAR_FRANK
             if (!frank_tileInView(context->map, piece->tilex, piece->tiley))
                 continue;
+            // frank: a laid wall is drawn by its map tile (wmv_layWall)
+            if (piece->frankLaid)
+                continue;
 #endif
 
             // get the index of the tile in the spritesheet of the map,
@@ -3537,6 +3540,15 @@ void we_takeWallDamage(WarContext* context, WarEntity* entity, WarWallPiece* pie
 
     // Minimal damage + [Random damage - Enemy's Armor]
     s32 damage = we_getTotalDamage(minDamage, rndDamage, 0);
+#ifdef WAR_FRANK
+    // frank: a laid wall wears down in the terrain, as the original's
+    // (0x105D0); its piece goes when its wall bit does
+    if (piece->frankLaid)
+    {
+        wmv_damageTerrain(context, piece->tilex, piece->tiley, (u8)CLAMP(damage, 0, 255));
+        return;
+    }
+#endif
     piece->hp -= damage;
     piece->hp = MAX(piece->hp, 0);
 }

@@ -491,6 +491,7 @@ static bool wos_spawn(WarOriginalRuntime* runtime, u16 slot, u8 type)
         .player = runtime->units[slot].owner, .addToMap = true));
     if (!summoned) return false;
     we_setInitialIdleState(context, summoned);
+    wmv_occupy(context, summoned);   // (0x2E7E4 places it, 0x13928)
     vec2 size = wu_getUnitSize(context, summoned);
     wpath_setStaticEntity(&context->map->finder, (s32)spawn.x, (s32)spawn.y,
                          (s32)size.x, (s32)size.y, summoned->id);

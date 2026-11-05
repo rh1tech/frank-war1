@@ -1220,6 +1220,63 @@ destroyed building is original type `0x26` (human tower).
 Selection/audio presentation's downstream callees remain outside this
 completed damage-branch reading.
 
+### Wall terrain bits and same-pass placement
+
+The original's terrain word (`[0x5860C]`, 64x64 words) carries more than
+the level's passability resource: bit `0x2`/`0x1` road, `0x100` unit
+occupancy, `0x200`/`0x800` buildings, and the wall bits `0xC`. A wall
+piece is laid by `0x2C054`, which clears the word's low nibble and ORs in
+the piece's bit, then refits its four neighbours. The bit comes from a
+table by **owner index** (`0x51DC0`): 4 for owner 0, 8 for owners 1 to 3,
+none for owner 4. It is not chosen by race. Roads use `0x51DCA` (1, 2, 2,
+2, 0). Starting constructs (`0x2C2D8` roads, `0x2C2F8` walls) and a
+finished wall (`0x143CC`, through `0x2C23C`, which also sets durability
+20 in the visual word) take the same path.
+
+war1 keeps walls as `WarWallPiece` records, not terrain, so every port
+reader of bits `0xC` saw no wall: the stop range (`0x222FC`), the
+targetless strike, order-7 validation, the blocked-step terrain attack and
+placement. Human 10's grunt (original slot 78) is ordered to move to a
+computer wall tile, 16,18 (terrain word `0x0008`), with attack order 6
+next. The original stops one tile short at unit range, takes order 6 for
+one checkpoint and then idles. The port used range 0, failed to plan
+("line free, 0 steps") and idled a tick early.
+
+The port now lays each finished war1 wall piece into its terrain words,
+as `0x2C23C` does, and from then on the terrain words are the wall:
+- the owner's bit replaces the word's low nibble;
+- the tile and its four neighbours get their artwork from the wall shape
+  (`0x55104`), chosen by which neighbours have a wall bit (8 below, 4
+  right, 2 left, 1 above). The shape is a row of the tileset's
+  wall/transition resource, the one `0x2BA0C` loads (the port's
+  199/203/207: rows after a 4-byte header of width and height). Column 0
+  is a finished wall, column 3 one being built; the artwork is the entry's
+  low 12 bits plus 9;
+- the laid tile's durability is set to 20 in the visual word's top five
+  bits.
+
+Strikes then wear the wall through `0x105D0` and its transitions. When a
+transition removes the wall bits, the war1 piece's HP becomes 0. A laid
+piece is drawn by its map tile instead of war1's own wall table, and
+war1's native wall damage is routed into the same wear. Wall pieces are
+no longer extra obstacles in `wmv_built`, so the planner's hostile-wall
+rule (`0x2CD44`) applies to them, and a computer unit blocked by a player
+wall attacks it as terrain (order 7). Against the original, all 16 wall
+tiles near Human 10's grunt split have the same terrain and visual words
+(bit, artwork and durability) before the first tick. Still not modelled:
+the under-construction column and placeholder bit `0x10`, roads (`0x1`/
+`0x2`), and the building bits `0x200`/`0x800` in these words.
+
+A unit put on the map marks its tile's occupancy at once (`0x13928`,
+called from creation `0x2E7E4`, from `0x2E6B8` and from the walk
+checkpoint `0x223D8`). Before this, the port rebuilt `wmv_unitAt` only at the start
+of each tick and on walking steps. In Orc 10, worker slot 71 finishes
+delivering (order 13) in hall 41 during tick 17426 and comes out onto
+54,5. Peasant slot 74 then finds 54,5 occupied and waits 40 ticks (blockage
+1). In the port the peasant walked onto the same tile. `wmv_occupy` now
+marks the tile when a worker leaves a hall or mine, a building finishes
+training, or a summoning is placed.
+
 ### Verification corrections and current measurement
 
 The old harness hid several distinctions:
@@ -1302,6 +1359,29 @@ defeats.
 | 10 | 19249 | = | 17427 | = |
 | 11 | = | = | = | = |
 | 12 | = | = | 16834 | = |
+
+The poison/area/wind, later-AI-command replacement and same-turn
+failed-route idle changes (commit 7e13d2f) bring the 20,000-tick sweep to
+**22 tile and 24 RNG windows**. Human 7, Human 9 and Orc 12 are now exact;
+Human 10's tile split stays at 19249 and Orc 10's moves from 15355 to
+17427. All 24 unlogged replays and all 24 self-play replays match;
+thirteen live spell/transition fixtures pass under ASan.
+
+| Mission | Human tile | Human RNG | Orc tile | Orc RNG |
+|---|---:|---:|---:|---:|
+| 1–9, 11, 12 | = | = | = | = |
+| 10 | 19249 | = | 17427 | = |
+
+Reading the owner's wall bits into the terrain queries and marking a
+placed unit's tile at once ("Wall terrain bits and same-pass placement")
+removes both remaining splits: **all 24 missions match every unit's tile
+and the RNG through 20,000 ticks**, with all 24 unlogged replays matching.
+Fifteen live fixtures pass under ASan. With walls laid in and worn through
+the terrain words, the same 24/24 holds. All 24 self-play replays match.
+Human 5, Human 6 and Orc 5 lose at the same ticks as before. Orc 10, which
+won at 10777, now reaches the end of its 11,000-tick window, because the
+self-play game itself changed. This is a finite window, not proof of every
+branch; the unfinished boundaries listed below remain.
 
 The active scope remains original-code reconciliation, not trace-driven
 timing adjustments. The shared target validator's remaining callers,

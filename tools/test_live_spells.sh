@@ -43,6 +43,8 @@ cat > "$input" <<'CASES'
 2220 ai test-poison
 2480 ai check-poison
 2490 ai test-no-path
+2492 ai test-wall-bits
+2494 ai test-occupy
 2500 quit
 CASES
 cd build/host/run
@@ -52,7 +54,7 @@ if ! env -u WAR_AI_HUMAN -u WAR_RECORD WAR_WINDOW=0 WAR_FIXED=1 WAR_RNGSEED=1234
     exit 1
 fi
 if grep -Eq 'original kernel:|AddressSanitizer|runtime error:' ../live-spells.log ||
-    [ "$(grep -c '^live spell' ../live-spells.log)" != 13 ]; then
+    [ "$(grep -c '^live spell' ../live-spells.log)" != 15 ]; then
     cat ../live-spells.log
     exit 1
 fi

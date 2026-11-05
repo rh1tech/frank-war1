@@ -171,6 +171,7 @@ void wst_updateMiningState(WarContext* context, WarEntity* entity, WarState* sta
         const WarWorkerData* workerData = wu_getWorkerData(unit->type);
         we_addSpriteComponentFromResource(context, entity, imageResourceRef(workerData->carryingGoldResource));
 #ifdef WAR_FRANK
+        wmv_occupy(context, entity);   // (0x13928, on the way out)
         if (wai_drivesTicks(context)) wos_select(context, entity, 2, 1);
 #endif
 

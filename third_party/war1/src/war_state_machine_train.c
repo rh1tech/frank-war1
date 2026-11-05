@@ -267,6 +267,7 @@ void wst_frankTrainTick(WarContext* context, WarEntity* entity, WarStateBase* st
         .isGoingToTrain=false
     ));
     wu_setUnitCenterTile(context, made, wmv_exitTile(context, entity, unit->tilex, unit->tiley));
+    wmv_occupy(context, made);   // (0x2E7E4 places it, 0x13928)
     we_setInitialIdleState(context, made);
     s->outputCommitted = true;
     wst_popState(context, entity, WAR_TRANSITION_CAUSE_COMPLETION, WAR_STATE_RESULT_SUCCESS);
