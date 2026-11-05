@@ -350,7 +350,11 @@ void wcmd_executeDeliverCommand(WarContext* context, WarEntity* targetEntity)
 #else
                 townHall = we_findClosestUnitOfType(context, entity, townHallType);
 #endif
+#ifdef WAR_FRANK
+                if (!townHall) continue;   // (no hall left to return to: the order does nothing)
+#else
                 assert(townHall);
+#endif
             }
 
             if (wu_isWorkerUnit(context, entity) && wu_isCarryingResources(context, entity))
