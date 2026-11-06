@@ -81,8 +81,6 @@ A replay ends with `campaign result: win at tick T`.
   (FatFs license).
 - **[pico_fatfs / SD card SPI driver](https://github.com/elehobica/pico_fatfs)**
   by Elehobica (BSD 2-Clause), with Raspberry Pi's PIO SPI (BSD-3-Clause).
-- **HDMI with audio data islands** ported from
-  [rp2350-amiga](https://github.com/fboldog/rp2350-amiga) by fboldog (MPL-2.0).
 - **XInput host driver** from [usb64](https://github.com/Ryzee119/usb64) by
   Ryan Wendland (MIT), and the **TinyUSB** HID host example (MIT).
 - **[Raspberry Pi Pico SDK](https://github.com/raspberrypi/pico-sdk)** and
@@ -104,6 +102,8 @@ The campaign strategies behind the replays drew on the mission walkthroughs at
 [GameFAQs](https://gamefaqs.gamespot.com/pc/565021-warcraft-orcs-and-humans/faqs).
 
 ## License
+
+Copyright (c) 2026 Mikhail Matveev <xtreme@rh1.tech>, https://rh1.tech
 
 GPL-2.0-or-later (see `LICENSE`). Third-party code keeps its own license, as
 noted in each file and above.
