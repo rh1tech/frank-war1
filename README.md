@@ -1,7 +1,7 @@
 # frank-war1
 
-**Warcraft: Orcs & Humans on the FRANK RP2350B board.** The whole game runs on
-one RP2350B microcontroller with PSRAM: HDMI video, I2S sound with OPL2 music,
+**Warcraft: Orcs & Humans on the RP2350.** The whole game runs on
+one RP2350 microcontroller with PSRAM: HDMI video, I2S sound with OPL2 music,
 USB keyboard, mouse and gamepads, and the game data on a microSD card.
 
 The engine is [war1](https://github.com/acoto87/war1), an open-source
