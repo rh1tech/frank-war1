@@ -1439,7 +1439,7 @@ The old harness hid several distinctions:
 - A fresh reference trace could use a different placement seed from the
   cached comparison. The local runtime now accepts `WAR_RNGSEED` before
   placement; draw/watch runs reuse the cached seed and draw caches are
-  checked against it. In this session the old cached seed was
+  checked against it. In one comparison the old cached seed was
   `6aeb64b4`, but an unseeded fresh trace used `6aecb634`; those traces
   cannot explain each other's decisions.
 - The RNG comparison now requires the requested tick count, rejects

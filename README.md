@@ -1,0 +1,109 @@
+# frank-war1
+
+**Warcraft: Orcs & Humans on the FRANK RP2350B board.** The whole game runs on
+one RP2350B microcontroller with PSRAM: HDMI video, I2S sound with OPL2 music,
+USB keyboard, mouse and gamepads, and the game data on a microSD card.
+
+The engine is [war1](https://github.com/acoto87/war1), an open-source
+reimplementation of Warcraft: Orcs & Humans in C. The port adds a platform
+layer for the board, and a computer opponent that behaves like the original
+game's (WAR.EXE "FLOPPY VERSION 1.20"): same decisions, same order of work,
+same random draws. `docs/ai.md` describes that behaviour in detail.
+
+No Blizzard code or data is in this repository. You need your own copy of the
+game's `DATA.WAR`.
+
+## What's here
+
+| Path | What it is |
+|---|---|
+| `master/` | Firmware: boot, console shell, HDMI, I2S audio, USB host, microSD, the game's platform layer (`src/game/`) |
+| `port/` | Glue between war1 and the platform: a small SDL3 stand-in (`fsdl.c`), the original computer player, unit scripts, orders and movement |
+| `common/` | Board definition (FRANK Core 2), clocks, PSRAM setup |
+| `host/` | The same game on macOS/Linux with SDL3, for development: headless deterministic runs, input scripts, replays, audio capture |
+| `third_party/` | war1, emu8950, Apogee AL_MIDI (see Credits) |
+| `tools/` | Bench and debug tools (flashing, UART console, SD copy, frame capture, AI comparison) |
+| `tools/agent/` | The kit that played both campaigns on the host build, and the 24 winning replays |
+| `docs/ai.md` | How the original computer player works, routine by routine |
+
+## Building
+
+Firmware (Raspberry Pi Pico SDK, ARM GCC, CMake, Ninja):
+
+    ./build.sh            # -> build/master/frank-war1.elf
+
+Host build (clang, SDL3 via pkg-config):
+
+    host/build.sh         # -> build/host/war1-host
+
+## Game data
+
+Copy your `DATA.WAR` to `/war1/DATA.WAR` on the microSD card. An optional
+`/war1/frank.cfg` holds board settings.
+
+For the host build, link or copy `DATA.WAR` into `build/host/run/` and run
+the binary from there:
+
+    cd build/host/run && ../war1-host                        # windowed play: WAR_WINDOW=1
+    ../war1-host --race human --mission 3                    # straight into a campaign mission
+
+The host build is headless and deterministic by default: virtual time only
+advances while the game waits for its next frame. `host/plat_host.c` lists
+its options (input scripts, recording, replay checks, WAV capture).
+
+## Campaign replays
+
+`tools/agent/replays/` holds a winning playthrough of every campaign mission,
+human 1-12 and orc 1-12, as frame-stamped host scripts. Each replay
+reproduces only on the build it was made with; `replays/README.txt` names it,
+and `tools/agent/README.md` explains how to rebuild it and play a replay:
+
+    cd build/host/run
+    WAR_AILOG=/dev/null WAR_FIXED=1 WAR_SCRIPT=../../../tools/agent/replays/orc12-win.txt \
+        ../war1-host-agent39 --race orc --mission 12
+
+A replay ends with `campaign result: win at tick T`.
+
+## Credits
+
+- **Warcraft: Orcs & Humans** © 1994 Blizzard Entertainment. Not included;
+  bring your own data.
+- **[war1](https://github.com/acoto87/war1)** by Alejandro Coto Gutiérrez:
+  the engine (zlib license), with its bundled libraries in
+  `third_party/war1/deps` (shl, TinySoundFont, stb).
+- **[emu8950](https://github.com/digital-sound-antiques/emu8950)** by Mitsutaka
+  Okazaki, with Graham Sanderson's RP2040 optimisations: the OPL2 emulator
+  for the music (MIT).
+- **Apogee Sound System AL_MIDI** © 1994-1995 Apogee Software, Ltd., as
+  released under the GPL and used in Chocolate Blood: the Adlib MIDI player and
+  General MIDI timbre bank (GPL-2.0-or-later).
+- **[FatFs](http://elm-chan.org/fsw/ff/)** by ChaN: the FAT file system
+  (FatFs license).
+- **[pico_fatfs / SD card SPI driver](https://github.com/elehobica/pico_fatfs)**
+  by Elehobica (BSD 2-Clause), with Raspberry Pi's PIO SPI (BSD-3-Clause).
+- **HDMI with audio data islands** ported from
+  [rp2350-amiga](https://github.com/fboldog/rp2350-amiga) by fboldog (MPL-2.0).
+- **XInput host driver** from [usb64](https://github.com/Ryzee119/usb64) by
+  Ryan Wendland (MIT), and the **TinyUSB** HID host example (MIT).
+- **[Raspberry Pi Pico SDK](https://github.com/raspberrypi/pico-sdk)** and
+  **[TinyUSB](https://github.com/hathach/tinyusb)** (BSD-3-Clause, MIT).
+- **[SDL3](https://www.libsdl.org/)** for the host build (zlib).
+- PSRAM setup from **frank-blood** / **frank-quake2**, earlier ports to the
+  FRANK boards.
+
+The original computer player was worked out from a decompilation of WAR.EXE
+1.20 made with **warcraft1-rebirth**'s tools, and checked against the community's
+**[Insider's Guide](https://www.blizzardarchive.com/pub/Misc/INSIDE.PDF)** and
+**[war1gus](https://github.com/Wargus/war1gus)**'s campaign scripts.
+`docs/ai.md` describes the behaviour in our own words; no code or data from
+the game is copied.
+
+The campaign strategies behind the replays drew on the mission walkthroughs at
+[warcraftone.blogspot.com](https://warcraftone.blogspot.com/),
+[StrategyWiki](https://strategywiki.org/wiki/Warcraft:_Orcs_%26_Humans) and
+[GameFAQs](https://gamefaqs.gamespot.com/pc/565021-warcraft-orcs-and-humans/faqs).
+
+## License
+
+GPL-2.0-or-later (see `LICENSE`). Third-party code keeps its own license, as
+noted in each file and above.
