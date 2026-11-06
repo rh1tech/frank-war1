@@ -14,9 +14,9 @@ winning replays. Nothing here touches the board build.
 
 Replays (`replays/*-win.txt`) only reproduce on the build they were made with;
 `replays/README.txt` names the binary for each. Local binary names map to:
-`war1-host-5db5207`, `war1-host-55c2304`, `war1-host-2d608d3` (those commits),
-`war1-host-agentwall` (04ef0a3), `war1-host-agent38` (a2bcf93),
-`war1-host-agent39` (3a6a87e). Build with `host/build.sh` at that commit, copy
+`war1-host-2f04753`, `war1-host-93bad3a`, `war1-host-245b6e9` (those commits),
+`war1-host-agentwall` (bb40373), `war1-host-agent38` (dc76c05),
+`war1-host-agent39` (0b2c613); human1-5 replay on a build of 3ae53ff. Build with `host/build.sh` at that commit, copy
 `build/host/war1-host` to the name, then from `build/host/run`:
 
     WAR_AILOG=/dev/null WAR_FIXED=1 WAR_SCRIPT=../../../tools/agent/replays/orc12-win.txt \

@@ -1513,7 +1513,7 @@ defeats.
 | 12 | = | = | 16834 | = |
 
 The poison/area/wind, later-AI-command replacement and same-turn
-failed-route idle changes (commit 7e13d2f) bring the 20,000-tick sweep to
+failed-route idle changes (commit 7349f97) bring the 20,000-tick sweep to
 **22 tile and 24 RNG windows**. Human 7, Human 9 and Orc 12 are now exact;
 Human 10's tile split stays at 19249 and Orc 10's moves from 15355 to
 17427. All 24 unlogged replays and all 24 self-play replays match;

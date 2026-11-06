@@ -7,18 +7,18 @@ Binaries: the game changes, so a replay plays out only on the build it was made 
   build/host/war1-fix2 and later: human1, human4, human5 still win (same ticks for 5);
     human2 differs (its one ground attack now attack-moves), human3 differs (the agent's
     "sel" no longer takes a peasant inside a mine or hall, as a real player can't).
-  war1-host-5db5207 (commit 5db5207): human6-win.txt, win at tick 78915 (try 6; tries 1-5 lost,
+  war1-host-2f04753 (commit 2f04753): human6-win.txt, win at tick 78915 (try 6; tries 1-5 lost,
     human6-try*.txt). Plan: hold the base with the army at 42,47, 10 peasants on the 43,44 mine,
     footmen/archers/knights/clerics with smithy, stables and church upgrades; attack north
     (37,42 .. 52,10) with 28 at tick 67000 when the mine ran dry.
-  war1-host-55c2304 (commit 55c2304): human8-win.txt, win at tick 58082 (Medivh at 19,14 behind
+  war1-host-93bad3a (commit 93bad3a): human8-win.txt, win at tick 58082 (Medivh at 19,14 behind
     doors 31,21-22 and 25,16; explore.py + attackxy on the door tiles). human7-try10..15 too.
-  war1-host-55c2304: human9-win.txt, win at tick 193481 (tries 1-3 lost; resumed from hm9c turn 717; final strike on the SW base 12-15,53 with 31).
-  war1-host-55c2304: human10-win.txt, win at tick 15938 (army spread 2 apart at 25,20 holding, catapults SIEGE=16,19 on the walled town).
-  war1-host-55c2304: human7-win.txt, win at tick 195674 (h8a to bait end, then the army spread at 37,37 holding south of the corridor, 6 catapults SIEGE=44,54).
+  war1-host-93bad3a: human9-win.txt, win at tick 193481 (tries 1-3 lost; resumed from hm9c turn 717; final strike on the SW base 12-15,53 with 31).
+  war1-host-93bad3a: human10-win.txt, win at tick 15938 (army spread 2 apart at 25,20 holding, catapults SIEGE=16,19 on the walled town).
+  war1-host-93bad3a: human7-win.txt, win at tick 195674 (h8a to bait end, then the army spread at 37,37 holding south of the corridor, 6 catapults SIEGE=44,54).
   human11-try1..11, human12-try1..7 (lost; see BUGS.md and the memory note).
-  war1-host-2d608d3 (commit 2d608d3): human11-win.txt, win at tick 188478 (try 29: catapults+footmen from hm11o turn 341, NE siege at 50,32, home rebuild on mine 20, NW siege from the south at 18,19, last necrolytes at 14,58).
-  war1-host-agentwall (2d608d3 + agent wallxy): human12-win.txt, win at tick 429877 (try 15 hm12p: walls round the base at 30k from hm12n, conjurers' water elementals in threes at each town, catapult sieges of NE (55,20), ML (24,28), TL (26,18 then 16,18) with the rest at home).
+  war1-host-245b6e9 (commit 245b6e9): human11-win.txt, win at tick 188478 (try 29: catapults+footmen from hm11o turn 341, NE siege at 50,32, home rebuild on mine 20, NW siege from the south at 18,19, last necrolytes at 14,58).
+  war1-host-agentwall (245b6e9 + agent wallxy): human12-win.txt, win at tick 429877 (try 15 hm12p: walls round the base at 30k from hm12n, conjurers' water elementals in threes at each town, catapult sieges of NE (55,20), ML (24,28), TL (26,18 then 16,18) with the rest at home).
   war1-host-agent38 (agent train from the panel only): orc1-win.txt, win at tick 116638 (base mine 3000 only; peons to 39,1 then 41,53; 6 farms).
   war1-host-agent38: orc2-win.txt, win at tick 91044 (peons first; base mine 32,13 dry at ~67k; grunts explored; the last archer came to the base).
   war1-host-agent38: orc3-win.txt, win at tick 191857 (2nd hall 4,37 at mine 27; 27 grunts+spearmen with axes/shields/spears at 147k when the mines ran dry; town at 50-60,34-42 (east, by the ## marks) fell to the march at 165-172k).
