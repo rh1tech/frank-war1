@@ -55,6 +55,7 @@ static uint32_t wav_bytes;
 static FILE *script;
 static char pending[256];
 static long pending_frame = -1;
+static uint64_t script_base;   /* WAR_CAMPAIGN: the frame the level began */
 static int release_button;      /* "click": release on the next frame */
 static int mx, my;
 static uint64_t t0;
@@ -181,7 +182,7 @@ static void run_script(const uint16_t *shown) {
             if (!*p || *p == '#') continue;
             pending_frame = strtol(p, NULL, 10);
         }
-        if ((long)frame_no < pending_frame) break;
+        if ((long)(frame_no - script_base) < pending_frame) break;
         char cmd[16] = "", a[200] = "";
         int x = 0, y = 0;
         sscanf(pending, "%*ld %15s %199[^\n]", cmd, a);
@@ -262,6 +263,42 @@ static void audio_frame(void) {
         if (astream) SDL_PutAudioStreamData(astream, buf, n * 2);
         if (wav) { fwrite(buf, 2, (size_t)n, wav); wav_bytes += (uint32_t)n * 2; }
     }
+}
+
+/* WAR_DRAWEVERY=N: the game draws only every Nth frame (the board's fast
+ * replays; the game itself must play the same). */
+static unsigned draw_every;
+
+/* WAR_CAMPAIGN=DIR: a campaign played from the menus, each level by its
+ * recording DIR/L<level>.txt (frames from the level's start), with the
+ * random state the recording's own start (--mission) had. */
+void plat_level_begin(int levelInfoIndex) {
+    extern uint64_t fsdl_rngState(void);
+    extern void fsdl_setRngState(uint64_t s);
+    extern bool war_fogEdgeFix;
+    war_fogEdgeFix = getenv("WAR_FOGFIX") && atoi(getenv("WAR_FOGFIX"));
+    const char *dir = getenv("WAR_CAMPAIGN");
+    if (dir) {
+        char path[512];
+        snprintf(path, sizeof(path), "%s/L%d.txt", dir, levelInfoIndex);
+        if (script) fclose(script);
+        script = fopen(path, "r");
+        pending_frame = -1;
+        script_base = frame_no;
+        fsdl_setRngState(0x853c49e6748fea9bull);
+        printf("host: level %d at frame %llu, recording %s%s\n", levelInfoIndex,
+               (unsigned long long)frame_no, path, script ? "" : " (none)");
+    }
+    printf("host: frame %llu level %d rng %016llx\n", (unsigned long long)frame_no, levelInfoIndex,
+           (unsigned long long)fsdl_rngState());
+}
+
+bool plat_draw_frame(void) {
+    if (!draw_every) {
+        const char *e = getenv("WAR_DRAWEVERY");
+        draw_every = e && atoi(e) > 0 ? (unsigned)atoi(e) : 1u;
+    }
+    return (frame_no + 1) % draw_every == 0;
 }
 
 uint16_t *plat_present(void) {

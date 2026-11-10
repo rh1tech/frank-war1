@@ -499,6 +499,20 @@ struct _WarStateStorage
     s32  activeCounts[WAR_STATE_COUNT];
 };
 
+#ifdef WAR_FRANK
+// frank: a scene's or a map's entity manager (1.2 MB, nearly all of the
+// scene or map) is one block, taken when it is entered and given back when
+// it is left. A switch creates the next scene or map while the current one
+// lives, so with the manager inside them two coexisted, and by the second
+// or third switch the heap had no 1.2 MB hole left: the allocation failed
+// and its caller cleared the NULL result (a bus fault past the boot ROM).
+WarEntityManager* we_takeEntityManager(WarContext* context);
+void we_giveBackEntityManager(WarEntityManager* manager);
+#define WE_MANAGER(owner) ((owner)->entityManager)
+#else
+#define WE_MANAGER(owner) (&(owner)->entityManager)
+#endif
+
 struct _WarEntityManager
 {
     // --- Entity pool (flat array, slot 0 reserved/empty) ---

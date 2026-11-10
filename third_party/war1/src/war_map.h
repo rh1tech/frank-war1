@@ -178,7 +178,11 @@ struct _WarMap
     WarMapTilesetType tilesetType;
     WarMapTile tiles[MAP_TILES_WIDTH * MAP_TILES_HEIGHT];
 
+#ifdef WAR_FRANK
+    WarEntityManager* entityManager; // frank: taken on entering, see we_takeEntityManager
+#else
     WarEntityManager entityManager;
+#endif
     WarEntityIdList selectedEntities;
     WarEntityIdList selectionGroups[MAX_SELECTION_GROUPS];
 

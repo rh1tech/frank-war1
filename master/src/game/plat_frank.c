@@ -49,10 +49,69 @@ extern void *war_context;
 static FIL replay_file;
 static bool replaying;
 static uint32_t replay_frames;          /* frames shown since the replay began */
-static char replay_line[96];
+/* Campaign replays (the console's `campaign`): played from the menus, each
+ * level by its recording /war1/L<level>.txt, its frames counted from
+ * the level's start, with the random state its own start had. */
+static bool campaign_on;
+static uint32_t replay_base;            /* replay_frames when the level began */
+/* As the host reads its scripts (host/plat_host.c: fgets into 256 bytes, at
+ * most 199 characters of a command's arguments): the agent games were
+ * recorded so, and a longer line plays the same only if read the same. */
+static char replay_line[256];
+/* Fast play (the console's `speed`, fast replays): the game on its fixed
+ * 1/60 s step draws one frame in `replay_speed`; the display's 60 Hz then
+ * paces it at that many times the speed (if the CPU keeps up). Silent (the
+ * sound is still made: the game depends on it). */
+static uint32_t replay_speed = 1;
+static uint32_t frames_counted;   /* frames since the speed was set */
+static bool frame_drawn = true;
+static uint32_t frames_generated; /* audio_generate(), fixed step */
+static uint64_t gen_done;
+static int game_rate;
 static long replay_line_frame = -1;
 static uint32_t replay_hashes, replay_bad, replay_first_bad;
 static uint64_t replay_t0;
+
+void plat_campaign(bool on) {
+    campaign_on = on;
+    printf("campaign replays %s\n", on ? "on: /war1/L<level>.txt" : "off");
+}
+
+void plat_level_begin(int levelInfoIndex) {
+    extern void fsdl_setRngState(uint64_t s);
+    extern void plat_set_speed(uint32_t speed);
+    if (!campaign_on) return;
+    char path[40];
+    snprintf(path, sizeof(path), "/war1/L%d.txt", levelInfoIndex);
+    if (replaying) f_close(&replay_file);
+    replaying = f_open(&replay_file, path, FA_READ) == FR_OK;
+    replay_line_frame = -1;
+    replay_base = replay_frames;
+    if (!war_fixedStep) plat_set_speed(replay_speed);
+    fsdl_setRngState(0x853c49e6748fea9bull);   /* fsdl.c's start: as --mission */
+    printf("campaign: level %d, %s%s\n", levelInfoIndex, path, replaying ? "" : " (none)");
+}
+
+void plat_replay_set_speed(uint32_t speed) {
+    replay_speed = speed ? speed : 1;
+    frames_counted = 0;
+}
+
+/* Normal play at `speed` times: the fixed step from now on, its sound clock
+ * taking over where the real-time one is. */
+void plat_set_speed(uint32_t speed) {
+    if (!war_fixedStep && game_rate) frames_generated = (uint32_t)(gen_done * 60u / (uint64_t)game_rate);
+    war_fixedStep = true;
+    plat_replay_set_speed(speed);
+    printf("speed: %lux\n", (unsigned long)replay_speed);
+}
+
+bool plat_draw_frame(void) {
+    extern bool fsdl_input_edge;
+    frame_drawn = replay_speed <= 1 || (frames_counted + 1) % replay_speed == 0 || fsdl_input_edge;
+    fsdl_input_edge = false;
+    return frame_drawn;
+}
 
 bool plat_replay_start(const char *path) {
     if (f_open(&replay_file, path, FA_READ) != FR_OK) {
@@ -62,7 +121,7 @@ bool plat_replay_start(const char *path) {
     replaying = true;
     war_fixedStep = true;
     replay_t0 = time_us_64();
-    printf("replay: %s\n", path);
+    printf("replay: %s at %lux\n", path, (unsigned long)replay_speed);
     return true;
 }
 
@@ -74,6 +133,8 @@ static void replay_end(void) {
     const uint64_t us = time_us_64() - replay_t0;
     f_close(&replay_file);
     replaying = false;
+    replay_speed = 1;
+    frames_counted = 0;
     printf("replay: done, %lu frames in %lu.%01lu s = %lu.%01lu fps; state hashes %lu/%lu matched",
            (unsigned long)replay_frames, (unsigned long)(us / 1000000u), (unsigned long)(us / 100000u % 10u),
            (unsigned long)(us ? (uint64_t)replay_frames * 1000000u / us : 0),
@@ -88,16 +149,28 @@ static void replay_frame(void) {
     replay_frames++;
     for (;;) {
         if (replay_line_frame < 0) {
-            if (!f_gets(replay_line, sizeof(replay_line), &replay_file)) { replay_end(); return; }
+            if (!f_gets(replay_line, sizeof(replay_line), &replay_file)) {
+                if (campaign_on) {
+                    /* the level's orders are done: the player clicks on */
+                    f_close(&replay_file);
+                    replaying = false;
+                    printf("campaign: recording done at frame %lu\n", (unsigned long)(replay_frames - replay_base));
+                    return;
+                }
+                replay_end();
+                return;
+            }
             if (replay_line[0] == '#' || replay_line[0] == '\n') continue;
             replay_line_frame = strtol(replay_line, NULL, 10);
         }
-        if ((long)replay_frames < replay_line_frame) return;
+        if ((long)(replay_frames - replay_base) < replay_line_frame) return;
         char cmd[8] = "", b = 'L', st[8] = "";
         int x = 0, y = 0;
         unsigned u1 = 0, u2 = 0;
         sscanf(replay_line, "%*ld %7s", cmd);
-        const char *args = strchr(strchr(replay_line, ' ') + 1, ' ');
+        /* (the rest of a line longer than the host reads may hold no space) */
+        const char *sp = strchr(replay_line, ' ');
+        const char *args = sp ? strchr(sp + 1, ' ') : NULL;
         args = args ? args + 1 : "";
         if (!strcmp(cmd, "move") && sscanf(args, "%d %d", &x, &y) == 2) {
             cur_x = x; cur_y = y;
@@ -120,6 +193,13 @@ static void replay_frame(void) {
                 }
                 replay_bad++;
             }
+        } else if (!strcmp(cmd, "ai")) {
+            /* an agent game's orders (tools/agent/replays) */
+            extern void wai_debug(void *ctx, const char *cmd);
+            char a[200];
+            snprintf(a, sizeof(a), "%s", args);
+            a[strcspn(a, "\n")] = 0;
+            wai_debug(war_context, a);
         } else if (!strcmp(cmd, "quit")) {
             replay_end();
             return;
@@ -147,14 +227,17 @@ uint16_t *plat_backbuffer(void) {
 }
 
 uint16_t *plat_present(void) {
-    if (shell_active) {
-        /* The game's first frame: drop the boot shell for good. */
-        shell_release(NULL);
+    if (frame_drawn) {
+        if (shell_active) {
+            /* The game's first frame: drop the boot shell for good. */
+            shell_release(NULL);
+        }
+        /* Show it from the next output frame; the game draws on into the third
+         * buffer (it waits only when two frames ahead), so it never draws into
+         * the frame on screen (no tearing) nor stalls to the vsync. */
+        display_present(false);
     }
-    /* Show it from the next output frame; the game draws on into the third
-     * buffer (it waits only when two frames ahead), so it never draws into
-     * the frame on screen (no tearing) nor stalls to the vsync. */
-    display_present(false);
+    frames_counted++;
     frank_frame_shown();
     /* the game's sound for this frame: here, at the same point in the frame
      * as on the host (the callback ends sounds, which the game sees) */
@@ -272,8 +355,6 @@ void plat_set_cursor(int x, int y) {
 #define RING 4096u   /* ~370 ms */
 static int16_t ring[RING];
 static volatile uint32_t ring_w, ring_r;   /* sample counts, wrap freely */
-static int game_rate;
-static uint64_t gen_done;
 static bool audio_on;
 
 /* MIDI events, core 0 -> core 1, stamped with their ring position. */
@@ -316,7 +397,6 @@ void plat_audio_unlock(void) {}
  * as much as the ring holds. On the fixed step (replays) the amount is the
  * frame count's, exactly as on the host, and the callback runs for all of
  * it even when the ring is full (it ends sounds: the game depends on it). */
-static uint32_t frames_generated;
 
 static void audio_generate(void) {
     if (!audio_on) return;
@@ -394,7 +474,7 @@ static void mix_block(int16_t *out, uint32_t frames) {
         }
         return;
     }
-    if (paused) {
+    if (paused || replay_speed > 1) {
         memset(out, 0, frames * 4);
         return;
     }

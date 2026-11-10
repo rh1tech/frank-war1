@@ -669,8 +669,44 @@ WarMapTile* wmap_getMapTileState(WarMap* map, s32 x, s32 y)
     return &map->tiles[y * MAP_TILES_WIDTH + x];
 }
 
+#ifdef WAR_FRANK
+// frank: the fog's edge fix (wmap_setMapTileState); host: WAR_FOGFIX=1,
+// board: fogfix=1 in /war1/launch.cfg
+bool war_fogEdgeFix;
+#endif
+
 void wmap_setMapTileState(WarMap* map, s32 startX, s32 startY, s32 width, s32 height, WarMapTileState tileState)
 {
+#ifdef WAR_FRANK
+    // frank: trim the corners of the whole area, then clip it to the map (the
+    // original's clipped stencils). Trimming after the clip cut the tiles at
+    // the map edge and left a lone tile at each side of the next row; the
+    // clip at the left and top edges also kept the full width and height.
+    // Off for now (war_fogEdgeFix): the agent games' replays were recorded
+    // without it, and two of them play out differently with it.
+    if (war_fogEdgeFix)
+    {
+    s32 endX = startX + width;
+    s32 endY = startY + height;
+
+    for(s32 y = startY; y < endY; y++)
+    {
+        for(s32 x = startX; x < endX; x++)
+        {
+            // exclude the corners of the area to get a more "rounded" shape
+            if ((y == startY || y == endY - 1) && (x == startX || x == endX - 1))
+                continue;
+
+            if (!inRange(x, 0, MAP_TILES_WIDTH) || !inRange(y, 0, MAP_TILES_HEIGHT))
+                continue;
+
+            WarMapTile* tile = wmap_getMapTileState(map, x, y);
+            tile->state = tileState;
+        }
+    }
+    return;
+    }
+#endif
     if (startX <= 0)
         startX = 0;
 
@@ -1033,7 +1069,9 @@ WarMap* wmap_createMap(WarContext* context, s32 levelInfoIndex)
     WarMap *map = (WarMap*)wm_alloc(sizeof(WarMap));
     map->levelInfoIndex = levelInfoIndex;
 
+#ifndef WAR_FRANK
     we_initEntityManager(context, &map->entityManager);
+#endif   // frank: the manager comes when the map is entered
 
     WarEntityIdListInit(&map->selectedEntities, wm_globalAllocator());
     for (s32 i = 0; i < MAX_SELECTION_GROUPS; i++)
@@ -1219,7 +1257,11 @@ void wmap_freeMap(WarContext* context, WarMap* map)
     wpath_freeFlowFields(&map->finder);
 #endif
 
-    WarEntityManager* manager = &map->entityManager;
+    WarEntityManager* manager = WE_MANAGER(map);
+#ifdef WAR_FRANK
+    if (manager)   // NULL: never entered
+    {
+#endif
     WarEntityMapFree(&manager->entitiesByType);
     WarUnitMapFree(&manager->unitsByType);
     WarEntityIdMapFree(&manager->entitiesById);
@@ -1228,6 +1270,11 @@ void wmap_freeMap(WarContext* context, WarMap* map)
     manager->slotById = NULL;
 #endif
     WarEntityListFree(&manager->uiEntities);
+#ifdef WAR_FRANK
+    we_giveBackEntityManager(manager);
+    map->entityManager = NULL;
+    }
+#endif
 
     WarEntityIdListFree(&map->selectedEntities);
     for (s32 i = 0; i < MAX_SELECTION_GROUPS; i++)
@@ -1241,6 +1288,10 @@ void wmap_freeMap(WarContext* context, WarMap* map)
 void wmap_enterMap(WarContext* context)
 {
     WarMap* map = context->map;
+#ifdef WAR_FRANK
+    if (!map->entityManager)
+        map->entityManager = we_takeEntityManager(context);
+#endif
 
     s32 levelInfoIndex = map->levelInfoIndex;
 
@@ -1255,6 +1306,17 @@ void wmap_enterMap(WarContext* context)
         // frank: the original's random numbers from the level's start, and
         // its random choice of the level's unit groups
         extern void wres_frankPickStartUnits(WarContext* context, WarResource* resource, s32 index);
+        // the platform's turn: a campaign replay starts its level's recording
+        // (and its random state, as the recording's own start had it)
+        extern void plat_level_begin(s32 levelInfoIndex);
+        plat_level_begin(levelInfoIndex);
+        // and the game's clocks as a level started on its own has them (one
+        // frame in): timers kept in float (the AI's tick) round the same way
+        // whether the level came from the menus, a briefing or the command
+        // line, so its recording plays out the same
+        context->gameTime = context->gameDeltaTime;
+        context->realTime = context->realDeltaTime;
+        context->transitionEndRealTime = 0.0;
         wrng_levelSeed((u32)SDL_rand(0x7FFFFFFF));
         wres_frankPickStartUnits(context, levelInfo, levelInfoIndex);
     }

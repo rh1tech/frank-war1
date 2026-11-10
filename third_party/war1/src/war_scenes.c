@@ -24,14 +24,22 @@ WarScene* wsc_createScene(WarContext* context, WarSceneType type)
     WarScene* scene = (WarScene*)wm_alloc(sizeof(WarScene));
     scene->type = type;
 
+#ifdef WAR_FRANK
+    NOT_USED(context);   // the manager comes when the scene is entered
+#else
     we_initEntityManager(context, &scene->entityManager);
+#endif
 
     return scene;
 }
 
 void wsc_freeScene(WarScene* scene)
 {
-    WarEntityManager* manager = &scene->entityManager;
+    WarEntityManager* manager = WE_MANAGER(scene);
+#ifdef WAR_FRANK
+    if (manager)   // NULL: never entered
+    {
+#endif
     WarEntityMapFree(&manager->entitiesByType);
     WarUnitMapFree(&manager->unitsByType);
     WarEntityIdMapFree(&manager->entitiesById);
@@ -40,6 +48,11 @@ void wsc_freeScene(WarScene* scene)
     manager->slotById = NULL;
 #endif
     WarEntityListFree(&manager->uiEntities);
+#ifdef WAR_FRANK
+    we_giveBackEntityManager(manager);
+    scene->entityManager = NULL;
+    }
+#endif
 
     wstr_free(scene->cheatStatus.debugText);
 }
@@ -47,6 +60,10 @@ void wsc_freeScene(WarScene* scene)
 void wsc_enterScene(WarContext* context)
 {
     WarScene* scene = context->scene;
+#ifdef WAR_FRANK
+    if (!scene->entityManager)
+        scene->entityManager = we_takeEntityManager(context);
+#endif
 
     if (!inRange(scene->type, WAR_SCENE_DOWNLOAD, WAR_SCENE_COUNT))
     {

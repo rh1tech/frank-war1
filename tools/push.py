@@ -19,7 +19,9 @@ from uart import conf, tty_for  # noqa: E402
 def main():
     src, dst = sys.argv[1], sys.argv[2]
     data = open(src, "rb").read()
-    port = serial.Serial(tty_for(conf()["MASTER_PROBE"]), 115200, timeout=5)
+    # FRANK_TTY: a board's own USB serial console (the cdc build) instead of the probe's
+    tty = os.environ.get("FRANK_TTY") or tty_for(conf()["MASTER_PROBE"])
+    port = serial.Serial(tty, 115200, timeout=5)
     port.reset_input_buffer()
     port.write(f"rxfile {len(data)} {dst}\r".encode())
     buf = b""

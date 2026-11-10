@@ -224,6 +224,11 @@ int main(int argc, char** argv)
         SDL_SetWindowTitle(context->window, wstr_cstr(&context->windowTitle));
 
         wg_updateGame(context);
+#ifdef WAR_FRANK
+        // frank: a fast replay draws only some frames (plat.h)
+        extern bool plat_draw_frame(void);
+        if (plat_draw_frame())
+#endif
         wg_renderGame(context);
         wg_presentGame(context);
         TracyCFrameMark

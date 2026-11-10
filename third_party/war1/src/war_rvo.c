@@ -181,7 +181,7 @@ s32 wrvo_gatherNeighbours(
     WarRvoNeighbour out[RVO_MAX_NB])
 {
     WarMap*     map  = context->map;
-    WarEntityManager* entityManager = &map->entityManager;
+    WarEntityManager* entityManager = WE_MANAGER(map);
     WarMapGrid* grid = &map->grid;
     s32         count = 0;
 

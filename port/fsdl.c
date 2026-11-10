@@ -62,6 +62,7 @@ int32_t SDL_rand_r(uint64_t *state, int32_t n) {
 int32_t SDL_rand(int32_t n) { return SDL_rand_r(&rng_state, n); }
 
 uint64_t fsdl_rngState(void) { return rng_state; }
+void fsdl_setRngState(uint64_t s) { rng_state = s; }
 
 float SDL_randf(void) { return (float)(pcg32(&rng_state) >> 8) * (1.0f / 16777216.0f); }
 
@@ -188,7 +189,13 @@ static uint16_t hid_to_kmod(uint8_t m) {
     return k;
 }
 
+/* A key or button went down or up: the frame that reads it is drawn even
+ * at a fast speed (plat_draw_frame), since war1's buttons act on these edges
+ * while drawing. */
+bool fsdl_input_edge;
+
 void fsdl_key(uint8_t hid, uint8_t hid_mods, bool down) {
+    fsdl_input_edge = true;
     SDL_Event e = {0};
     e.key.type = down ? SDL_EVENT_KEY_DOWN : SDL_EVENT_KEY_UP;
     e.key.key = hid;
@@ -198,6 +205,7 @@ void fsdl_key(uint8_t hid, uint8_t hid_mods, bool down) {
 }
 
 void fsdl_text(char c) {
+    fsdl_input_edge = true;
     SDL_Event e = {0};
     e.text.type = SDL_EVENT_TEXT_INPUT;
     e.text.text[0] = c;
@@ -217,6 +225,7 @@ void fsdl_mouse_move(int x, int y) {
 }
 
 void fsdl_mouse_button(int button, bool down, int x, int y) {
+    fsdl_input_edge = true;
     SDL_Event e = {0};
     e.button.type = down ? SDL_EVENT_MOUSE_BUTTON_DOWN : SDL_EVENT_MOUSE_BUTTON_UP;
     e.button.button = (uint8_t)button;
@@ -341,6 +350,10 @@ struct SDL_Texture {
                             RGB565, made at update (the minimap) */
     bool opaque;
 };
+
+/* FONT2's black pixels (the glyphs' outline) drawn; off for the status
+ * line's tooltips (war_imui.c), which have none. */
+bool fsdl_font_outline = true;
 
 uint16_t FRANK_RGB565(uint8_t r, uint8_t g, uint8_t b) {
     return (uint16_t)((r >> 3) << 11 | (g >> 2) << 5 | (b >> 3));
@@ -632,7 +645,7 @@ static FSDL_HOT bool render_texture(SDL_Renderer *r, SDL_Texture *t, const SDL_F
             } else { /* FONT2 */
                 for (int x = xa; x < xb; x++) {
                     const uint8_t i = srow[x];
-                    if (i) put(&out[x], i == 1 ? 0 : tint, a32);
+                    if (i == 2 || (i == 1 && fsdl_font_outline)) put(&out[x], i == 1 ? 0 : tint, a32);
                 }
             }
         }
@@ -675,7 +688,7 @@ static FSDL_HOT bool render_texture(SDL_Renderer *r, SDL_Texture *t, const SDL_F
             }
             case SDL_PIXELFORMAT_FONT2: {
                 uint8_t i = px[ty * t->cw + tx];
-                if (i) put(&out[x], i == 1 ? 0 : tint, a32);
+                if (i == 2 || (i == 1 && fsdl_font_outline)) put(&out[x], i == 1 ? 0 : tint, a32);
                 break;
             }
             }

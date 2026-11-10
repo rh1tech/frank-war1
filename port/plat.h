@@ -23,8 +23,15 @@ extern "C" {
  * returns the next one to draw (its contents are undefined: war1 clears and
  * redraws every frame). */
 bool plat_init(void);
+/* Whether the game draws this frame (a fast replay skips most); a frame not
+ * drawn is still presented (plat_present), which then shows nothing new. */
+bool plat_draw_frame(void);
 uint16_t *plat_backbuffer(void);
 uint16_t *plat_present(void);
+
+/* A map is entered (campaign level `levelInfoIndex`), before its random
+ * start is drawn. */
+void plat_level_begin(int levelInfoIndex);
 
 /* Time since start and a coarse sleep. */
 uint64_t plat_time_ns(void);

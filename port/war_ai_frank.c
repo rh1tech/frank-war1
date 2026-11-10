@@ -2560,7 +2560,7 @@ bool wai_checkObjectives(WarContext* context, WarLevelResult* result)
 //   kill N  destroys every unit and building of players 1-3 but N buildings
 //   reveal  the fog-of-war cheat (screenshots)
 //   exit    hands Lothar/Garona to the human and puts them on the exit
-#ifndef FRANK_BOARD
+// (on the board too: its replays of the agent games, master/src/game/plat_frank.c)
 // ---------------------------------------------------------------- agent
 // Host agent mode (host/plat_host.c, WAR_AGENT): a player outside the game
 // reads what the human side sees and gives the human's orders through
@@ -2931,15 +2931,13 @@ static void wai_agCommand(WarContext* context, const char* cmd)
     }
     else printf("agent: unknown command '%s'\n", cmd);
 }
-#endif
+// (end of the agent mode)
 
 void wai_debug(void* ctx, const char* cmd)
 {
     WarContext* context = (WarContext*)ctx;
     if (!wai || !wai->lv || !context->map) return;
-#ifndef FRANK_BOARD
     if (!strncmp(cmd, "ag ", 3)) { wai_agCommand(context, cmd + 3); return; }
-#endif
     WarEntityList* list = we_getEntitiesOfType(context, WAR_ENTITY_TYPE_UNIT);
     if (!strncmp(cmd, "kill", 4))
     {

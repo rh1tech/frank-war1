@@ -1469,7 +1469,7 @@ WarEntity* we_createUnit(WarContext* context, const CreateUnitArgs* args)
 
     if (addToMap)
     {
-        WarEntityManager* manager = &map->entityManager;
+        WarEntityManager* manager = WE_MANAGER(map);
         WarEntityList* list = WarUnitMapGet(&manager->unitsByType, type);
         WarEntityListAdd(list, entity);
     }
@@ -1866,6 +1866,48 @@ void we_removeAllEntities(WarContext* context)
 }
 #endif
 
+#ifdef WAR_FRANK
+// frank: see war_entities.h. The block is taken at the first scene, while
+// the heap is whole, and kept; a second at once (not expected) comes from
+// the heap.
+static WarEntityManager* sharedManager;
+static bool sharedManagerTaken;
+
+WarEntityManager* we_takeEntityManager(WarContext* context)
+{
+    WarEntityManager* manager;
+    if (!sharedManagerTaken)
+    {
+        if (!sharedManager)
+            sharedManager = (WarEntityManager*)wm_alloc(sizeof(WarEntityManager));
+        manager = sharedManager;
+        sharedManagerTaken = manager != NULL;
+    }
+    else
+    {
+        logError("A second entity manager at once: %u bytes from the heap", (unsigned)sizeof(WarEntityManager));
+        manager = (WarEntityManager*)wm_alloc(sizeof(WarEntityManager));
+    }
+    if (!manager)
+    {
+        logError("Out of memory for the entity manager (%u bytes)", (unsigned)sizeof(WarEntityManager));
+        abort();
+    }
+    // as fresh from the allocator (calloc) for every scene and map
+    memset(manager, 0, sizeof(*manager));
+    we_initEntityManager(context, manager);
+    return manager;
+}
+
+void we_giveBackEntityManager(WarEntityManager* manager)
+{
+    if (manager == sharedManager)
+        sharedManagerTaken = false;
+    else if (manager)
+        wm_free(manager);
+}
+#endif
+
 void we_initEntityManager(WarContext* context, WarEntityManager* manager)
 {
     TracyCZoneN(ctx, "we_initEntityManager", 1);
@@ -1944,10 +1986,10 @@ void we_initEntityManager(WarContext* context, WarEntityManager* manager)
 WarEntityManager* we_getEntityManager(WarContext* context)
 {
     if (context->scene)
-        return &context->scene->entityManager;
+        return WE_MANAGER(context->scene);
 
     if (context->map)
-        return &context->map->entityManager;
+        return WE_MANAGER(context->map);
 
     logError("There is no map or scene active.");
     return NULL;
@@ -3306,7 +3348,7 @@ void we_getNearUnits(WarContext* context, vec2 tilePosition, s32 distance, WarEn
     WarMap* map = context->map;
     assert(map);
 
-    WarEntityManager* entityManager = &map->entityManager;
+    WarEntityManager* entityManager = WE_MANAGER(map);
     WarMapGrid* grid = &map->grid;
 
     // Compute the exact range of grid cells that overlap the query bounding box.
@@ -3722,8 +3764,8 @@ s32 mine(WarContext* context, WarEntity* goldmine, s32 amount)
 // frank: component use, to size the stores (the "mem" host script command)
 size_t war_entity_report(WarContext* context, char* buf, size_t n)
 {
-    WarEntityManager* m = context->map ? &context->map->entityManager
-                        : context->scene ? &context->scene->entityManager : NULL;
+    WarEntityManager* m = context->map ? WE_MANAGER(context->map)
+                        : context->scene ? WE_MANAGER(context->scene) : NULL;
     if (!m) return (size_t)snprintf(buf, n, "no entities");
     s32 states = 0, stateMax = 0;
     for (s32 t = 0; t < WAR_STATE_COUNT; t++)

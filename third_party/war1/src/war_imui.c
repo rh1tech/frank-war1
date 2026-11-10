@@ -142,6 +142,11 @@ void imui_end(WarContext* context)
     // offset vec2i(2, 5) relative to recti(72, 188, 240, 12)).
     if (imui->show_tooltip && imui->tooltip_text[0] != '\0' && context->map)
     {
+#ifdef WAR_FRANK
+        // frank: the status line's text without the font's black outline
+        extern bool fsdl_font_outline;
+        fsdl_font_outline = false;
+#endif
         WarFontParams params;
         params.fontIndex      = 0;
         params.fontSize       = 6.0f;
@@ -209,6 +214,9 @@ void imui_end(WarContext* context)
                 }
             }
         }
+#ifdef WAR_FRANK
+        fsdl_font_outline = true;
+#endif
     }
 
     // Draw the cursor sprite on top of everything else.

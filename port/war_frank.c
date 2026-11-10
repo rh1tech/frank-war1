@@ -46,7 +46,7 @@ u32 war_stateHash(void* ctx)
             h = wfr_mix(h, (u32)map->players[p].wood);
         }
 
-        WarEntityManager* manager = &map->entityManager;
+        WarEntityManager* manager = WE_MANAGER(map);
         for (s32 i = 1; i < MAX_ENTITIES_COUNT; i++)
         {
             WarEntity* entity = &manager->entities[i];

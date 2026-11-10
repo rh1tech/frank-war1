@@ -7,7 +7,11 @@
 struct _WarScene
 {
     WarSceneType type;
+#ifdef WAR_FRANK
+    WarEntityManager* entityManager; // frank: taken on entering, see we_takeEntityManager
+#else
     WarEntityManager entityManager;
+#endif
 
     WarCheatStatus cheatStatus;
 

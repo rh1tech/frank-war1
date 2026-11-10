@@ -147,6 +147,7 @@ static void load_launch_cfg(void) {
         sscanf(line, "map=%39s", cfg_map);
         sscanf(line, "seed=%15s", cfg_seed);
         if (sscanf(line, "memlog=%d", &v) == 1) memlog_on = v != 0;
+        if (sscanf(line, "fogfix=%d", &v) == 1) { extern bool war_fogEdgeFix; war_fogEdgeFix = v != 0; }
     }
     f_close(&f);
     printf("launch.cfg: race=%s mission=%s map=%s seed=%s\n", cfg_race, cfg_mission, cfg_map, cfg_seed);
@@ -316,13 +317,26 @@ static char replay_path[64] = DATA_DIR "/replay.txt";
 
 static void cmd_replay(int argc, char **argv) {
     watchdog_hw->scratch[0] = REPLAY_MAGIC;
-    if (argc > 1) {
-        /* the path survives the restart in scratch 1-3 as an index */
-        watchdog_hw->scratch[1] = (uint32_t)atoi(argv[1]);
-    } else {
-        watchdog_hw->scratch[1] = 0;
-    }
+    /* the path survives the restart in scratch 1 as an index, the speed in 2 */
+    watchdog_hw->scratch[1] = argc > 1 ? (uint32_t)atoi(argv[1]) : 0;
+    watchdog_hw->scratch[2] = argc > 2 ? (uint32_t)atoi(argv[2]) : 1;
     frank_reboot();
+}
+
+/* A replay's first line "#! <game arguments>" (an agent game: "#! --race
+ * human --mission 3") starts it as the recording did; else at the logo. */
+static char replay_args[96];
+
+static int replay_launch_args(const char *path, char **argv, int max) {
+    FIL f;
+    int n = 0;
+    if (f_open(&f, path, FA_READ) != FR_OK) return 0;
+    if (f_gets(replay_args, sizeof(replay_args), &f) && !strncmp(replay_args, "#!", 2)) {
+        for (char *p = strtok(replay_args + 2, " \t\r\n"); p && n < max; p = strtok(NULL, " \t\r\n"))
+            argv[n++] = p;
+    }
+    f_close(&f);
+    return n;
 }
 
 /* prof [ms]: a sampling profiler on core 0. SysTick interrupts it 4000
@@ -493,6 +507,16 @@ static void cmd_tone(int argc, char **argv) {
     frank_tone_hz = argc > 1 ? (uint32_t)atoi(argv[1]) : 0;
 }
 
+static void cmd_campaign(int argc, char **argv) {
+    extern void plat_campaign(bool on);
+    plat_campaign(argc < 2 || strcmp(argv[1], "off"));
+}
+
+static void cmd_speed(int argc, char **argv) {
+    extern void plat_set_speed(uint32_t speed);
+    plat_set_speed(argc > 1 ? (uint32_t)atoi(argv[1]) : 1);
+}
+
 static void cmd_menu(int argc, char **argv) {
     settings_request();
 }
@@ -508,13 +532,15 @@ static const console_cmd_t cmds[] = {
     { "fps",    cmd_fps,    "game and HDMI frames per second (last 2 s)" },
     { "cam",    cmd_cam,    "the game's camera and mouse state" },
     { "rxfile", cmd_rxfile, "rxfile <bytes> <path>: receive a file (tools/push.py)" },
-    { "replay", cmd_replay, "replay [n]: restart and replay " DATA_DIR "/replay.txt (or replay<n>.txt)" },
+    { "replay", cmd_replay, "replay [n] [speed]: restart and replay " DATA_DIR "/replay.txt (or replay<n>.txt), speed x faster" },
     { "prof",   cmd_prof,   "prof: start sampling core 0 (profdump prints)" },
     { "profdump", cmd_profdump, "profdump: stop sampling, print the hottest addresses" },
     { "mouse",  cmd_mouse,  "mouse <x> <y> [L|R|M] [click|down|up]: move the cursor, press" },
     { "key",    cmd_key,    "key <HID hex> [down|up|tap]: a key (28 enter, 29 esc, 2c space)" },
     { "type",   cmd_type,   "type <text>: text input (cheats)" },
     { "tone",   cmd_tone,   "tone <Hz>: a sine instead of the sound (0: off)" },
+    { "campaign", cmd_campaign, "campaign [off]: play each level entered by /war1/L<level>.txt" },
+    { "speed",  cmd_speed,  "speed <n>: play n times faster (draws one frame in n, silent)" },
     { "menu",   cmd_menu,   "open the settings window (F12); key <hex> drives it" },
     { "stat",   cmd_stat,   "stat [off]: print fps every 2 s" },
     { "mem",    cmd_mem,    "memory use" },
@@ -755,16 +781,25 @@ int main(void) {
     load_launch_cfg();
     swd_park(7);
     extern bool plat_replay_start(const char *path);
+    extern void plat_replay_set_speed(uint32_t speed);
     bool replay = false;
+    uint32_t replay_x = 1;
     if (watchdog_hw->scratch[0] == REPLAY_MAGIC) {
         watchdog_hw->scratch[0] = 0;
         if (watchdog_hw->scratch[1])
             snprintf(replay_path, sizeof(replay_path), DATA_DIR "/replay%lu.txt", (unsigned long)watchdog_hw->scratch[1]);
+        replay_x = watchdog_hw->scratch[2] >= 1 && watchdog_hw->scratch[2] <= 100 ? watchdog_hw->scratch[2] : 1;
         replay = true;
     }
+    static char *argv[12];
+    int argc = 0;
+    argv[argc++] = "war1";
+    if (replay) plat_replay_set_speed(replay_x);
     if (replay && plat_replay_start(replay_path)) {
-        shell_highlight("Replaying %s...\n", replay_path);
-        cfg_mission[0] = 0;   /* a recording starts at the logo, like the host */
+        shell_highlight("Replaying %s at %lux...\n", replay_path, (unsigned long)replay_x);
+        /* a recording starts at the logo, like the host, or as its "#!" says */
+        cfg_mission[0] = 0;
+        argc += replay_launch_args(replay_path, argv + argc, 10);
         shell_end(2000);
     } else {
         /* frank-castle: a moment for F12 before the game takes the screen */
@@ -783,9 +818,6 @@ int main(void) {
         shell_hint(NULL);
     }
 
-    static char *argv[12];
-    int argc = 0;
-    argv[argc++] = "war1";
     if (cfg_mission[0]) {
         argv[argc++] = "--mission";
         argv[argc++] = cfg_mission;

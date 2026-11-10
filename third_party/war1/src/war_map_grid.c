@@ -44,7 +44,7 @@ void wgrid_build(WarContext* context)
         grid->next[i] = -1;
     }
 
-    WarEntityManager* entityManager = &map->entityManager;
+    WarEntityManager* entityManager = WE_MANAGER(map);
     WarEntityList* units = we_getEntitiesOfType(context, WAR_ENTITY_TYPE_UNIT);
 
     for (s32 unitIndex = 0; unitIndex < units->count; unitIndex++)

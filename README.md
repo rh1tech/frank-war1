@@ -75,6 +75,16 @@ and `tools/agent/README.md` explains how to rebuild it and play a replay:
 
 A replay ends with `campaign result: win at tick T`.
 
+On this build the orc replays win (with the fog edge fix off, as it is by
+default); the human ones were made on earlier builds and drift.
+
+A whole campaign can be played from the menus, each mission by its replay:
+`WAR_CAMPAIGN=DIR` on the host, the console's `campaign` on the board (the
+`cdc` build), with `DIR/L<level>.txt` (`/war1/L<level>.txt` on the card) per
+level: the replay with its `quit` line dropped, level 117 + 2 x (mission - 1)
+for humans, 118 + 2 x (mission - 1) for orcs. The board's `speed <n>` plays
+up to n times faster (as fast as it can: about 5x).
+
 ## Credits
 
 - **Warcraft: Orcs & Humans** © 1994 Blizzard Entertainment. Not included;
