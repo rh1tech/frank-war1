@@ -75,7 +75,8 @@ and `tools/agent/README.md` explains how to rebuild it and play a replay:
 
 A replay ends with `campaign result: win at tick T`.
 
-On this build the orc replays win (with the fog edge fix off, as it is by
+On this build the orc replays win with the fog edge fix off (`WAR_FOGFIX=0`
+on the host, `fogfix=0` in `/war1/launch.cfg` on the board; it is on by
 default); the human ones were made on earlier builds and drift.
 
 A whole campaign can be played from the menus, each mission by its replay:

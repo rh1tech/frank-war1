@@ -670,9 +670,10 @@ WarMapTile* wmap_getMapTileState(WarMap* map, s32 x, s32 y)
 }
 
 #ifdef WAR_FRANK
-// frank: the fog's edge fix (wmap_setMapTileState); host: WAR_FOGFIX=1,
-// board: fogfix=1 in /war1/launch.cfg
-bool war_fogEdgeFix;
+// frank: the fog's edge fix (wmap_setMapTileState), on; off for the agent
+// replays that were recorded without it: host WAR_FOGFIX=0, board fogfix=0
+// in /war1/launch.cfg
+bool war_fogEdgeFix = true;
 #endif
 
 void wmap_setMapTileState(WarMap* map, s32 startX, s32 startY, s32 width, s32 height, WarMapTileState tileState)
@@ -682,8 +683,8 @@ void wmap_setMapTileState(WarMap* map, s32 startX, s32 startY, s32 width, s32 he
     // original's clipped stencils). Trimming after the clip cut the tiles at
     // the map edge and left a lone tile at each side of the next row; the
     // clip at the left and top edges also kept the full width and height.
-    // Off for now (war_fogEdgeFix): the agent games' replays were recorded
-    // without it, and two of them play out differently with it.
+    // (war_fogEdgeFix off: as before, for the agent games' replays recorded
+    // without it; two of them play out differently with it)
     if (war_fogEdgeFix)
     {
     s32 endX = startX + width;

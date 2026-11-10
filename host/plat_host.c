@@ -276,7 +276,7 @@ void plat_level_begin(int levelInfoIndex) {
     extern uint64_t fsdl_rngState(void);
     extern void fsdl_setRngState(uint64_t s);
     extern bool war_fogEdgeFix;
-    war_fogEdgeFix = getenv("WAR_FOGFIX") && atoi(getenv("WAR_FOGFIX"));
+    war_fogEdgeFix = !getenv("WAR_FOGFIX") || atoi(getenv("WAR_FOGFIX"));
     const char *dir = getenv("WAR_CAMPAIGN");
     if (dir) {
         char path[512];

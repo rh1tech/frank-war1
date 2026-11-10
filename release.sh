@@ -11,7 +11,9 @@
 # Usage: ./release.sh [VERSION] [--publish]
 #   VERSION    e.g. "1.00"; asked for when omitted (default: the next minor)
 #   --publish  also tag vVERSION, push the tag and create a GitHub release
-#              with the UF2s (gh CLI); without it the files stay in release/
+#              with the UF2s (gh CLI); without it the files stay in release/.
+#              The notes' "What's new" comes from release/whatsnew_A_BB.md
+#              (Markdown), which --publish requires.
 #
 # Output: release/core2_frank-war1_A_BB.uf2 (FRANK Core 2, the master chip)
 #         release/m2_frank-war1_A_BB.uf2    (Murmulator / FRANK M2)
@@ -139,8 +141,17 @@ fi
 if [[ $PUBLISH -eq 1 ]]; then
     TAG="v${VERSION_DOT}"
     NOTES="$RELEASE_DIR/notes_${VERSION}.md"
+    WHATSNEW="$RELEASE_DIR/whatsnew_${VERSION}.md"
+    if [[ ! -s "$WHATSNEW" ]]; then
+        echo -e "${RED}Error: write ${WHATSNEW} (What's new) first${NC}"
+        exit 1
+    fi
     cat > "$NOTES" <<NOTES_EOF
 Warcraft: Orcs & Humans (Blizzard, 1994) for the FRANK Core 2 and the Murmulator / FRANK M2 (RP2350, 8 MB PSRAM, HDMI, USB keyboard and mouse). The engine is war1, an open-source reimplementation in C, with a computer opponent that plays like the original's.
+
+**What's new in ${VERSION_DOT}**
+
+$(cat "$WHATSNEW")
 
 **Install**
 
