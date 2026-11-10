@@ -48,7 +48,7 @@ void hdmi_audio_infoframe(hdmi_packet_t *p);
 // Audio Sample packet with `count` (0..4) stereo 16-bit samples
 // (left/right interleaved). `frame` is the IEC 60958 frame counter
 // (0..191), advanced per sample; it sets the block start and channel
-// status (48 kHz).
+// status (44.1 kHz).
 void hdmi_audio_packet(hdmi_packet_t *p, const int16_t *samples, int count,
                        unsigned *frame);
 

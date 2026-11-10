@@ -1,16 +1,16 @@
 /*
- * frank-war1 — the boot shell: a welcome screen (the boot log in a riveted
- * panel, blood dripping down the margins around it) and the error screens
- * (no SD card, missing game data, a fatal game error), drawn into the frame
- * on screen with their own palette until the game shows its first frame.
+ * frank-war1 — the boot shell: a welcome screen in the look of Warcraft's
+ * main menu (the gold title on dark blue marble, the boot log in a stone
+ * framed panel) and the error screens (no SD card, missing game data, a
+ * fatal game error), until the game shows its first frame.
  *
  * Copyright (c) 2026 Mikhail Matveev <xtreme@rh1.tech>
  * SPDX-License-Identifier: GPL-2.0-or-later
  *
- * Adapted from frank-quake2's boot shell. The drips move in the scanout's
- * frame callback, on core 1, so they keep going while core 0 is busy: that
- * code and its data are in SRAM, and it draws only outside the panel, where
- * core 0 never writes.
+ * Nothing is drawn on screen: the shell draws into a frame of its own (the
+ * work frame, never shown) and each change goes on screen whole, as a copy
+ * into a frame that is not shown, swapped in at the start of an output
+ * frame. Nothing moves or blinks.
  */
 #include "shell.h"
 
@@ -23,7 +23,7 @@
 #include "pico/stdlib.h"
 
 #include "display.h"
-#include "font6x8.h"
+#include "ui/ui.h"
 
 #ifndef FRANK_WAR1_VERSION
 #define FRANK_WAR1_VERSION "?"
@@ -32,269 +32,102 @@
 #define FRANK_BOARD_NAME "?"
 #endif
 
-#define W DISPLAY_W
-#define H DISPLAY_H
-
-enum {
-    C_BG = 0,
-    C_TEXT,      /* bone */
-    C_HI,        /* bright red */
-    C_ERR,       /* hot red */
-    C_DIM,
-    C_PANEL,
-    C_BEVEL_LT,
-    C_BEVEL,
-    C_BEVEL_DK,
-    C_ERRBAR,
-    C_WHITE,
-    C_DRIP0,     /* drip tail .. head */
-    C_DRIP1,
-    C_DRIP2,
-    C_DRIP3,
-    C_SHADOW,
-    C_TITLE,     /* TITLE_ROWS rows of gradient */
-};
-#define TITLE_ROWS 32
+#define W UI_W
+#define H UI_H
 
 /* layout (320x200) */
-#define PX0 20
-#define PY0 6
-#define PX1 (W - 20)
-#define PY1 (H - 6)
-#define BEVEL 4
-#define TX0 (PX0 + BEVEL + 6)
-#define TX1 (PX1 - BEVEL - 6)
-#define TITLE_Y (PY0 + BEVEL + 4)
-#define SUB_Y (TITLE_Y + TITLE_ROWS + 6)
-#define SEP1_Y (SUB_Y + 21)
-#define FOOT_Y (PY1 - BEVEL - 4 - 30)
-#define SEP2_Y (FOOT_Y - 5)
-#define LOG_COLS ((TX1 - TX0) / 6)
+#define LOGO_Y 5
+#define SUB_Y 50
+#define BOX_X0 22
+#define BOX_X1 (W - 22)
+#define BOX_Y0 61
+#define BOX_Y1 157
+#define LOG_X0 (BOX_X0 + 7)
+#define LOG_X1 (BOX_X1 - 7)
+#define LOG_LINE 10
+#define HINT_Y 160
+#define FOOT_Y 173
 
-static uint8_t *scr;
-static int log_y0, log_rows, log_col, log_row;
+static int work = -1;               /* the frame the shell draws into */
+static int log_y0, log_rows, log_x, log_row;
 static uint32_t shown_us;
+static const char *cur_hint;
 bool shell_active;
 
-/* ---- Drips (core 1, in the frame callback) ---- */
-
-#define NDRIPS 28
-#define DRIP_LEN 7
-
-typedef struct {
-    int16_t x, y;       /* head; y in 1/4 pixels */
-    uint8_t speed;      /* 1/4 pixels a frame */
-    uint8_t wait;       /* frames before it falls again */
-} drip_t;
-
-static drip_t drips[NDRIPS];
-static uint32_t drip_seed = 0x6d2b79f5u;
-static uint8_t *volatile drip_scr;
-
-static uint32_t __not_in_flash_func(drip_rand)(void) {
-    drip_seed ^= drip_seed << 13;
-    drip_seed ^= drip_seed >> 17;
-    drip_seed ^= drip_seed << 5;
-    return drip_seed;
+/* The work frame on screen: copied into a frame that is neither shown nor
+ * the work frame, swapped in at the next output frame. */
+static void flush(void) {
+    const int front = display_front_index();
+    int show = 0;
+    while (show == work || show == front) show++;
+    memcpy(display_buf565(show), display_buf565(work), W * H * 2);
+    display_show565(show);
 }
 
-/* A new drip: in the left or right margin, starting at the top. */
-static void __not_in_flash_func(drip_spawn)(drip_t *d) {
-    const uint32_t r = drip_rand();
-    const int margin = PX0 - 4;
-    const int x = 2 + (int)(r % (uint32_t)margin);
-    d->x = (int16_t)((r & 0x100) ? x : W - 1 - x);
-    d->y = (int16_t)(-(int)((r >> 12) % 40) * 4);
-    d->speed = (uint8_t)(2 + (r >> 20) % 6);
-    d->wait = (uint8_t)((r >> 24) % 50);
+void shell_refresh(void) {
+    if (shell_active) flush();
 }
 
-static void __not_in_flash_func(drip_px)(uint8_t *f, int x, int y, uint8_t c) {
-    if (y >= 0 && y < H) f[y * W + x] = c;
-}
+/* ---- The screen ---- */
 
-static void __not_in_flash_func(drips_frame)(void) {
-    uint8_t *f = drip_scr;
-    if (!f) return;
-    for (int i = 0; i < NDRIPS; i++) {
-        drip_t *d = &drips[i];
-        if (d->wait) { d->wait--; continue; }
-        const int y0 = d->y >> 2;
-        d->y = (int16_t)(d->y + d->speed);
-        const int y1 = d->y >> 2;
-        if (y1 == y0) continue;
-        /* erase what leaves the tail, draw the streak again */
-        for (int y = y0 - DRIP_LEN; y < y1 - DRIP_LEN; y++) drip_px(f, d->x, y, C_BG);
-        for (int k = 0; k < DRIP_LEN; k++) {
-            const uint8_t c = k == 0 ? C_DRIP3 : k < 2 ? C_DRIP2 : k < 4 ? C_DRIP1 : C_DRIP0;
-            drip_px(f, d->x, y1 - k, c);
-        }
-        if (y1 - DRIP_LEN >= H) drip_spawn(d);
-    }
-}
-
-static void drips_stop(void) {
-    display_set_vsync_hook(NULL);
-    drip_scr = NULL;
-}
-
-static void drips_start(uint8_t *f) {
-    for (int i = 0; i < NDRIPS; i++) drip_spawn(&drips[i]);
-    drip_scr = f;
-    display_set_vsync_hook(drips_frame);
-}
-
-/* ---- Drawing ---- */
-
-static void fill(int x0, int y0, int x1, int y1, uint8_t c) {
-    for (int y = y0; y < y1; y++) memset(scr + y * W + x0, c, (size_t)(x1 - x0));
-}
-
-static uint8_t pal_rgb[256 * 3];
-
-static void palette(void) {
-    static const uint8_t base[C_TITLE * 3] = {
-        0, 0, 0,        /* bg */
-        214, 200, 176,  /* text */
-        255, 64, 40,    /* highlight */
-        255, 40, 24,    /* error */
-        140, 118, 104,  /* dim */
-        22, 10, 9,      /* panel */
-        150, 54, 44,    /* bevel light */
-        96, 24, 20,     /* bevel */
-        40, 8, 7,       /* bevel dark */
-        140, 10, 6,     /* error bar */
-        255, 255, 255,  /* white */
-        70, 0, 0,       /* drips, tail to head */
-        120, 4, 2,
-        176, 12, 6,
-        236, 40, 24,
-        6, 2, 2,        /* title shadow */
-    };
-    memset(pal_rgb, 0, sizeof(pal_rgb));
-    memcpy(pal_rgb, base, sizeof(base));
-    /* the title: bright red down to deep maroon */
-    for (int i = 0; i < TITLE_ROWS; i++) {
-        uint8_t *p = pal_rgb + (C_TITLE + i) * 3;
-        p[0] = (uint8_t)(250 - i * 4);
-        p[1] = (uint8_t)(i < 6 ? 60 - i * 8 : 10);
-        p[2] = (uint8_t)(i < 6 ? 40 - i * 6 : 8);
-    }
-    display_set_palette(pal_rgb, 0, 256);
-}
-
-static void glyph(int x, int y, char ch, uint8_t c) {
-    unsigned u = (unsigned char)ch;
-    const uint8_t *g = font6x8[(u >= 32 && u < 127) ? u - 32 : '?' - 32];
-    for (int r = 0; r < 8; r++)
-        for (int k = 0; k < 6; k++)
-            if (g[r] & (0x80 >> k)) scr[(y + r) * W + x + k] = c;
-}
-
-static void text(int x, int y, const char *s, uint8_t c) {
-    for (; *s; s++, x += 6) glyph(x, y, *s, c);
-}
-
-static void text_center(int y, const char *s, uint8_t c) {
-    text((W - 6 * (int)strlen(s)) / 2, y, s, c);
-}
-
-/* The title, the font scaled 4x: a shadow, the gradient by row, and a few
- * drops running off the bottom of the letters. */
-static void title(const char *s) {
-    const int scale = 4, n = (int)strlen(s);
-    const int x0 = (W - n * 6 * scale) / 2;
-    for (int pass = 0; pass < 2; pass++)
-        for (int i = 0; i < n; i++) {
-            const uint8_t *g = font6x8[(unsigned char)s[i] - 32];
-            for (int r = 0; r < 8; r++)
-                for (int k = 0; k < 6; k++) {
-                    if (!(g[r] & (0x80 >> k))) continue;
-                    const int x = x0 + (i * 6 + k) * scale + (pass ? 0 : 2);
-                    const int y = TITLE_Y + r * scale + (pass ? 0 : 2);
-                    for (int dy = 0; dy < scale; dy++)
-                        memset(scr + (y + dy) * W + x, pass ? C_TITLE + r * scale + dy : C_SHADOW,
-                               (size_t)scale);
-                }
-            /* drops under the lowest row of the glyph */
-            for (int k = 0; k < 6; k++) {
-                if (!(g[6] & (0x80 >> k)) || ((i * 7 + k * 3) % 5)) continue;
-                const int x = x0 + (i * 6 + k) * scale + 1;
-                const int len = 2 + (i * 5 + k * 11) % 6;
-                for (int dy = 0; dy < len; dy++) {
-                    const int y = TITLE_Y + 7 * scale + scale + dy;
-                    scr[y * W + x] = C_TITLE + TITLE_ROWS - 1;
-                    scr[y * W + x + 1] = dy < len - 1 ? C_TITLE + TITLE_ROWS - 1 : C_DRIP1;
-                }
-            }
-        }
-}
-
-static void separator(int y) {
-    fill(TX0, y, TX1, y + 1, C_BEVEL_DK);
-    fill(TX0, y + 1, TX1, y + 2, C_BEVEL);
-}
-
-static void rivet(int x, int y) {
-    fill(x, y, x + 3, y + 3, C_BEVEL_DK);
-    scr[y * W + x] = C_BEVEL_LT;
-    scr[y * W + x + 1] = C_BEVEL_LT;
-    scr[(y + 1) * W + x] = C_BEVEL_LT;
-}
-
-static void panel(void) {
-    fill(PX0, PY0, PX1, PY1, C_BEVEL);
-    fill(PX0, PY0, PX1, PY0 + 1, C_BEVEL_LT);
-    fill(PX0, PY0, PX0 + 1, PY1, C_BEVEL_LT);
-    fill(PX0, PY1 - 1, PX1, PY1, C_BEVEL_DK);
-    fill(PX1 - 1, PY0, PX1, PY1, C_BEVEL_DK);
-    fill(PX0 + BEVEL - 1, PY0 + BEVEL - 1, PX1 - BEVEL + 1, PY1 - BEVEL + 1, C_BEVEL_DK);
-    fill(PX0 + BEVEL, PY0 + BEVEL, PX1 - BEVEL, PY1 - BEVEL, C_PANEL);
-    rivet(PX0 + BEVEL + 2, PY0 + BEVEL + 2);
-    rivet(PX1 - BEVEL - 5, PY0 + BEVEL + 2);
-    rivet(PX0 + BEVEL + 2, PY1 - BEVEL - 5);
-    rivet(PX1 - BEVEL - 5, PY1 - BEVEL - 5);
-}
-
-static void footer(const char *hint) {
-    char line[64];
-    fill(TX0, FOOT_Y, TX1, FOOT_Y + 30, C_PANEL);
-    if (hint) {
-        text_center(FOOT_Y, hint, C_HI);
+static void hint_line(const char *hint) {
+    ui_marble(0, HINT_Y, W, HINT_Y + 11);
+    if (!hint) return;
+    /* "F12" (or a key name in front of the colon) in gold */
+    const int fh = UI_FONT_MENU;
+    int x = W / 2 - ui_text_width(fh, hint) / 2;
+    const char *sp = strstr(hint, "F12");
+    if (sp) {
+        char head[64];
+        const size_t n = (size_t)(sp - hint) < sizeof head - 1 ? (size_t)(sp - hint) : sizeof head - 1;
+        memcpy(head, hint, n);
+        head[n] = 0;
+        x += ui_text(fh, x, HINT_Y, head, UI_CREAM, -1);
+        x += ui_text(fh, x, HINT_Y, "F12", UI_GOLD, -1);
+        ui_text(fh, x, HINT_Y, sp + 3, UI_CREAM, -1);
     } else {
-        const unsigned sys = (unsigned)(clock_get_hz(clk_sys) / 1000000);
-        const unsigned psram = sys / ((qmi_hw->m[1].timing & QMI_M1_TIMING_CLKDIV_BITS) >> QMI_M1_TIMING_CLKDIV_LSB);
-        const unsigned flash = sys / ((qmi_hw->m[0].timing & QMI_M0_TIMING_CLKDIV_BITS) >> QMI_M0_TIMING_CLKDIV_LSB);
-        snprintf(line, sizeof(line), "%s  CPU %u  PSRAM %u  FLASH %u MHz", FRANK_BOARD_NAME, sys, psram, flash);
-        text_center(FOOT_Y, line, C_DIM);
+        ui_text(fh, x, HINT_Y, hint, UI_GOLD, -1);
     }
-    text_center(FOOT_Y + 11, "Port (c) 2026 Mikhail Matveev", C_TEXT);
-    text_center(FOOT_Y + 22, "github.com/rh1tech/frank-war1", C_HI);
 }
 
-/* The whole screen; with an error, a red title bar over the log. */
+static void footer(void) {
+    /* the small font has capitals only */
+    ui_text_center(UI_FONT_SMALL, W / 2, FOOT_Y, "(C) 1994 BLIZZARD ENTERTAINMENT", UI_GOLD, -1);
+    ui_text_center(UI_FONT_SMALL, W / 2, FOOT_Y + 9,
+                   "frank-war1 " FRANK_WAR1_VERSION "  -  port (c) 2026 Mikhail Matveev", UI_CREAM, -1);
+    ui_text_center(UI_FONT_SMALL, W / 2, FOOT_Y + 18, "github.com/rh1tech/frank-war1", UI_DIM, -1);
+}
+
+void shell_clocks(char *line, size_t n) {
+    const unsigned sys = (unsigned)(clock_get_hz(clk_sys) / 1000000);
+    const unsigned psram = sys / ((qmi_hw->m[1].timing & QMI_M1_TIMING_CLKDIV_BITS) >> QMI_M1_TIMING_CLKDIV_LSB);
+    const unsigned flash = sys / ((qmi_hw->m[0].timing & QMI_M0_TIMING_CLKDIV_BITS) >> QMI_M0_TIMING_CLKDIV_LSB);
+    snprintf(line, n, "CPU %u MHz, PSRAM %u MHz, flash %u MHz", sys, psram, flash);
+}
+
+/* The whole screen; with an error, a red banner over the log. */
 static void screen(const char *error, const char *hint) {
-    drips_stop();
-    scr = display_front();
-    memset(scr, C_BG, W * H);
-    palette();
-    panel();
-    title("WARCRAFT");
-    text_center(SUB_Y, "for RP2350  -  frank-war1 " FRANK_WAR1_VERSION, C_TEXT);
-    text_center(SUB_Y + 10, "Warcraft (c) 1994 Blizzard Entertainment", C_DIM);
-    separator(SEP1_Y);
-    separator(SEP2_Y);
-    log_y0 = SEP1_Y + 6;
+    const int front = display_front_index();
+    work = front == 2 ? 1 : 2;
+    ui_target(display_buf565(work));
+    ui_marble(0, 0, W, H);
+    ui_logo(W / 2, LOGO_Y);
+    ui_text_spaced(UI_FONT_SMALL, W / 2, SUB_Y, "ORCS & HUMANS", UI_RGB(255, 219, 82), 3);
+    ui_box(BOX_X0, BOX_Y0, BOX_X1, BOX_Y1, UI_NAVY, false);
+    log_y0 = BOX_Y0 + 5;
     if (error) {
-        fill(TX0, log_y0, TX1, log_y0 + 12, C_ERRBAR);
-        fill(TX0, log_y0, TX1, log_y0 + 1, C_ERR);
-        text_center(log_y0 + 2, error, C_WHITE);
-        log_y0 += 17;
+        ui_box(BOX_X0 + 4, BOX_Y0 + 4, BOX_X1 - 4, BOX_Y0 + 20, UI_BLOOD, true);
+        ui_text_center(UI_FONT_MENU, W / 2, BOX_Y0 + 7, error, UI_CREAM, -1);
+        log_y0 = BOX_Y0 + 24;
     }
-    log_rows = (SEP2_Y - 3 - log_y0) / 9;
-    log_col = log_row = 0;
-    footer(hint);
+    log_rows = (BOX_Y1 - 4 - log_y0) / LOG_LINE;
+    log_x = LOG_X0;
+    log_row = 0;
+    cur_hint = hint;
+    hint_line(hint);
+    footer();
     shell_active = true;
+    flush();
 }
 
 void shell_welcome(void) {
@@ -306,64 +139,89 @@ void shell_error(const char *title_text, const char *hint) {
     screen(title_text, hint);
 }
 
+void shell_hint(const char *hint) {
+    if (!shell_active || hint == cur_hint) return;
+    cur_hint = hint;
+    ui_target(display_buf565(work));
+    hint_line(hint);
+    flush();
+}
+
 void shell_end(unsigned min_ms) {
     while (time_us_32() - shown_us < min_ms * 1000u) tight_loop_contents();
 }
 
-/* The game's first frame: hand the screen and the palette over. */
+uint32_t shell_shown_ms(void) {
+    return (time_us_32() - shown_us) / 1000u;
+}
+
+int shell_work_frame(void) {
+    return shell_active ? work : -1;
+}
+
+/* The game's first frame: the screen is the game's from now on. */
 void shell_release(const uint8_t *game_rgb) {
+    (void)game_rgb;
     if (!shell_active) return;
-    drips_stop();
-    scr = NULL;
     shell_active = false;
-    if (game_rgb) display_set_palette(game_rgb, 0, 256);
+    work = -1;
+    ui_release();
 }
 
 /* ---- The log ---- */
 
+static uint16_t log_color;
+
 static void log_scroll(void) {
-    const int top = log_y0 * W;
-    memmove(scr + top, scr + top + 9 * W, (size_t)(9 * W * (log_rows - 1)));
-    fill(TX0, log_y0 + 9 * (log_rows - 1), TX1, log_y0 + 9 * log_rows, C_PANEL);
+    uint16_t *f = ui_fb();
+    for (int r = 0; r < (log_rows - 1) * LOG_LINE; r++)
+        memcpy(f + (log_y0 + r) * W + LOG_X0, f + (log_y0 + r + LOG_LINE) * W + LOG_X0, (LOG_X1 - LOG_X0) * 2);
+    ui_fill(LOG_X0, log_y0 + (log_rows - 1) * LOG_LINE, LOG_X1, log_y0 + log_rows * LOG_LINE, UI_NAVY);
     log_row = log_rows - 1;
 }
 
 static void log_newline(void) {
-    log_col = 0;
+    log_x = LOG_X0;
     if (++log_row >= log_rows) log_scroll();
 }
 
-static void log_putc(char ch, uint8_t c) {
-    if (ch == '\n') { log_newline(); return; }
-    if (ch == '\r') {
-        log_col = 0;
-        fill(TX0, log_y0 + log_row * 9, TX1, log_y0 + log_row * 9 + 9, C_PANEL);
-        return;
-    }
-    if (log_col >= LOG_COLS) log_newline();
-    const int x = TX0 + log_col * 6, y = log_y0 + log_row * 9;
-    fill(x, y, x + 6, y + 9, C_PANEL);
-    glyph(x, y, ch, c);
-    log_col++;
+static void log_word(const char *s, int n) {
+    char buf[96];
+    if (n > (int)sizeof buf - 1) n = (int)sizeof buf - 1;
+    memcpy(buf, s, (size_t)n);
+    buf[n] = 0;
+    const int w = ui_text_width(UI_FONT_MENU, buf);
+    if (log_x > LOG_X0 && log_x + w > LOG_X1) log_newline();
+    log_x += ui_text(UI_FONT_MENU, log_x, log_y0 + log_row * LOG_LINE, buf, log_color, -1) + 1;
 }
 
-static void log_text(uint8_t c, const char *buf) {
-    if (!scr) return;
+static void log_text(uint16_t c, const char *buf) {
+    if (!shell_active) return;
+    ui_target(display_buf565(work));
+    log_color = c;
+    const int space = ui_text_width(UI_FONT_MENU, " ") + 1;
     for (const char *s = buf; *s;) {     /* word wrap */
-        if (*s != ' ' && *s != '\n' && *s != '\r') {
+        if (*s == '\n') {
+            log_newline();
+            s++;
+        } else if (*s == '\r') {
+            log_x = LOG_X0;
+            ui_fill(LOG_X0, log_y0 + log_row * LOG_LINE, LOG_X1, log_y0 + (log_row + 1) * LOG_LINE, UI_NAVY);
+            s++;
+        } else if (*s == ' ') {
+            if (log_x > LOG_X0) log_x += space;
+            s++;
+        } else {
             int n = 0;
             while (s[n] && s[n] != ' ' && s[n] != '\n' && s[n] != '\r') n++;
-            if (log_col > 0 && log_col + n > LOG_COLS) log_newline();
-            while (n--) log_putc(*s++, c);
-        } else {
-            if (*s == ' ' && log_col >= LOG_COLS) log_newline();
-            else log_putc(*s, c);
-            s++;
+            log_word(s, n);
+            s += n;
         }
     }
+    flush();
 }
 
-static void log_vprint(uint8_t c, const char *fmt, va_list ap) {
+static void log_vprint(uint16_t c, const char *fmt, va_list ap) {
     char buf[256];
     vsnprintf(buf, sizeof(buf), fmt, ap);
     fputs(buf, stdout);
@@ -371,26 +229,26 @@ static void log_vprint(uint8_t c, const char *fmt, va_list ap) {
 }
 
 void shell_puts_quiet(const char *s) {
-    log_text(C_DIM, s);
+    log_text(UI_DIM, s);
 }
 
 void shell_printf(const char *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
-    log_vprint(C_TEXT, fmt, ap);
+    log_vprint(UI_CREAM, fmt, ap);
     va_end(ap);
 }
 
 void shell_highlight(const char *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
-    log_vprint(C_HI, fmt, ap);
+    log_vprint(UI_GOLD, fmt, ap);
     va_end(ap);
 }
 
 void shell_errorf(const char *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
-    log_vprint(C_ERR, fmt, ap);
+    log_vprint(UI_RED, fmt, ap);
     va_end(ap);
 }

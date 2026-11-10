@@ -26,10 +26,12 @@
 
 #include "display.h"
 #include "audio/audio.h"
+#include "video/hstx_video.h"
 #include "usb/usbhid.h"
 #include "frank_game.h"
 #include "opl_war.h"
 #include "shell.h"
+#include "settings.h"
 #include "ff.h"
 
 /* ----------------------------------------------------------------- replay */
@@ -148,7 +150,6 @@ uint16_t *plat_present(void) {
     if (shell_active) {
         /* The game's first frame: drop the boot shell for good. */
         shell_release(NULL);
-        display_set_rgb565(true);
     }
     /* Show it from the next output frame; the game draws on into the third
      * buffer (it waits only when two frames ahead), so it never draws into
@@ -164,6 +165,26 @@ uint16_t *plat_present(void) {
 
 /* ------------------------------------------------------------------- time */
 
+/* The settings window (settings.c) stops the game: its clock and its
+ * sound's clock skip the time the window was open, and core 1 plays
+ * silence meanwhile (the music resumes where it was). */
+static volatile bool paused;
+static uint64_t paused_at;
+static uint64_t gen_t0;
+
+void plat_pause(bool on) {
+    if (on == paused) return;
+    if (on) {
+        paused_at = time_us_64();
+        paused = true;
+    } else {
+        const uint64_t d = time_us_64() - paused_at;
+        t_start += d;
+        gen_t0 += d;
+        paused = false;
+    }
+}
+
 uint64_t plat_time_ns(void) {
     return (time_us_64() - t_start) * 1000ull;
 }
@@ -177,8 +198,8 @@ void plat_sleep_ms(uint32_t ms) {
 
 static uint8_t buttons_prev;
 static uint8_t mods;
-/* Mouse speed: HID counts per screen pixel, in 1/16. */
-#define MOUSE_DIV16 24
+/* Mouse speed: HID counts per screen pixel, in 1/16 (settings.c). */
+volatile int frank_mouse_div16 = 24;
 static int32_t acc_x, acc_y;
 
 void plat_poll(void) {
@@ -201,6 +222,11 @@ void plat_poll(void) {
             const uint8_t bit = (uint8_t)(1u << (code - 0xE0));
             mods = down ? (mods | bit) : (mods & ~bit);
         }
+        if (code == 0x45) {
+            /* F12: the settings window, never the game's */
+            if (down) settings_request();
+            continue;
+        }
         fsdl_key(code, mods, down != 0);
         if (down) {
             const uint8_t ch = usbhid_keycode_to_ascii(code, mods);
@@ -214,9 +240,10 @@ void plat_poll(void) {
         /* usbhid reports up as positive dy; the screen's y grows down */
         acc_x += m.dx * 16;
         acc_y -= m.dy * 16;
-        const int nx = cur_x + acc_x / MOUSE_DIV16, ny = cur_y + acc_y / MOUSE_DIV16;
-        acc_x %= MOUSE_DIV16;
-        acc_y %= MOUSE_DIV16;
+        const int div = frank_mouse_div16;
+        const int nx = cur_x + acc_x / div, ny = cur_y + acc_y / div;
+        acc_x %= div;
+        acc_y %= div;
         cur_x = nx < 0 ? 0 : nx >= PLAT_W ? PLAT_W - 1 : nx;
         cur_y = ny < 0 ? 0 : ny >= PLAT_H ? PLAT_H - 1 : ny;
         fsdl_mouse_move(cur_x, cur_y);
@@ -226,6 +253,12 @@ void plat_poll(void) {
     if (changed & 2) fsdl_mouse_button(3, (m.buttons & 2) != 0, cur_x, cur_y);
     if (changed & 4) fsdl_mouse_button(2, (m.buttons & 4) != 0, cur_x, cur_y);
     buttons_prev = m.buttons;
+    if (settings_pending()) {
+        settings_run(true);
+        /* what the buttons do while it was open is not the game's */
+        usbhid_get_mouse_state(&m);
+        buttons_prev = m.buttons;
+    }
 }
 
 void plat_set_cursor(int x, int y) {
@@ -240,7 +273,6 @@ void plat_set_cursor(int x, int y) {
 static int16_t ring[RING];
 static volatile uint32_t ring_w, ring_r;   /* sample counts, wrap freely */
 static int game_rate;
-static uint64_t gen_t0;
 static uint64_t gen_done;
 static bool audio_on;
 
@@ -339,36 +371,118 @@ static void midi_apply(uint32_t upto) {
     }
 }
 
+/* One block of output at the OPL's rate: the game's sound upsampled and the
+ * music; silence while paused (both left where they are). */
+/* Bench: a sine instead of the mix (the console's `tone <Hz>`; 0 = off),
+ * a quarter of full scale. */
+volatile uint32_t frank_tone_hz;
+static uint32_t tone_phase;
+
+/* Meters: the loudest sound effect sample and mixed sample (before the
+ * volume) since last read, and the HDMI samples the volume clipped. */
+volatile uint32_t frank_peak_sound, frank_peak_mix, frank_hdmi_clipped;
+
+static void mix_block(int16_t *out, uint32_t frames) {
+    if (frank_tone_hz) {
+        const uint32_t step = (uint32_t)(((uint64_t)frank_tone_hz << 32) / OPL_WAR_RATE);
+        for (uint32_t i = 0; i < frames; i++, tone_phase += step) {
+            /* sin(pi x) ~ 4x(1 - |x|), x = ph / 32768: a parabola per half
+             * period, x(1 - |x|) peaking at 1/4 (8192) */
+            const int32_t ph = (int32_t)(int16_t)(tone_phase >> 16);
+            const int32_t a = ph < 0 ? -ph : ph;
+            out[2 * i] = out[2 * i + 1] = (int16_t)(((int64_t)ph * (32768 - a)) >> 15);
+        }
+        return;
+    }
+    if (paused) {
+        memset(out, 0, frames * 4);
+        return;
+    }
+    for (uint32_t i = 0; i < frames; i++) {
+        /* linear interpolation between the last and the next game sample */
+        int32_t s = 0;
+        if (ring_r != ring_w) {
+            const int32_t a = last_sample, b = ring[ring_r % RING];
+            s = a + (((b - a) * (int32_t)(phase_q16 >> 1)) >> 15);
+            phase_q16 += step_q16;
+            while (phase_q16 >= 65536u && ring_r != ring_w) {
+                phase_q16 -= 65536u;
+                last_sample = ring[ring_r % RING];
+                ring_r++;
+            }
+        }
+        if (!(frank_mix_mask & 1)) s = 0;
+        const uint32_t m = (uint32_t)(s < 0 ? -s : s);
+        if (m > frank_peak_sound) frank_peak_sound = m;
+        out[2 * i] = out[2 * i + 1] = (int16_t)s;
+    }
+    midi_apply(ring_r);
+    if (frank_mix_mask & 2) opl_war_mix(out, frames);
+    for (uint32_t i = 0; i < frames; i++) {
+        const int32_t v = out[2 * i];
+        const uint32_t m = (uint32_t)(v < 0 ? -v : v);
+        if (m > frank_peak_mix) frank_peak_mix = m;
+    }
+}
+
+/* Sound output (settings.c): HDMI audio or the I2S DAC. The one chosen
+ * paces the mixer; the other gets nothing (the DAC's clocks stop when it
+ * runs dry, HDMI sends no audio packets). */
+volatile bool frank_audio_hdmi = true;
+
+/* HDMI: the OPL rate down to 44.1 kHz (linear), the volume applied here
+ * (the DAC's driver applies it as samples enter its ring). HDMI has no
+ * analogue stage to overdrive: twice the DAC's gain, so the volume's top
+ * is unity (the DAC stops at half, where its output starts to distort). */
+#define HDMI_STEP_Q16 ((uint32_t)(((uint64_t)OPL_WAR_RATE << 16) / VIDEO_AUDIO_RATE))
+static uint32_t hdmi_pos;           /* 16.16, from the previous block's last frame */
+static int16_t hdmi_prev[2];
+
+static void hdmi_write(const int16_t *in, uint32_t frames) {
+    static int16_t out[256 * 2];
+    const int32_t vol = (int32_t)audio_get_volume() * 2;
+    uint32_t n = 0, pos = hdmi_pos;
+    while (pos < frames << 16) {
+        const uint32_t i = pos >> 16, f = (pos >> 1) & 0x7fffu;
+        for (int ch = 0; ch < 2; ch++) {
+            const int32_t a = i ? in[2 * (i - 1) + ch] : hdmi_prev[ch], b = in[2 * i + ch];
+            const int32_t v = (a + (((b - a) * (int32_t)f) >> 15)) * vol >> 8;
+            if (v > 32767 || v < -32768) frank_hdmi_clipped++;
+            out[2 * n + ch] = (int16_t)(v > 32767 ? 32767 : v < -32768 ? -32768 : v);
+        }
+        n++;
+        pos += HDMI_STEP_Q16;
+    }
+    hdmi_pos = pos - (frames << 16);
+    hdmi_prev[0] = in[2 * (frames - 1)];
+    hdmi_prev[1] = in[2 * (frames - 1) + 1];
+    video_audio_push(out, n);
+}
+
 bool plat_audio_service(void) {
     extern void frank_hang_check(void);
     frank_hang_check();
+    const bool hdmi = frank_audio_hdmi;
+    if (hdmi != video_audio_enabled()) video_audio_enable(hdmi);
     if (!game_rate) return false;
     if (!step_q16) step_q16 = (uint32_t)(((uint64_t)game_rate << 16) / OPL_WAR_RATE);
 
     static int16_t out[256 * 2];
+    const uint32_t frames = sizeof(out) / 4;
     bool did = false;
-    while (audio_space() >= sizeof(out)) {
-        const uint32_t frames = sizeof(out) / 4;
-        for (uint32_t i = 0; i < frames; i++) {
-            /* linear interpolation between the last and the next game sample */
-            int32_t s = 0;
-            if (ring_r != ring_w) {
-                const int32_t a = last_sample, b = ring[ring_r % RING];
-                s = a + (((b - a) * (int32_t)(phase_q16 >> 1)) >> 15);
-                phase_q16 += step_q16;
-                while (phase_q16 >= 65536u && ring_r != ring_w) {
-                    phase_q16 -= 65536u;
-                    last_sample = ring[ring_r % RING];
-                    ring_r++;
-                }
-            }
-            if (!(frank_mix_mask & 1)) s = 0;
-            out[2 * i] = out[2 * i + 1] = (int16_t)s;
+    if (hdmi) {
+        /* 256 frames at the OPL rate make 228 or fewer at 44.1 kHz */
+        while (video_audio_space() >= frames) {
+            mix_block(out, frames);
+            hdmi_write(out, frames);
+            did = true;
         }
-        midi_apply(ring_r);
-        if (frank_mix_mask & 2) opl_war_mix(out, frames);
-        audio_write(out, sizeof(out));
-        did = true;
+    } else {
+        while (audio_space() >= sizeof(out)) {
+            mix_block(out, frames);
+            audio_write(out, sizeof(out));
+            did = true;
+        }
     }
     return did;
 }

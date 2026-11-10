@@ -217,8 +217,9 @@ void __not_in_flash_func(hdmi_audio_packet)(hdmi_packet_t *p,
         *frame = f + 1u == 192u ? 0u : f + 1u;
         if (f == 0u)
             p->hb[2] |= (uint8_t)(0x10u << s);  // B: IEC 60958 block start
-        // Channel status: consumer, LPCM, 48 kHz (bit 25), same for both.
-        const unsigned cs = f == 25u ? 1u : 0u;
+        // Channel status: consumer, LPCM, 44.1 kHz (bits 24..27 = 0000):
+        // all zero, the same for both channels.
+        const unsigned cs = 0u;
         uint8_t *sb = p->sb[s];
         for (int ch = 0; ch < 2; ++ch) {
             const uint32_t v = (uint32_t)(int32_t)samples[2 * s + ch] << 8 &

@@ -30,6 +30,7 @@
 #include "hardware/structs/hstx_ctrl.h"
 #include "hardware/structs/hstx_fifo.h"
 #include "hardware/structs/nvic.h"
+#include "hardware/sync.h"
 #include "pico/stdlib.h"
 
 #include "clocks.h"
@@ -103,6 +104,78 @@ static uint32_t vblank_active[3], vsync_active[3];
 #define HBLANK_WORDS 80u
 static uint32_t hblank_var[8][HBLANK_WORDS];
 static uint8_t hblank_len[8];
+/* A line whose island carries a packet of its own (audio, the clock
+ * regeneration, the audio InfoFrame): its variant copied here per hblank
+ * channel, the packet encoded over the null one. */
+static uint32_t hblank_dyn[2][HBLANK_WORDS];
+#define PACKET_WORD 13u   /* RAW_REPEAT, sync, RAW, 10 head words */
+
+/* ---- HDMI audio (murm386's scheme) ----
+ * The mixer (core 1's idle loop, plat_frank.c) pushes 44.1 kHz stereo
+ * frames into a ring; the line interrupt takes four for each audio sample
+ * packet as they fall due (1.4 a line), repeating the last frame if the ring
+ * ran dry. The output is the clock: the mixer fills what the ring has room
+ * for. Every fourth blanking line carries the clock regeneration (N 6272,
+ * CTS 28000: 44.1 kHz at the 25.2 MHz pixel clock), one the audio
+ * InfoFrame. */
+#define AUDIO_RING 1024u   /* frames, a power of 2: 23 ms */
+static uint32_t audio_ring[AUDIO_RING];
+static volatile uint32_t audio_wr, audio_rd;
+static uint32_t audio_last;
+static volatile bool audio_on;
+static uint32_t audio_accum, audio_step;   /* frames due, 16.16 */
+static unsigned audio_iec_frame;           /* IEC 60958 frame, 0..191 */
+static hdmi_packet_t pkt_acr, pkt_aif;
+volatile uint32_t video_audio_underruns, video_audio_drops;
+
+void video_audio_enable(bool on) {
+    if (on == audio_on) return;
+    audio_on = false;
+    __dmb();
+    audio_rd = audio_wr;
+    audio_last = 0;
+    audio_accum = 0;
+    audio_iec_frame = 0;
+    __dmb();
+    audio_on = on;
+}
+
+bool video_audio_enabled(void) {
+    return audio_on;
+}
+
+uint32_t video_audio_space(void) {
+    return AUDIO_RING - (audio_wr - audio_rd);
+}
+
+void __not_in_flash_func(video_audio_push)(const int16_t *lr, uint32_t frames) {
+    if (!audio_on) return;
+    uint32_t w = audio_wr;
+    for (uint32_t i = 0; i < frames; i++, lr += 2) {
+        if (w - audio_rd >= AUDIO_RING) {
+            video_audio_drops += frames - i;
+            break;
+        }
+        audio_ring[w & (AUDIO_RING - 1u)] = (uint16_t)lr[0] | (uint32_t)(uint16_t)lr[1] << 16;
+        w++;
+    }
+    __dmb();
+    audio_wr = w;
+}
+
+/* The next audio sample packet: four frames from the ring. */
+static void __not_in_flash_func(make_audio_packet)(hdmi_packet_t *p) {
+    int16_t lr[8];
+    uint32_t rd = audio_rd;
+    for (int k = 0; k < 4; k++) {
+        if (rd != audio_wr) audio_last = audio_ring[rd++ & (AUDIO_RING - 1u)];
+        else video_audio_underruns++;
+        lr[2 * k] = (int16_t)audio_last;
+        lr[2 * k + 1] = (int16_t)(audio_last >> 16);
+    }
+    audio_rd = rd;
+    hdmi_audio_packet(p, lr, 4, &audio_iec_frame);
+}
 
 static uint hstx_dma[4];
 static uint hblank_line[2], active_line[2];
@@ -191,8 +264,38 @@ static void __not_in_flash_func(next_hblank)(uint p) {
         video_late_rows++;
     const uint key = (line_is_vsync(line) ? 0u : 1u) |
                      (line < m->height ? 2u : 0u) | (line == 0u ? 4u : 0u);
+    /* the island's packet: line 0 has the AVI InfoFrame (its variant); with
+     * audio on, the audio InfoFrame and the clock regeneration on blanking
+     * lines, audio samples as due */
+    const uint32_t *list = hblank_var[key];
+    if (audio_on) {
+        const hdmi_packet_t *pk = NULL;
+        hdmi_packet_t apk;
+        const bool blank = line >= m->height;
+        audio_accum += audio_step;
+        if (line == 0u) {
+            /* the AVI InfoFrame */
+        } else if (blank && line == m->height + 1u) {
+            pk = &pkt_aif;
+        } else if (blank && (line & 3u) == 0u) {
+            pk = &pkt_acr;
+        } else if (audio_accum >= 4u << 16) {
+            audio_accum -= 4u << 16;
+            make_audio_packet(&apk);
+            pk = &apk;
+        }
+        if (audio_accum > 8u << 16) audio_accum = 8u << 16;   /* never a burst */
+        if (pk) {
+            uint32_t *d = hblank_dyn[p];
+            const uint32_t *v = hblank_var[key];
+            for (uint i = 0; i < hblank_len[key]; i++) d[i] = v[i];
+            const hdmi_sync_t sync = { m->hfp, m->hfp + m->hsync, key & 1u };
+            hdmi_encode_packet(d + PACKET_WORD, pk, ISLAND_X + 10u, true, &sync);
+            list = d;
+        }
+    }
     dma_channel_hw_t *ch = &dma_hw->ch[hstx_dma[p]];
-    ch->read_addr = (uintptr_t)hblank_var[key];
+    ch->read_addr = (uintptr_t)list;
     ch->transfer_count = hblank_len[key];
     /* Expand the line's row now, nearly two lines before it is sent: every
      * line while weaving, else the first line of each row. */
@@ -305,6 +408,11 @@ bool video_init(video_mode_t mode, video_row_fn rfn, video_frame_fn ffn) {
     }
     for (uint key = 0; key < 8u; ++key)
         build_hblank(key);
+    hdmi_acr_packet(&pkt_acr, 6272, 28000);
+    hdmi_audio_infoframe(&pkt_aif);
+    /* 44.1 kHz in lines: 25.2 MHz pixels / 800 = 31500 lines a second */
+    const uint32_t line_hz = m->bit_khz * 100u / (m->width + h_blank);
+    audio_step = (uint32_t)(((uint64_t)VIDEO_AUDIO_RATE << 16) / line_hz);
     return true;
 }
 

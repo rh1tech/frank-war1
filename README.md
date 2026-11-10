@@ -1,7 +1,7 @@
 # frank-war1
 
 **Warcraft: Orcs & Humans on the RP2350.** The whole game runs on
-one RP2350 microcontroller with PSRAM: HDMI video, I2S sound with OPL2 music,
+one RP2350 microcontroller with PSRAM: HDMI video, sound with OPL2 music over HDMI or I2S,
 USB keyboard, mouse and gamepads, and the game data on a microSD card.
 
 The engine is [war1](https://github.com/acoto87/war1), an open-source
@@ -17,12 +17,13 @@ game's `DATA.WAR`.
 
 | Path | What it is |
 |---|---|
-| `master/` | Firmware: boot, console shell, HDMI, I2S audio, USB host, microSD, the game's platform layer (`src/game/`) |
+| `master/` | Firmware: boot, console shell, HDMI video and audio, I2S audio, USB host, microSD, the game's platform layer (`src/game/`) |
 | `port/` | Glue between war1 and the platform: a small SDL3 stand-in (`fsdl.c`), the original computer player, unit scripts, orders and movement |
-| `common/` | Board definition (FRANK Core 2), clocks, PSRAM setup |
+| `common/` | Board definitions (FRANK Core 2, M2), clocks, PSRAM setup |
 | `host/` | The same game on macOS/Linux with SDL3, for development: headless deterministic runs, input scripts, replays, audio capture |
 | `third_party/` | war1, emu8950, Apogee AL_MIDI (see Credits) |
 | `tools/` | Bench and debug tools (flashing, UART console, SD copy, frame capture, AI comparison) |
+| `tools/psram_unstick/` | RAM-only loader that frees a board whose flash reads back as noise in BOOTSEL |
 | `tools/agent/` | The kit that played both campaigns on the host build, and the 24 winning replays |
 | `docs/ai.md` | How the original computer player works, routine by routine |
 
@@ -30,7 +31,15 @@ game's `DATA.WAR`.
 
 Firmware (Raspberry Pi Pico SDK, ARM GCC, CMake, Ninja):
 
-    ./build.sh            # -> build/master/frank-war1.elf
+    ./build.sh            # FRANK Core 2         -> build/master/frank-war1.elf
+    ./build.sh M2         # Murmulator / FRANK M2 -> build/m2/frank-war1.elf
+    ./build.sh M2 cdc     # development build: the USB port is a serial console
+                          # (no keyboard; "~BOOT~" restarts into BOOTSEL)
+
+Release firmware (both boards, into `release/`; `--publish` tags and makes
+the GitHub release):
+
+    ./release.sh 1.00     # -> release/core2_frank-war1_1_00.uf2, m2_frank-war1_1_00.uf2
 
 Host build (clang, SDL3 via pkg-config):
 
@@ -39,7 +48,9 @@ Host build (clang, SDL3 via pkg-config):
 ## Game data
 
 Copy your `DATA.WAR` to `/war1/DATA.WAR` on the microSD card. An optional
-`/war1/frank.cfg` holds board settings.
+`/war1/frank.cfg` holds the settings: F12 opens the settings window (sound
+output, volume, sound effects, music, mouse speed; F12 on the welcome screen
+too). Sound goes out over HDMI (44.1 kHz stereo audio packets) or the I2S DAC.
 
 For the host build, link or copy `DATA.WAR` into `build/host/run/` and run
 the binary from there:

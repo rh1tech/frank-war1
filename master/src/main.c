@@ -29,11 +29,13 @@
 #include "console.h"
 #include "display.h"
 #include "shell.h"
+#include "settings.h"
 #include "ff.h"
 #include "frank_game.h"
 #include "psram_init.h"
 #include "usb/usbhid.h"
 #include "audio/audio.h"
+#include "video/hstx_video.h"
 #include "opl_war.h"
 
 #define DATA_DIR "/war1"
@@ -123,20 +125,21 @@ void frank_frame_shown(void) {
     frames_shown++;
 }
 
-/* ---- /war1/frank.cfg: `key=value` lines ----
+/* ---- /war1/launch.cfg: bench-only `key=value` lines ----
+ * (the player's settings are /war1/frank.cfg, settings.c; without this file
+ * the game starts from the beginning, the Blizzard logo)
  *   race=human|orc       with mission=: start that campaign mission directly
  *   mission=N|custom     (custom: map=forest_1 ... dungeon_7[_big_enemy])
  *   map=NAME  seed=N     custom game map and random seed
- *   mix=3                audio: bit 0 sound, bit 1 music
  *   memlog=1             heap use on the console every 10 s */
 static char cfg_race[16], cfg_mission[16], cfg_map[40], cfg_seed[16];
 static bool memlog_on;
 extern volatile uint32_t frank_mix_mask;
 
-static void load_frank_cfg(void) {
+static void load_launch_cfg(void) {
     FIL f;
     char line[80];
-    if (f_open(&f, DATA_DIR "/frank.cfg", FA_READ) != FR_OK) return;
+    if (f_open(&f, DATA_DIR "/launch.cfg", FA_READ) != FR_OK) return;
     while (f_gets(line, sizeof(line), &f)) {
         int v;
         sscanf(line, "race=%15s", cfg_race);
@@ -144,11 +147,9 @@ static void load_frank_cfg(void) {
         sscanf(line, "map=%39s", cfg_map);
         sscanf(line, "seed=%15s", cfg_seed);
         if (sscanf(line, "memlog=%d", &v) == 1) memlog_on = v != 0;
-        if (sscanf(line, "mix=%d", &v) == 1) frank_mix_mask = (uint32_t)v;
     }
     f_close(&f);
-    printf("frank.cfg: race=%s mission=%s map=%s seed=%s mix=%lu\n", cfg_race, cfg_mission, cfg_map,
-           cfg_seed, (unsigned long)frank_mix_mask);
+    printf("launch.cfg: race=%s mission=%s map=%s seed=%s\n", cfg_race, cfg_mission, cfg_map, cfg_seed);
 }
 
 /* ---- Console ---- */
@@ -219,6 +220,14 @@ static void cmd_snd(int argc, char **argv) {
     printf("audio: rate %lu, starved %lu, queued %lu; music %lu events, %lu OPL writes; mix %lu\n",
            (unsigned long)audio_get_rate(), (unsigned long)audio_starved, (unsigned long)audio_queued(),
            (unsigned long)opl_war_events, (unsigned long)opl_war_writes, (unsigned long)frank_mix_mask);
+    printf("hdmi audio: %s, ring space %lu, underruns %lu, drops %lu\n", video_audio_enabled() ? "on" : "off",
+           (unsigned long)video_audio_space(), (unsigned long)video_audio_underruns,
+           (unsigned long)video_audio_drops);
+    extern volatile uint32_t frank_peak_sound, frank_peak_mix, frank_hdmi_clipped, opl_war_peak;
+    printf("peaks since last: sound %lu, music %lu, mix %lu (of 32767); hdmi clipped %lu\n",
+           (unsigned long)frank_peak_sound, (unsigned long)opl_war_peak, (unsigned long)frank_peak_mix,
+           (unsigned long)frank_hdmi_clipped);
+    frank_peak_sound = opl_war_peak = frank_peak_mix = 0;
 }
 
 static void cmd_mix(int argc, char **argv) {
@@ -320,7 +329,9 @@ static void cmd_replay(int argc, char **argv) {
  * times a second and records the interrupted PC; the hottest addresses are
  * printed for tools/prof.sh (addr2line on the ELF). */
 #define PROF_SLOTS 512
-static volatile uint32_t prof_pc[PROF_SLOTS], prof_hits[PROF_SLOTS];
+/* bench only: in PSRAM (the SRAM is the frames' and HDMI audio's) */
+static volatile uint32_t prof_pc[PROF_SLOTS] __attribute__((section(".psram_bss")));
+static volatile uint32_t prof_hits[PROF_SLOTS] __attribute__((section(".psram_bss")));
 static volatile uint32_t prof_total, prof_lost;
 static volatile bool prof_on;
 
@@ -461,11 +472,29 @@ static void cmd_key(int argc, char **argv) {
     if (argc < 2) { printf("key <HID usage hex> [down|up|tap]\n"); return; }
     const int code = (int)strtol(argv[1], NULL, 16);
     const char *how = argc > 2 ? argv[2] : "tap";
+    /* the settings window's keys, as from the USB keyboard */
+    if (settings_is_open()) {
+        if (strcmp(how, "up")) settings_key((uint8_t)code);
+        return;
+    }
+    if (code == 0x45) {
+        if (strcmp(how, "up")) settings_request();
+        return;
+    }
     if (!strcmp(how, "up")) { fsdl_key((uint8_t)code, 0, false); return; }
     fsdl_key((uint8_t)code, 0, true);
     if (!strcmp(how, "tap"))
         for (int i = 0; i < 8; i++)
             if (!tapped[i].code) { tapped[i].code = code; tapped[i].up_at = time_us_64() + 100000; break; }
+}
+
+static void cmd_tone(int argc, char **argv) {
+    extern volatile uint32_t frank_tone_hz;
+    frank_tone_hz = argc > 1 ? (uint32_t)atoi(argv[1]) : 0;
+}
+
+static void cmd_menu(int argc, char **argv) {
+    settings_request();
 }
 
 static void cmd_type(int argc, char **argv) {
@@ -485,6 +514,8 @@ static const console_cmd_t cmds[] = {
     { "mouse",  cmd_mouse,  "mouse <x> <y> [L|R|M] [click|down|up]: move the cursor, press" },
     { "key",    cmd_key,    "key <HID hex> [down|up|tap]: a key (28 enter, 29 esc, 2c space)" },
     { "type",   cmd_type,   "type <text>: text input (cheats)" },
+    { "tone",   cmd_tone,   "tone <Hz>: a sine instead of the sound (0: off)" },
+    { "menu",   cmd_menu,   "open the settings window (F12); key <hex> drives it" },
     { "stat",   cmd_stat,   "stat [off]: print fps every 2 s" },
     { "mem",    cmd_mem,    "memory use" },
     { "memlog", cmd_memlog, "memlog [off]: heap use every 10 s" },
@@ -560,7 +591,7 @@ static bool any_key(void) {
 }
 
 static void say_where_data_goes(void) {
-    shell_printf("Copy DATA.WAR from Warcraft: Orcs & Humans (DOS, retail or\nthe shareware demo) to the card:\n");
+    shell_printf("Copy DATA.WAR from Warcraft: Orcs & Humans (DOS, retail or the shareware demo) to the card:\n");
     shell_highlight("  " DATA_DIR "/DATA.WAR\n");
 }
 
@@ -594,7 +625,6 @@ static void wait_for_data(void) {
 /* exit(): a game error or the game's own exit. */
 void __attribute__((noreturn)) _exit(int status) {
     if (status != 0) {
-        display_set_rgb565(false);
         shell_error("GAME ERROR", "Press any key to restart");
         shell_errorf("The game stopped (status %d). See the UART console.\n", status);
         while (!any_key()) tight_loop_contents();
@@ -605,7 +635,6 @@ void __attribute__((noreturn)) _exit(int status) {
 /* assert() in the game: its message on the error screen. */
 void __assert_func(const char *file, int line, const char *func, const char *expr) {
     printf("assert: %s:%d %s: %s\n", file, line, func ? func : "", expr);
-    display_set_rgb565(false);
     shell_error("GAME ERROR", "Press any key to restart");
     const char *base = strrchr(file, '/');
     shell_errorf("%s:%d\n%s\n", base ? base + 1 : file, line, expr);
@@ -628,7 +657,6 @@ void __attribute__((used)) frank_fault_report(uint32_t *frame, uint32_t exc_retu
      * left it in (the timer or the console may be what broke). */
     watchdog_enable(16000, false);
     if (get_core_num() == 0) {
-        display_set_rgb565(false);
         shell_error("GAME ERROR", "Restarting in 15 seconds");
         shell_errorf("CPU fault at %08lx (cfsr %08lx, bfar %08lx).\nSee the UART console.\n",
                      (unsigned long)frame[6], (unsigned long)cfsr, (unsigned long)bfar);
@@ -666,7 +694,6 @@ void __attribute__((naked)) isr_hardfault(void) {
 
 static void cmd_errtest(int argc, char **argv) {
     const char *what = argc > 1 ? argv[1] : "game";
-    display_set_rgb565(false);
     if (!strcmp(what, "sd")) {
         shell_error("NO SD CARD", "Waiting for the card...");
         shell_printf("Insert a FAT32 or exFAT microSD card.\n");
@@ -701,13 +728,21 @@ int main(void) {
     hang_sampling_start();
     swd_park(5);
     shell_welcome();
-    shell_printf("frank-war1 %s on %s, RP2350%s\n", FRANK_WAR1_VERSION, FRANK_BOARD_NAME,
-                 (*(io_ro_32 *)(SYSINFO_BASE + SYSINFO_PACKAGE_SEL_OFFSET) & 1) ? "A" : "B");
+    {
+        char clocks[64];
+        shell_clocks(clocks, sizeof(clocks));
+        shell_printf("frank-war1 %s on FRANK %s, RP2350%s: %s.\n", FRANK_WAR1_VERSION, FRANK_BOARD_NAME,
+                     (*(io_ro_32 *)(SYSINFO_BASE + SYSINFO_PACKAGE_SEL_OFFSET) & 1) ? "A" : "B", clocks);
+    }
     shell_printf("PSRAM: %lu KB free for the game.\n",
                  (unsigned long)((0x117F0000u - (uint32_t)__psram_bss_end) >> 10));
     usbhid_init();
     swd_park(6);
+#if FRANK_USB_CONSOLE
+    shell_printf("USB: the CDC console (development build).\n");
+#else
     shell_printf("USB host started: keyboard and mouse.\n");
+#endif
     wait_for_sd();
     wait_for_data();
     f_chdir(DATA_DIR);
@@ -716,7 +751,8 @@ int main(void) {
         f_stat("DATA.WAR", &fi);
         shell_printf("SD card: " DATA_DIR "/DATA.WAR, %lu KB.\n", (unsigned long)(fi.fsize >> 10));
     }
-    load_frank_cfg();
+    settings_load();
+    load_launch_cfg();
     swd_park(7);
     extern bool plat_replay_start(const char *path);
     bool replay = false;
@@ -729,9 +765,23 @@ int main(void) {
     if (replay && plat_replay_start(replay_path)) {
         shell_highlight("Replaying %s...\n", replay_path);
         cfg_mission[0] = 0;   /* a recording starts at the logo, like the host */
-    } else
+        shell_end(2000);
+    } else {
+        /* frank-castle: a moment for F12 before the game takes the screen */
+        shell_hint("Press F12 for settings");
         shell_highlight("Starting Warcraft...\n");
-    shell_end(2000);
+        const uint64_t until = time_us_64() + 3000000;
+        while (time_us_64() < until && !settings_pending()) {
+            uint8_t code;
+            int down;
+            usbhid_task();
+            frank_service();
+            while (usbhid_get_key_action(&code, &down))
+                if (down && code == 0x45) settings_request();
+        }
+        if (settings_pending()) settings_run(false);
+        shell_hint(NULL);
+    }
 
     static char *argv[12];
     int argc = 0;

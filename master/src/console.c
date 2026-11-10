@@ -1,5 +1,6 @@
 /*
- * frank-war1 — line console on the master's UART0.
+ * frank-war1 — line console on UART0, or on the native USB's CDC port
+ * (FRANK_USB_CONSOLE, the USB_HID=OFF build).
  *
  * Copyright (c) 2026 Mikhail Matveev <xtreme@rh1.tech>
  * SPDX-License-Identifier: GPL-2.0-or-later
@@ -15,6 +16,11 @@
 #include "pico/stdlib.h"
 #include "hardware/irq.h"
 #include "hardware/uart.h"
+#include "hardware/watchdog.h"
+#include "pico/bootrom.h"
+#include "pico/multicore.h"
+
+#include "psram_init.h"
 
 #define LINE_MAX 256
 #define ARGS_MAX 12
@@ -72,6 +78,12 @@ static void rx_isr(void) {
 }
 
 void console_rx_poll(void) {
+#if FRANK_USB_CONSOLE
+    /* USB CDC: stdio's receive buffer, drained into the ring. */
+    for (int ch; (ch = getchar_timeout_us(0)) != PICO_ERROR_TIMEOUT; )
+        if (rx_head - rx_tail < sizeof rx_buf)
+            rx_buf[rx_head++ % sizeof rx_buf] = (char)ch;
+#endif
     static bool armed;
     if (armed) return;
     armed = true;
@@ -84,6 +96,9 @@ int console_getc(uint32_t timeout_us) {
     console_rx_poll();
     const uint64_t until = time_us_64() + timeout_us;
     do {
+#if FRANK_USB_CONSOLE
+        console_rx_poll();
+#endif
         if (rx_head != rx_tail)
             return (unsigned char)rx_buf[rx_tail++ % sizeof rx_buf];
     } while (time_us_64() < until);
@@ -94,8 +109,27 @@ static const console_cmd_t *the_cmds;
 static char line[LINE_MAX];
 static size_t line_n;
 
+/* frank-ecat: "~BOOT~" restarts into the USB bootloader from anywhere in
+ * a line (picotool then loads the image), "~RST~" restarts. */
+static void console_magic(int ch) {
+    static const char boot[] = "~BOOT~", rst[] = "~RST~";
+    static unsigned bpos, rpos;
+    bpos = ch == boot[bpos] ? bpos + 1 : ch == boot[0];
+    rpos = ch == rst[rpos] ? rpos + 1 : ch == rst[0];
+    if (bpos != sizeof boot - 1 && rpos != sizeof rst - 1) return;
+    printf("\n%s\n", bpos == sizeof boot - 1 ? "rebooting to BOOTSEL" : "rebooting");
+    sleep_ms(50);
+    multicore_reset_core1();
+    save_and_disable_interrupts();
+    psram_reset_to_spi();
+    if (bpos == sizeof boot - 1) reset_usb_boot(0, 0);
+    watchdog_reboot(0, 0, 10);
+    for (;;) tight_loop_contents();
+}
+
 /* One received character into the line; a complete line runs. */
 static void console_char(int ch) {
+    console_magic(ch);
     if (ch == '\r' || ch == '\n') {
         line[line_n] = 0;
         printf("\n");

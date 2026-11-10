@@ -47,6 +47,16 @@ bool video_full_range(void);
 uint8_t video_nibble_to_8(uint32_t nibble);
 uint32_t video_rgb12_to_888(uint16_t rgb12);
 
+/* HDMI audio: 44.1 kHz stereo 16-bit in audio sample packets (off until
+ * enabled). Push takes interleaved left/right frames; what does not fit is
+ * dropped (counted). Space: the frames the ring takes now. */
+#define VIDEO_AUDIO_RATE 44100u
+void video_audio_enable(bool on);
+bool video_audio_enabled(void);
+uint32_t video_audio_space(void);
+void video_audio_push(const int16_t *lr, uint32_t frames);
+extern volatile uint32_t video_audio_underruns, video_audio_drops;
+
 extern volatile uint32_t video_frames;
 extern volatile uint32_t video_late_rows;
 
